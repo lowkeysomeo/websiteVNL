@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 210">
+  <defs>
+    <radialGradient id="bg"><stop stop-color="#41181f"/><stop offset="1" stop-color="#111821"/></radialGradient>
+    <radialGradient id="glow"><stop stop-color="#ff6464" stop-opacity=".22"/><stop offset="1" stop-color="#ff6464" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse"><path d="M25 0 H0 V25" fill="none" stroke="#ff6464" stroke-opacity=".07"/></pattern>
+  </defs>
+  <rect width="350" height="210" fill="url(#bg)"/>
+  <rect width="350" height="210" fill="url(#grid)"/>
+  <ellipse cx="175" cy="127" rx="135" ry="100" fill="url(#glow)"/>
+  <ellipse cx="176" cy="144" rx="91" ry="39" fill="none" stroke="#ff6464" stroke-opacity=".2" transform="rotate(-18 176 144)"/>
+  <text x="175" y="63" font-family="Arial,sans-serif" font-weight="800" font-size="30" letter-spacing="6" text-anchor="middle" fill="#ff6464" fill-opacity=".2">PREMIUM</text>
+  <rect x="119" y="94" width="115" height="75" rx="23" fill="#f54550" stroke="#ff9696" stroke-width="2"/><path d="M165 112 L165 151 L199 131 Z" fill="#fff1eb"/><path d="M105 181 L244 181" stroke="#bc4c51" stroke-width="2"/><circle cx="216" cy="181" r="4" fill="#f8bba4"/>
+  <path d="M32 64 H42 M37 59 V69 M310 162 H320 M315 157 V167" stroke="#ff6464" stroke-opacity=".6"/>
+  <circle cx="272" cy="82" r="3" fill="#ff6464" fill-opacity=".6"/>
+  <text x="175" y="200" font-family="Arial,sans-serif" font-size="5" letter-spacing="2" text-anchor="middle" fill="#ff6464" fill-opacity=".7">PRESS PLAY. FIND YOUR MOMENT.</text>
+</svg>

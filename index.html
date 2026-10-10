@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#140b0d" />
+    <meta
+      name="description"
+      content="VietNam Legacy — Không gian mua sắm Nitro, Decor, Boost Server và các dịch vụ giải trí, sáng tạo. Bản mẫu tương tác."
+    />
+    <title>VietNam Legacy · Digital store, chất riêng của bạn</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="products.js" defer></script>
+    <script src="app.js" defer></script>
+    <link rel="stylesheet" href="wallet.css" />
+    <script src="wallet.js" defer></script>
+  </head>
+  <body>
+    <aside class="sidebar" id="sidebar" aria-label="Menu cửa hàng">
+      <a class="logo" href="#home" aria-label="VietNam Legacy, trang chủ">
+        <img
+          class="logo-avatar"
+          src="assets/vnl-avatar.png"
+          alt=""
+          width="44"
+          height="44"
+        />
+        <span
+          >VietNam<span class="logo-subtitle"
+            >LEGACY / DIGITAL STORE</span
+          ></span
+        >
+      </a>
+      <button
+        class="sidebar-close icon-button"
+        id="close-menu"
+        aria-label="Đóng menu"
+      >
+        ×
+      </button>
+      <div class="sidebar-label">KHÁM PHÁ</div>
+      <nav class="main-nav">
+        <button class="nav-item" data-wallet="open">
+          <span data-icon="layers"></span> Nạp tiền & số dư
+        </button>
+        <a href="#home" class="nav-item active"
+          ><span data-icon="grid"></span> Cửa hàng <span class="nav-dot"></span
+        ></a>
+        <button class="nav-item" data-action="orders">
+          <span data-icon="box"></span> Đơn hàng của tôi
+        </button>
+        <button class="nav-item" data-action="favorites">
+          <span data-icon="heart"></span> Sản phẩm yêu thích
+          <span class="small-count" id="favorite-count">0</span>
+        </button>
+      </nav>
+      <div class="sidebar-label">DANH MỤC</div>
+      <nav class="category-nav">
+        <button class="nav-item" data-category="discord">
+          <span data-icon="gamepad"></span> Discord
+        </button>
+        <button class="nav-item" data-category="entertainment">
+          <span data-icon="layers"></span> Giải trí & Premium
+        </button>
+        <button class="nav-item" data-category="creative">
+          <span data-icon="sparkles"></span> Sáng tạo & Công cụ
+          <span class="new-tag">NEW</span>
+        </button>
+        <button class="nav-item" data-category="services">
+          <span data-icon="box"></span> Setup Server & Bot
+        </button>
+      </nav>
+      <div class="sidebar-label">ĐỒNG HÀNH CÙNG BẠN</div>
+      <nav>
+        <a
+          class="nav-item discord-nav"
+          href="https://discord.gg/F3J7hWNRc4"
+          target="_blank"
+          rel="noopener noreferrer"
+          ><span data-icon="gamepad"></span> Discord chính của shop
+          <span>↗</span></a
+        >
+        <button class="nav-item" data-action="guide">
+          <span data-icon="book"></span> Hướng dẫn mua hàng
+        </button>
+        <button class="nav-item" data-action="support">
+          <span data-icon="headphones"></span> Hỗ trợ & liên hệ
+        </button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="mini-orbit" aria-hidden="true">✳</div>
+        <strong>Một góc riêng. Một chất riêng.</strong>
+        <p>Discord, giải trí và sáng tạo. Khám phá gói phù hợp với bạn.</p>
+        <a href="#catalog">Khám phá ngay <span>↗</span></a>
+      </div>
+      <div class="sidebar-footer">
+        <span class="online-dot"></span> Bản mẫu cửa hàng <span>v1.0</span>
+      </div>
+    </aside>
+    <div class="menu-overlay" id="menu-overlay" hidden></div>
+
+    <div class="page-shell" id="home">
+      <header class="topbar">
+        <button
+          class="icon-button menu-toggle"
+          id="open-menu"
+          aria-label="Mở menu"
+        >
+          <span data-icon="menu"></span>
+        </button>
+        <label class="search-box">
+          <span data-icon="search"></span>
+          <input
+            id="search"
+            type="search"
+            placeholder="Bạn đang tìm gì hôm nay?"
+            autocomplete="off"
+            aria-label="Tìm kiếm sản phẩm"
+          />
+          <span class="search-hint">TÌM KIẾM</span>
+        </label>
+        <div class="topbar-actions">
+          <button
+            class="wallet-topbar"
+            data-wallet="open"
+            aria-label="Mở ví và tài khoản"
+          >
+            <span class="wallet-symbol" aria-hidden="true">₫</span>
+            <span id="wallet-label">Đăng nhập</span>
+          </button>
+          <span class="locale">VN <span class="locale-dot"></span> VND</span>
+          <button class="cart-button" id="open-cart">
+            <span data-icon="bag"></span><span class="cart-label">Giỏ hàng</span
+            ><span class="cart-count" id="cart-count">0</span>
+          </button>
+          <button class="avatar" data-action="orders" aria-label="Xem đơn hàng">
+            <img src="assets/vnl-avatar.png" alt="" width="33" height="33" />
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <div class="breadcrumb">Cửa hàng <span>/</span> Khám phá sản phẩm</div>
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <span class="hero-eyebrow"
+              ><span class="online-dot"></span> YOUR NEXT LEVEL STARTS
+              HERE</span
+            >
+            <h1 id="hero-title">
+              Nâng tầm trải nghiệm.<br /><span>Khẳng định chất riêng.</span>
+            </h1>
+            <p>
+              Nitro, Decor, Boost Server và những gói Premium.<br />Không gian
+              số của bạn, theo cách bạn muốn.
+            </p>
+            <div class="hero-actions">
+              <a class="button primary" href="#catalog"
+                >Khám phá sản phẩm <span data-icon="arrow"></span></a
+              ><button class="hero-link" data-action="guide">
+                Cách mua hàng <span>↗</span>
+              </button>
+            </div>
+            <div class="hero-footnote">
+              <span class="tiny-line"></span> CHỌN GU CỦA BẠN. TẠO CHẤT RIÊNG.
+            </div>
+          </div>
+          <div class="hero-media">
+            <img
+              class="hero-brand-banner"
+              src="assets/vnl-banner.png"
+              alt="Banner VietNam Legacy màu đỏ vàng, logo VNL và cờ ngôi sao vàng"
+              width="1672"
+              height="941"
+              fetchpriority="high"
+            /><span class="hero-media-caption"
+              >VIETNAM LEGACY · DIGITAL STORE</span
+            >
+          </div>
+        </section>
+        <div class="benefits">
+          <div>
+            <span data-icon="shield"></span
+            ><span
+              ><strong>Thông tin rõ ràng</strong
+              ><small>Mô tả và giá ngay trên sản phẩm</small></span
+            >
+          </div>
+          <div>
+            <span data-icon="bolt"></span
+            ><span
+              ><strong>Mua sắm thuận tiện</strong
+              ><small>Chọn sản phẩm, thêm vào giỏ</small></span
+            >
+          </div>
+          <div>
+            <span data-icon="headphones"></span
+            ><span
+              ><strong>Sẵn sàng kết nối</strong
+              ><small>Thông tin hỗ trợ ở một nơi</small></span
+            >
+          </div>
+        </div>
+
+        <section class="catalog" id="catalog" aria-labelledby="catalog-title">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow">CURATED FOR YOU</div>
+              <h2 id="catalog-title">
+                Chọn món tiếp theo của bạn<span>.</span>
+              </h2>
+            </div>
+            <span class="catalog-note"
+              >Giá và gói đang ở chế độ mẫu <span data-icon="sparkles"></span
+            ></span>
+          </div>
+          <div class="catalog-controls">
+            <div class="filters" role="group" aria-label="Lọc theo danh mục">
+              <button
+                class="filter active"
+                data-category="all"
+                aria-pressed="true"
+              >
+                <span data-icon="grid"></span> Tất cả
+              </button>
+              <button
+                class="filter"
+                data-category="discord"
+                aria-pressed="false"
+              >
+                <span data-icon="gamepad"></span> Discord
+              </button>
+              <button
+                class="filter"
+                data-category="entertainment"
+                aria-pressed="false"
+              >
+                <span data-icon="layers"></span> Giải trí
+              </button>
+              <button
+                class="filter"
+                data-category="creative"
+                aria-pressed="false"
+              >
+                <span data-icon="sparkles"></span> Sáng tạo
+              </button>
+              <button
+                class="filter"
+                data-category="services"
+                aria-pressed="false"
+              >
+                <span data-icon="box"></span> Setup & Bot
+              </button>
+            </div>
+            <label class="sort-box"
+              ><span class="sr-only">Sắp xếp sản phẩm</span
+              ><select id="sort">
+                <option value="featured">Nổi bật nhất</option>
+                <option value="price-asc">Giá thấp đến cao</option>
+                <option value="price-desc">Giá cao đến thấp</option>
+                <option value="name">Tên A → Z</option>
+              </select></label
+            >
+          </div>
+          <div class="results-line">
+            <span id="result-count" aria-live="polite"></span
+            ><button class="reset-button" id="reset-filters" hidden>
+              Xóa bộ lọc ×
+            </button>
+          </div>
+          <div class="product-grid" id="product-grid"></div>
+          <div class="empty-state" id="empty-state" hidden>
+            <span data-icon="search"></span>
+            <h3>Chưa tìm thấy sản phẩm phù hợp</h3>
+            <p>Thử một từ khóa khác hoặc xem tất cả danh mục.</p>
+            <button class="button secondary" id="empty-reset">
+              Xem tất cả sản phẩm
+            </button>
+          </div>
+        </section>
+
+        <section class="bottom-banner">
+          <div>
+            <span class="eyebrow">JOIN THE LEGACY</span>
+            <h2>Cộng đồng của bạn ở đây.</h2>
+            <p>
+              Ghé Discord VietNam Legacy để hỏi về sản phẩm và kết nối cùng
+              shop.
+            </p>
+          </div>
+          <a
+            class="button secondary"
+            href="https://discord.gg/F3J7hWNRc4"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Tham gia Discord <span data-icon="arrow"></span></a
+          ><span class="banner-mark" aria-hidden="true">✳</span>
+        </section>
+        <footer>
+          <a class="footer-logo" href="#home">VietNam<span>LEGACY</span></a>
+          <p>© 2026 VietNam Legacy. Giao diện cửa hàng mẫu.</p>
+          <button data-action="demo">Thông tin bản mẫu <span>↗</span></button>
+        </footer>
+      </main>
+    </div>
+
+    <dialog
+      id="product-dialog"
+      class="product-dialog"
+      aria-labelledby="product-title"
+    >
+      <button class="dialog-close icon-button" data-close aria-label="Đóng">
+        ×
+      </button>
+      <div id="product-detail"></div>
+    </dialog>
+    <dialog id="cart-dialog" class="cart-dialog" aria-labelledby="cart-title">
+      <div class="dialog-header">
+        <div>
+          <span class="eyebrow">YOUR NEXT LEVEL</span>
+          <h2 id="cart-title">Giỏ hàng của bạn</h2>
+        </div>
+        <button class="icon-button" data-close aria-label="Đóng giỏ hàng">
+          ×
+        </button>
+      </div>
+      <div id="cart-content"></div>
+    </dialog>
+    <dialog
+      id="checkout-dialog"
+      class="checkout-dialog"
+      aria-labelledby="checkout-title"
+    >
+      <button class="dialog-close icon-button" data-close aria-label="Đóng">
+        ×</button
+      ><span class="eyebrow">HOÀN TẤT LỰA CHỌN</span>
+      <h2 id="checkout-title">Đặt hàng thử</h2>
+      <p class="muted">
+        Đơn mẫu lưu trên trình duyệt này. Không thu tiền hoặc gửi dữ liệu tới
+        shop.
+      </p>
+      <form id="checkout-form">
+        <label
+          >Tên người nhận<input
+            name="name"
+            required
+            maxlength="80"
+            placeholder="Tên của bạn"
+            autocomplete="name" /></label
+        ><label
+          >Email nhận thông tin<input
+            name="email"
+            type="email"
+            required
+            maxlength="120"
+            placeholder="ban@example.com"
+            autocomplete="email" /></label
+        ><label
+          >Ghi chú <span class="muted">(tùy chọn)</span
+          ><textarea
+            name="note"
+            maxlength="400"
+            rows="3"
+            placeholder="Ví dụ: màu sắc hoặc nhu cầu sử dụng"
+          ></textarea>
+        </label>
+        <div class="checkout-total">
+          <span>Tổng giá trị mẫu</span><strong id="checkout-total"></strong>
+        </div>
+        <button class="button primary full-width" type="submit">
+          Xác nhận đơn mẫu <span data-icon="arrow"></span>
+        </button>
+      </form>
+    </dialog>
+    <dialog id="info-dialog" class="info-dialog" aria-labelledby="info-title">
+      <button class="dialog-close icon-button" data-close aria-label="Đóng">
+        ×
+      </button>
+      <div id="info-content"></div>
+    </dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <dialog
+      id="wallet-dialog"
+      class="wallet-dialog"
+      aria-labelledby="wallet-title"
+    >
+      <div class="dialog-header">
+        <div>
+          <span class="eyebrow">VIETNAM LEGACY</span>
+          <h2 id="wallet-title">Tài khoản & ví</h2>
+        </div>
+        <button class="icon-button" data-close aria-label="Đóng ví">×</button>
+      </div>
+      <p
+        id="wallet-message"
+        class="wallet-message"
+        role="status"
+        aria-live="polite"
+      ></p>
+      <div id="wallet-content"></div>
+    </dialog>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 120" fill="none">
+  <defs>
+    <linearGradient id="fabric" x1="18" y1="20" x2="165" y2="84" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3a1a1f"/>
+      <stop offset=".25" stop-color="#745f2a"/>
+      <stop offset=".52" stop-color="#3a181e"/>
+      <stop offset=".78" stop-color="#8a702f"/>
+      <stop offset="1" stop-color="#35191d"/>
+    </linearGradient>
+    <linearGradient id="pole" x1="10" x2="17" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#554740"/>
+      <stop offset=".5" stop-color="#f2e2b9"/>
+      <stop offset="1" stop-color="#836e63"/>
+    </linearGradient>
+    <clipPath id="cloth">
+      <path d="M18 20C42 9 62 10 89 20S137 30 167 18V85C139 96 116 94 89 84S43 74 18 87V20Z"/>
+    </clipPath>
+  </defs>
+  <ellipse cx="15" cy="113" rx="14" ry="3" fill="#110507" fill-opacity=".35"/>
+  <rect x="12" y="13" width="5" height="98" rx="2.5" fill="url(#pole)"/>
+  <circle cx="14.5" cy="10" r="5" fill="#f1dca8"/>
+  <g clip-path="url(#cloth)">
+    <path d="M18 20C42 9 62 10 89 20S137 30 167 18V85C139 96 116 94 89 84S43 74 18 87V20Z" fill="url(#fabric)"/>
+    <path d="M130 10L105 97H119L145 10H130Z" fill="#e3bc58" fill-opacity=".65"/>
+    <path d="M151 11L125 99H135L162 11H151Z" fill="#f4d994" fill-opacity=".3"/>
+    <path d="M25 33C45 27 63 29 82 36M25 75C49 68 65 73 86 80" stroke="#f8e1a6" stroke-opacity=".2"/>
+    <text x="36" y="60" fill="#fef7e5" font-family="Arial, sans-serif" font-size="32" font-weight="900" letter-spacing="-2">VNL</text>
+    <text x="38" y="71" fill="#e4d09d" font-family="Arial, sans-serif" font-size="6" letter-spacing="2.6">VIETNAM LEGACY</text>
+    <path d="M18 20C42 9 62 10 89 20S137 30 167 18V85C139 96 116 94 89 84S43 74 18 87V20Z" stroke="#f0d9a0" stroke-opacity=".45" stroke-width="2"/>
+  </g>
+</svg>

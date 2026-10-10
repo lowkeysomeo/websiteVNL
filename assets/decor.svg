@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 210">
+  <defs>
+    <radialGradient id="bg"><stop stop-color="#421a3f"/><stop offset="1" stop-color="#111821"/></radialGradient>
+    <radialGradient id="glow"><stop stop-color="#ffa8de" stop-opacity=".22"/><stop offset="1" stop-color="#ffa8de" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse"><path d="M25 0 H0 V25" fill="none" stroke="#ffa8de" stroke-opacity=".07"/></pattern>
+  </defs>
+  <rect width="350" height="210" fill="url(#bg)"/>
+  <rect width="350" height="210" fill="url(#grid)"/>
+  <ellipse cx="175" cy="127" rx="135" ry="100" fill="url(#glow)"/>
+  <ellipse cx="176" cy="144" rx="91" ry="39" fill="none" stroke="#ffa8de" stroke-opacity=".2" transform="rotate(-18 176 144)"/>
+  <text x="175" y="63" font-family="Arial,sans-serif" font-weight="800" font-size="30" letter-spacing="6" text-anchor="middle" fill="#ffa8de" fill-opacity=".2">DECOR</text>
+  <circle cx="175" cy="128" r="43" fill="#493159" stroke="#e9c4ee" stroke-width="2"/><circle cx="175" cy="119" r="16" fill="#e9bfe5"/><path d="M149 154 Q175 129 201 154" fill="#e9bfe5"/><path d="M131 91 L122 75 L112 87 L95 85 L102 103 L91 117 L113 126 M218 91 L229 75 L238 88 L255 87 L247 105 L258 119 L237 128" fill="none" stroke="#f8bbdc" stroke-width="5" stroke-linecap="round"/><path d="M115 130 Q129 178 176 185 Q220 179 236 134" fill="none" stroke="#f1a4dc" stroke-width="4"/><path d="M126 158 L114 176 L133 172 M221 158 L236 176 L217 172" fill="#f2bee2"/>
+  <path d="M32 64 H42 M37 59 V69 M310 162 H320 M315 157 V167" stroke="#ffa8de" stroke-opacity=".6"/>
+  <circle cx="272" cy="82" r="3" fill="#ffa8de" fill-opacity=".6"/>
+  <text x="175" y="200" font-family="Arial,sans-serif" font-size="5" letter-spacing="2" text-anchor="middle" fill="#ffa8de" fill-opacity=".7">YOUR PROFILE. YOUR SIGNATURE.</text>
+</svg>

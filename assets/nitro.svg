@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 210">
+  <defs>
+    <radialGradient id="bg"><stop stop-color="#22164b"/><stop offset="1" stop-color="#111821"/></radialGradient>
+    <radialGradient id="glow"><stop stop-color="#a189ff" stop-opacity=".22"/><stop offset="1" stop-color="#a189ff" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse"><path d="M25 0 H0 V25" fill="none" stroke="#a189ff" stroke-opacity=".07"/></pattern>
+  </defs>
+  <rect width="350" height="210" fill="url(#bg)"/>
+  <rect width="350" height="210" fill="url(#grid)"/>
+  <ellipse cx="175" cy="127" rx="135" ry="100" fill="url(#glow)"/>
+  <ellipse cx="176" cy="144" rx="91" ry="39" fill="none" stroke="#a189ff" stroke-opacity=".2" transform="rotate(-18 176 144)"/>
+  <text x="175" y="63" font-family="Arial,sans-serif" font-weight="800" font-size="30" letter-spacing="6" text-anchor="middle" fill="#a189ff" fill-opacity=".2">NITRO</text>
+  <path d="M190 96 Q184 86 165 89 L139 94 Q119 128 121 150 Q136 161 153 162 L162 149 Q176 153 189 149 L198 162 Q216 159 230 148 Q231 126 213 94 L192 88 Z" fill="#e8e2ff"/><ellipse cx="162" cy="130" rx="8" ry="11" fill="#6746b6"/><ellipse cx="193" cy="130" rx="8" ry="11" fill="#6746b6"/>
+  <path d="M32 64 H42 M37 59 V69 M310 162 H320 M315 157 V167" stroke="#a189ff" stroke-opacity=".6"/>
+  <circle cx="272" cy="82" r="3" fill="#a189ff" fill-opacity=".6"/>
+  <text x="175" y="200" font-family="Arial,sans-serif" font-size="5" letter-spacing="2" text-anchor="middle" fill="#a189ff" fill-opacity=".7">A LITTLE EXTRA. A LOT MORE YOU.</text>
+</svg>

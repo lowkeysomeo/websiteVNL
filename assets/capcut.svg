@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 210">
+  <defs>
+    <radialGradient id="bg"><stop stop-color="#29292e"/><stop offset="1" stop-color="#111821"/></radialGradient>
+    <radialGradient id="glow"><stop stop-color="#f4f4f5" stop-opacity=".22"/><stop offset="1" stop-color="#f4f4f5" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse"><path d="M25 0 H0 V25" fill="none" stroke="#f4f4f5" stroke-opacity=".07"/></pattern>
+  </defs>
+  <rect width="350" height="210" fill="url(#bg)"/>
+  <rect width="350" height="210" fill="url(#grid)"/>
+  <ellipse cx="175" cy="127" rx="135" ry="100" fill="url(#glow)"/>
+  <ellipse cx="176" cy="144" rx="91" ry="39" fill="none" stroke="#f4f4f5" stroke-opacity=".2" transform="rotate(-18 176 144)"/>
+  <text x="175" y="63" font-family="Arial,sans-serif" font-weight="800" font-size="30" letter-spacing="6" text-anchor="middle" fill="#f4f4f5" fill-opacity=".2">CAPCUT</text>
+  <rect x="128" y="85" width="97" height="97" rx="22" fill="#ffffff" transform="rotate(-7 176 134)"/><path d="M146 112 L208 149 L145 151 L208 112 Z M146 158 L205 121" fill="none" stroke="#111114" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/><rect x="237" y="110" width="27" height="50" rx="4" fill="#777780" transform="rotate(9 250 135)"/><path d="M84 110 L112 110 M84 124 L107 124 M84 138 L110 138 M84 152 L102 152" stroke="#92929b" stroke-width="4"/>
+  <path d="M32 64 H42 M37 59 V69 M310 162 H320 M315 157 V167" stroke="#f4f4f5" stroke-opacity=".6"/>
+  <circle cx="272" cy="82" r="3" fill="#f4f4f5" fill-opacity=".6"/>
+  <text x="175" y="200" font-family="Arial,sans-serif" font-size="5" letter-spacing="2" text-anchor="middle" fill="#f4f4f5" fill-opacity=".7">FROM AN IDEA TO YOUR NEXT CUT.</text>
+</svg>

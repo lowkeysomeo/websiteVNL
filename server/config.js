@@ -1,0 +1,59 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+export const root = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
+
+export function readConfig(env = process.env) {
+  const origin = new URL(env.PUBLIC_ORIGIN || "http://localhost:3000");
+  const production = env.NODE_ENV === "production";
+  if (production && origin.protocol !== "https:")
+    throw new Error("PUBLIC_ORIGIN must use HTTPS in production.");
+  if (
+    !["http:", "https:"].includes(origin.protocol) ||
+    origin.username ||
+    origin.password ||
+    origin.pathname !== "/" ||
+    origin.search ||
+    origin.hash
+  ) {
+    throw new Error("PUBLIC_ORIGIN must contain only the website origin.");
+  }
+  const config = {
+    host: env.HOST || "127.0.0.1",
+    port: Number(env.PORT || 3000),
+    origin: origin.origin,
+    production,
+    databasePath: path.resolve(root, env.DATABASE_PATH || "./data/vnl.sqlite"),
+    paymentsMode: env.PAYMENTS_MODE || "disabled",
+    bank: {
+      code: env.BANK_CODE || "",
+      gateway: env.BANK_GATEWAY || "",
+      accountNumber: env.BANK_ACCOUNT_NUMBER || "",
+      accountName: env.BANK_ACCOUNT_NAME || "",
+    },
+    webhookSecret: env.SEPAY_WEBHOOK_SECRET || "",
+  };
+  if (!["disabled", "live"].includes(config.paymentsMode))
+    throw new Error("PAYMENTS_MODE must be disabled or live.");
+  if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65535)
+    throw new Error("Invalid PORT.");
+  if (config.paymentsMode === "live") {
+    if (
+      !/^[A-Za-z0-9]{2,20}$/.test(config.bank.code) ||
+      !/^\d{5,30}$/.test(config.bank.accountNumber) ||
+      !config.bank.accountName.trim() ||
+      !config.bank.gateway.trim() ||
+      config.webhookSecret.length < 32
+    ) {
+      throw new Error(
+        "Bank configuration and a webhook secret of at least 32 characters are required.",
+      );
+    }
+    if (!production)
+      throw new Error("Live payments require NODE_ENV=production and HTTPS.");
+  }
+  return config;
+}
