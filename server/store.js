@@ -11,6 +11,11 @@ export function openStore(filename) {
     "PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;",
   );
   db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
+  try {
+    db.exec("ALTER TABLE orders ADD COLUMN server_invite TEXT;");
+  } catch {
+    // Column already exists
+  }
   return db;
 }
 
@@ -136,6 +141,7 @@ export function createOrder(db, orderData) {
     discordAccount = null,
     discordPassword = null,
     backupCodes = null,
+    serverInvite = null,
     now = Date.now(),
   } = orderData;
 
@@ -166,9 +172,9 @@ export function createOrder(db, orderData) {
       `INSERT INTO orders (
         id, user_id, customer_name, customer_email, customer_note,
         items_json, total, payment_method, has_log_items,
-        discord_account, discord_password, backup_codes, claim_link,
+        discord_account, discord_password, backup_codes, server_invite, claim_link,
         status, created_at, completed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL)`,
     ).run(
       orderId,
       userId || null,
@@ -182,6 +188,7 @@ export function createOrder(db, orderData) {
       discordAccount,
       discordPassword,
       backupCodes,
+      serverInvite,
       initialStatus,
       now,
     );
@@ -197,6 +204,7 @@ export function createOrder(db, orderData) {
       total,
       paymentMethod,
       hasLogItems: Boolean(hasLogItems),
+      serverInvite,
       status: initialStatus,
       createdAt: now,
     };
@@ -210,7 +218,7 @@ export function createOrder(db, orderData) {
 export function getUserOrders(db, userId) {
   return db
     .prepare(
-      "SELECT id, customer_name, customer_email, customer_note, items_json, total, payment_method, has_log_items, claim_link, status, created_at, completed_at FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 50",
+      "SELECT id, customer_name, customer_email, customer_note, items_json, total, payment_method, has_log_items, server_invite, claim_link, status, created_at, completed_at FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 50",
     )
     .all(userId)
     .map((row) => ({
@@ -222,6 +230,7 @@ export function getUserOrders(db, userId) {
       total: row.total,
       paymentMethod: row.payment_method,
       hasLogItems: Boolean(row.has_log_items),
+      serverInvite: row.server_invite,
       claimLink: row.claim_link,
       status: row.status,
       createdAt: row.created_at,
@@ -256,6 +265,7 @@ export function getAdminOrders(db, { status, limit = 50, offset = 0 } = {}) {
       discordAccount: row.discord_account,
       discordPassword: row.discord_password,
       backupCodes: row.backup_codes,
+      serverInvite: row.server_invite,
       claimLink: row.claim_link,
       status: row.status,
       createdAt: row.created_at,
@@ -296,6 +306,7 @@ export function updateAdminOrder(db, orderId, { status, claimLink }) {
     discordAccount: order.discord_account,
     discordPassword: order.discord_password,
     backupCodes: order.backup_codes,
+    serverInvite: order.server_invite,
     claimLink: nextClaimLink,
     status: nextStatus,
     createdAt: order.created_at,

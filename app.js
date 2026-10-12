@@ -390,27 +390,46 @@ async function startCheckout(directItem = null) {
     return variant?.deliveryType === "log";
   });
 
+  const hasBoost = items.some((item) => {
+    if (directItem) return directItem.productId === "boost";
+    return item.productId === "boost";
+  });
+
   const giftNotice = document.querySelector("#checkout-gift-notice");
   const logNotice = document.querySelector("#checkout-log-notice");
+  const boostNotice = document.querySelector("#checkout-boost-notice");
   const accInput = document.querySelector("#checkout-discord-account");
   const passInput = document.querySelector("#checkout-discord-password");
   const codesInput = document.querySelector("#checkout-backup-codes");
+  const inviteInput = document.querySelector("#checkout-server-invite");
   const balanceEl = document.querySelector("#checkout-wallet-balance");
   const alertEl = document.querySelector("#checkout-wallet-alert");
   const submitBtn = document.querySelector("#checkout-submit-btn");
 
   if (hasLog) {
     if (logNotice) logNotice.hidden = false;
-    if (giftNotice) giftNotice.hidden = true;
     if (accInput) accInput.required = true;
     if (passInput) passInput.required = true;
     if (codesInput) codesInput.required = true;
   } else {
     if (logNotice) logNotice.hidden = true;
-    if (giftNotice) giftNotice.hidden = false;
     if (accInput) accInput.required = false;
     if (passInput) passInput.required = false;
     if (codesInput) codesInput.required = false;
+  }
+
+  if (hasBoost) {
+    if (boostNotice) boostNotice.hidden = false;
+    if (inviteInput) inviteInput.required = true;
+  } else {
+    if (boostNotice) boostNotice.hidden = true;
+    if (inviteInput) inviteInput.required = false;
+  }
+
+  if (!hasLog && !hasBoost) {
+    if (giftNotice) giftNotice.hidden = false;
+  } else {
+    if (giftNotice) giftNotice.hidden = true;
   }
 
   if (balanceEl) balanceEl.textContent = "Đang kiểm tra...";
@@ -504,6 +523,15 @@ async function showOrders() {
           `;
         }
 
+        let boostNotice = "";
+        if (order.serverInvite) {
+          boostNotice = `
+            <div class="order-boost-info" style="margin-top:8px; padding:8px 12px; background:rgba(147, 51, 234, 0.1); border:1px solid rgba(147, 51, 234, 0.3); border-radius:6px; font-size:12px;">
+              🚀 <strong>Link Server Discord cần Boost:</strong> <a href="${escapeHtml(order.serverInvite)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent); word-break:break-all;">${escapeHtml(order.serverInvite)}</a>
+            </div>
+          `;
+        }
+
         const itemsHtml = order.items
           .map(
             (item) =>
@@ -523,6 +551,7 @@ async function showOrders() {
             <ul>${itemsHtml}</ul>
             ${claimSection}
             ${logNotice}
+            ${boostNotice}
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
               <span class="muted" style="font-size:11px;">Thanh toán: Ví VietNam Legacy</span>
               <strong class="order-total" style="color:var(--accent); font-size:15px;">${money(order.total)}</strong>
@@ -752,11 +781,43 @@ document
 
     if (!itemsToOrder.length) return;
 
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const name = String(data.get("name") || "").trim();
+    const email = String(data.get("email") || "").trim();
+    const note = String(data.get("note") || "").trim();
+    const submitBtn = document.querySelector("#checkout-submit-btn");
+
+    if (!name) {
+      form.elements.name?.setCustomValidity("Vui lòng nhập tên người nhận.");
+      form.elements.name?.reportValidity();
+      return;
+    }
+
     const hasLog = itemsToOrder.some((item) => item.deliveryType === "log");
+    const hasBoost = itemsToOrder.some((item) => item.productId === "boost");
 
     const discordAccount = String(data.get("discordAccount") || "").trim();
     const discordPassword = String(data.get("discordPassword") || "").trim();
     const backupCodes = String(data.get("backupCodes") || "").trim();
+    const serverInvite = String(data.get("serverInvite") || "").trim();
+
+    if (hasBoost) {
+      if (!serverInvite) {
+        alert("Vui lòng nhập link mời vô thời hạn của server Discord cần Boost.");
+        form.elements.serverInvite?.focus();
+        return;
+      }
+      const invitePattern =
+        /^(https?:\/\/)?(www\.)?(discord\.(gg|io|me|li)|discord(?:app)?\.com\/invite)\/[a-zA-Z0-9_-]+$/i;
+      if (!invitePattern.test(serverInvite)) {
+        alert(
+          "Link mời server Discord không hợp lệ. Vui lòng cung cấp link mời dạng https://discord.gg/abcxyz hoặc discord.gg/abcxyz",
+        );
+        form.elements.serverInvite?.focus();
+        return;
+      }
+    }
 
     if (hasLog) {
       if (!discordAccount) {
@@ -827,6 +888,7 @@ document
         discordAccount: hasLog ? discordAccount : undefined,
         discordPassword: hasLog ? discordPassword : undefined,
         backupCodes: hasLog ? backupCodes : undefined,
+        serverInvite: hasBoost ? serverInvite : undefined,
       };
 
       const orderRes = await fetch("/api/orders", {
@@ -867,7 +929,9 @@ document
         <p>Mã đơn hàng: <strong>${escapeHtml(resData.order.id)}</strong></p>
         <p>Đã thanh toán: <strong>${money(resData.order.total)}</strong> qua Ví VietNam Legacy.</p>
         ${
-          resData.order.hasLogItems
+          resData.order.serverInvite
+            ? '<div class="boost-notice" style="margin:12px 0; padding:10px; border-radius:6px; background:rgba(147, 51, 234, 0.1); border:1px solid rgba(147, 51, 234, 0.3);">🚀 <strong>Gói Boost Server:</strong> Shop sẽ tham gia server theo link mời bạn cung cấp để thực hiện Boost.</div>'
+            : resData.order.hasLogItems
             ? '<div class="order-log-info">🔑 <strong>Gói Nạp Acc (Log):</strong> Tài khoản & mã dự phòng của bạn đã được mã hóa bảo mật, chỉ riêng Admin shop mới xem được để đăng nhập nạp gói.</div>'
             : '<div class="gift-notice" style="margin:12px 0; padding:10px; border-radius:6px;">🎁 <strong>Gói Link Gift:</strong> Shop sẽ sớm gửi Link Claim trực tiếp trong mục "Đơn hàng của tôi".</div>'
         }

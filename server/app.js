@@ -340,9 +340,8 @@ export function createApp(db, config) {
           if (!allow(`order:${current.user_id}`, 30, 60000))
             throw fail(429, "Quá nhiều đơn hàng. Vui lòng thử lại sau 1 phút.");
           const body = parse(await readBody(req));
-          const { validatedItems, total, hasLogItems } = validateOrderItems(
-            body.items,
-          );
+          const { validatedItems, total, hasLogItems, hasBoostItems } =
+            validateOrderItems(body.items);
 
           const customerName = String(body.name || "").trim();
           const customerEmail = String(body.email || "")
@@ -364,6 +363,22 @@ export function createApp(db, config) {
           let discordAccount = null;
           let discordPassword = null;
           let backupCodes = null;
+          let serverInvite = null;
+
+          if (hasBoostItems) {
+            serverInvite = String(body.serverInvite || "").trim();
+            if (
+              !serverInvite ||
+              !/(?:discord\.(?:gg|io|me|li)|discord(?:app)?\.com\/invite)\/[a-zA-Z0-9_-]+|https?:\/\//i.test(
+                serverInvite,
+              )
+            ) {
+              throw fail(
+                400,
+                "Đơn có gói Boost Server. Vui lòng cung cấp link mời vô thời hạn của Server Discord cần boost (VD: https://discord.gg/abcxyz).",
+              );
+            }
+          }
 
           if (hasLogItems) {
             discordAccount = String(body.discordAccount || "").trim();
@@ -403,6 +418,7 @@ export function createApp(db, config) {
             discordAccount,
             discordPassword,
             backupCodes,
+            serverInvite,
           });
 
           return json(201, {
@@ -416,6 +432,7 @@ export function createApp(db, config) {
               total: order.total,
               paymentMethod: order.paymentMethod,
               hasLogItems: order.hasLogItems,
+              serverInvite: order.serverInvite,
               status: order.status,
               createdAt: order.createdAt,
             },

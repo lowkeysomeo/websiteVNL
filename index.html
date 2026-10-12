@@ -407,6 +407,26 @@
           </label>
         </div>
 
+        <!-- Boost Server Notice: Appears when any item is Boost Server -->
+        <div class="checkout-notice boost-notice" id="checkout-boost-notice" hidden>
+          <div class="notice-badge">🚀 GÓI BOOST SERVER DISCORD</div>
+          <p>
+            Vui lòng cung cấp <strong>Link mời vô thời hạn</strong> (Never Expire) của Server Discord bạn muốn Boost để shop tham gia và kích hoạt gói boost.
+          </p>
+          <label
+            >Link mời vô thời hạn Server cần Boost
+            <span class="muted small-hint">
+              (Vào Discord Server → Tạo lời mời → Chỉnh sửa link mời → Chọn "Không bao giờ hết hạn")
+            </span>
+            <input
+              id="checkout-server-invite"
+              name="serverInvite"
+              maxlength="200"
+              placeholder="VD: https://discord.gg/vnlcommunity"
+            />
+          </label>
+        </div>
+
         <label
           >Ghi chú đơn hàng <span class="muted">(tùy chọn)</span
           ><textarea

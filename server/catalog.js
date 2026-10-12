@@ -18,6 +18,7 @@ export function validateOrderItems(items) {
 
   let total = 0;
   let hasLogItems = false;
+  let hasBoostItems = false;
   const validatedItems = [];
 
   for (const item of items) {
@@ -54,6 +55,7 @@ export function validateOrderItems(items) {
 
     const isLog = variant.deliveryType === "log";
     if (isLog) hasLogItems = true;
+    if (product.id === "boost") hasBoostItems = true;
 
     const subtotal = variant.price * quantity;
     total += subtotal;
@@ -70,5 +72,5 @@ export function validateOrderItems(items) {
     });
   }
 
-  return { validatedItems, total, hasLogItems };
+  return { validatedItems, total, hasLogItems, hasBoostItems };
 }

@@ -242,8 +242,67 @@ test("order creation distinguishes gift vs log and protects discord credentials"
     assert.equal(customerGiftOrder.status, "completed");
     assert.equal(customerGiftOrder.claimLink, "https://discord.gift/ABCDEFGHIJKLMNOP");
 
-    // 11. Insufficient balance test
-    // User balance is now 122,000 VND. Try to order Nitro Boost Gift 1y (950,000 VND)
+    // 11. Server Boost order: requires permanent Discord invite link
+    // 11a. Boost order without serverInvite -> MUST FAIL (400)
+    const boostFailNoInvite = await ctx.request(
+      "POST",
+      "/api/orders",
+      {
+        name: "Nguyen Van A",
+        email: "buyer@example.com",
+        items: [{ productId: "boost", variantId: "two", quantity: 1 }],
+      },
+      authHeaders,
+    );
+    assert.equal(boostFailNoInvite.status, 400);
+    assert.match(boostFailNoInvite.data.error, /Boost Server/);
+
+    // 11b. Boost order with invalid serverInvite format -> MUST FAIL (400)
+    const boostFailBadInvite = await ctx.request(
+      "POST",
+      "/api/orders",
+      {
+        name: "Nguyen Van A",
+        email: "buyer@example.com",
+        serverInvite: "invalid-invite-link",
+        items: [{ productId: "boost", variantId: "two", quantity: 1 }],
+      },
+      authHeaders,
+    );
+    assert.equal(boostFailBadInvite.status, 400);
+
+    // 11c. Boost order with valid permanent Discord invite link -> SUCCESS (201)
+    // 2 Boost Server: 59,000đ. Balance before: 122,000đ -> after: 63,000đ
+    const boostSuccess = await ctx.request(
+      "POST",
+      "/api/orders",
+      {
+        name: "Nguyen Van A",
+        email: "buyer@example.com",
+        serverInvite: "https://discord.gg/vietnamlegacy",
+        items: [{ productId: "boost", variantId: "two", quantity: 1 }],
+      },
+      authHeaders,
+    );
+    assert.equal(boostSuccess.status, 201);
+    assert.equal(boostSuccess.data.order.serverInvite, "https://discord.gg/vietnamlegacy");
+    assert.equal(boostSuccess.data.balance, 63000);
+    const boostOrderId = boostSuccess.data.order.id;
+
+    // 11d. Customer GET /api/orders includes serverInvite
+    const customerOrdersWithBoost = await ctx.request("GET", "/api/orders", null, authHeaders);
+    const customerBoostOrder = customerOrdersWithBoost.data.orders.find((o) => o.id === boostOrderId);
+    assert.equal(customerBoostOrder.serverInvite, "https://discord.gg/vietnamlegacy");
+
+    // 11e. Admin GET /api/admin/orders includes serverInvite
+    const adminOrdersWithBoost = await ctx.request("GET", "/api/admin/orders", null, {
+      "X-Admin-Key": "testadminsecret",
+    });
+    const adminBoostOrder = adminOrdersWithBoost.data.orders.find((o) => o.id === boostOrderId);
+    assert.equal(adminBoostOrder.serverInvite, "https://discord.gg/vietnamlegacy");
+
+    // 12. Insufficient balance test
+    // User balance is now 63,000 VND. Try to order Nitro Boost Gift 1y (950,000 VND)
     const expensiveOrder = await ctx.request(
       "POST",
       "/api/orders",

@@ -1705,6 +1705,15 @@ form textarea {
   background: rgba(255, 152, 0, 0.25);
   color: #ffb74d;
 }
+.boost-notice {
+  background: rgba(147, 51, 234, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  color: #e9d5ff;
+}
+.boost-notice .notice-badge {
+  background: rgba(168, 85, 247, 0.25);
+  color: #c084fc;
+}
 .small-hint {
   font-size: 10px;
   display: block;

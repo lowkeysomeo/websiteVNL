@@ -265,6 +265,28 @@
           `;
         }
 
+        // BOOST SERVER INVITE BOX
+        let serverInviteBox = "";
+        if (order.serverInvite) {
+          const invite = escapeHtml(order.serverInvite);
+          serverInviteBox = `
+            <div class="admin-server-invite-box" style="margin-top:12px; padding:12px; background:rgba(147, 51, 234, 0.12); border:1px solid rgba(147, 51, 234, 0.35); border-radius:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <strong style="color:#c084fc; font-size:13px;">🚀 LINK SERVER DISCORD CẦN BOOST (VÔ THỜI HẠN)</strong>
+                <button class="admin-copy-btn" data-copy-text="${invite}">📋 Sao chép link</button>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; word-break:break-all;">
+                <a href="${invite}" target="_blank" rel="noopener noreferrer" style="color:#c084fc; text-decoration:underline; font-weight:600;">
+                  ${invite}
+                </a>
+                <a href="${invite}" target="_blank" rel="noopener noreferrer" style="padding:4px 8px; background:var(--accent, #9333ea); color:#fff; border-radius:4px; font-size:11px; text-decoration:none; white-space:nowrap;">
+                  Tham gia server ↗
+                </a>
+              </div>
+            </div>
+          `;
+        }
+
         // GIFT CLAIM BOX
         let giftClaimBox = "";
         const hasGift = (order.items || []).some((i) => i.deliveryType !== "log");
@@ -306,6 +328,7 @@
             </div>
 
             ${logCredentialsBox}
+            ${serverInviteBox}
             ${giftClaimBox}
 
             <div class="admin-order-footer">
