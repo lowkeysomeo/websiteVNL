@@ -1247,8 +1247,29 @@ function initMouseEffects() {
     ring.style.transform = `translate3d(${ringPos.x}px, ${ringPos.y}px, 0) translate(-50%, -50%)`;
     glow.style.transform = `translate3d(${glowPos.x}px, ${glowPos.y}px, 0) translate(-50%, -50%)`;
 
-    // Render particles
+    // Render particles & ambient spotlight
     ctx.clearRect(0, 0, width, height);
+
+    // 1. Vầng sáng Ambient Spotlight theo chuột (Vàng Hoàng Kim #ffd15c & Tím Discord #c084fc)
+    if (hasMoved && !document.body.classList.contains("modal-open")) {
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      const radGrad = ctx.createRadialGradient(
+        glowPos.x, glowPos.y, 0,
+        glowPos.x, glowPos.y, 280
+      );
+      radGrad.addColorStop(0, "rgba(255, 209, 92, 0.28)");     // Vàng Hoàng Kim
+      radGrad.addColorStop(0.35, "rgba(192, 132, 252, 0.22)");  // Tím Discord
+      radGrad.addColorStop(0.65, "rgba(239, 68, 68, 0.09)");   // Ánh hồng ấm
+      radGrad.addColorStop(1, "rgba(20, 11, 13, 0)");          // Tan biến vào nền tối
+      ctx.fillStyle = radGrad;
+      ctx.beginPath();
+      ctx.arc(glowPos.x, glowPos.y, 280, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // 2. Các hạt bụi sao lấp lánh (Sparkling Stardust Trail)
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       if (p.update()) {
