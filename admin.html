@@ -83,6 +83,37 @@
           </div>
         </section>
 
+        <!-- Announcement Banner Control -->
+        <section class="admin-announcement-card">
+          <div class="admin-card-header">
+            <div>
+              <h3>📢 Quản lý thông báo chạy đầu trang</h3>
+              <p>Dòng chữ này sẽ chạy ngang liên tục trên đầu trang web cho tất cả khách hàng (PC, Laptop, Điện thoại).</p>
+            </div>
+            <div class="announcement-toggle-group">
+              <label class="switch-label">
+                <input type="checkbox" id="admin-announcement-active" checked />
+                <span class="switch-slider"></span>
+              </label>
+              <span id="admin-announcement-status-text" class="status-active">Bật hiển thị</span>
+            </div>
+          </div>
+          <div class="admin-announcement-form">
+            <textarea
+              id="admin-announcement-text"
+              rows="2"
+              placeholder="Nhập nội dung thông báo muốn chạy trên thanh đầu trang (ví dụ: 🔥 Khuyến mãi giảm giá 20% khi mua Nitro Boost hôm nay...)"
+              maxlength="400"
+            ></textarea>
+            <div class="admin-announcement-actions">
+              <span class="char-counter" id="admin-announcement-counter">0 / 400 ký tự</span>
+              <button class="button primary btn-small" id="admin-save-announcement-btn">
+                Lưu & Đăng thông báo ⚡
+              </button>
+            </div>
+          </div>
+        </section>
+
         <!-- Controls: Filters & Search -->
         <section class="admin-controls">
           <div class="admin-tabs" id="admin-status-tabs" role="tablist">

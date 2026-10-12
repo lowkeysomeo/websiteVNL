@@ -18,6 +18,8 @@ const icons = {
   shield: '<path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6Z m-4 9 3 3 5-6"/>',
   bolt: '<path d="m13 2-9 12h7l-1 8 10-13h-7Z"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
+  "chevron-up": '<path d="m18 15-6-6-6 6"/>',
+  "arrow-up": '<path d="M12 19V5 M5 12l7-7 7 7"/>',
 };
 
 function icon(name) {
@@ -238,6 +240,7 @@ function renderProducts() {
   document
     .querySelector('[data-action="favorites"]')
     .classList.toggle("active", state.favoritesOnly);
+  if (typeof observeScrollReveal === "function") observeScrollReveal();
 }
 
 function resetFilters() {
@@ -604,7 +607,7 @@ function handleAction(action) {
     state.query = "";
     search.value = "";
     renderProducts();
-    document.querySelector("#catalog").scrollIntoView({ behavior: "smooth" });
+    smoothScrollTo("#catalog");
   }
   if (action === "guide") {
     showInfo(
@@ -666,7 +669,7 @@ document.addEventListener("click", (event) => {
     state.favoritesOnly = false;
     renderProducts();
     closeMenu();
-    document.querySelector("#catalog").scrollIntoView({ behavior: "smooth" });
+    smoothScrollTo("#catalog");
   }
   if (button.hasAttribute("data-quantity")) {
     const index = Number(button.dataset.quantity);
@@ -1188,7 +1191,7 @@ function initMouseEffects() {
 
   document.addEventListener("mouseover", (e) => {
     const target = e.target.closest(
-      "button, a, input, select, textarea, .product-card, .filter, [role='button'], .favorite-button, [data-action], .nav-item, .add-button, .buy-button",
+      "button, a, input, select, textarea, .product-card, .filter, [role='button'], .favorite-button, [data-action], .nav-item, .add-button, .buy-button, .scroll-top-button",
     );
     if (target) {
       ring.classList.add("hover");
@@ -1198,7 +1201,7 @@ function initMouseEffects() {
 
   document.addEventListener("mouseout", (e) => {
     const target = e.target.closest(
-      "button, a, input, select, textarea, .product-card, .filter, [role='button'], .favorite-button, [data-action], .nav-item, .add-button, .buy-button",
+      "button, a, input, select, textarea, .product-card, .filter, [role='button'], .favorite-button, [data-action], .nav-item, .add-button, .buy-button, .scroll-top-button",
     );
     if (target) {
       ring.classList.remove("hover");
@@ -1253,3 +1256,318 @@ function initMouseEffects() {
 }
 
 initMouseEffects();
+
+/* ==========================================================================
+   LIVE MARQUEE ANNOUNCEMENT TICKER (SYNCED PC & MOBILE)
+   ========================================================================== */
+async function initAnnouncement() {
+  const banner = document.querySelector("#announcement-bar");
+  const track = document.querySelector("#announcement-track");
+  const contentEl = document.querySelector("#announcement-content");
+  const duplicateEl = document.querySelector("#announcement-content-duplicate");
+  if (!banner || !track || !contentEl || !duplicateEl) return;
+
+  async function fetchAndApplyAnnouncement() {
+    try {
+      const res = await fetch("/api/announcement");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.announcement) {
+        const { content, is_active } = data.announcement;
+        if (!is_active || !content) {
+          banner.style.display = "none";
+          return;
+        }
+        banner.style.display = "flex";
+        contentEl.textContent = content;
+        duplicateEl.textContent = content;
+
+        const speedMultiplier = window.innerWidth < 760 ? 0.32 : 0.24;
+        const duration = Math.max(20, Math.min(65, content.length * speedMultiplier));
+        track.style.animationDuration = `${duration}s`;
+      }
+    } catch {
+      // Retain fallback announcement on error or demo
+    }
+  }
+
+  await fetchAndApplyAnnouncement();
+
+  setInterval(fetchAndApplyAnnouncement, 35000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) fetchAndApplyAnnouncement();
+  });
+}
+
+/* ==========================================================================
+   ULTRA-SMOOTH INERTIA SCROLL ENGINE & NAVIGATION
+   ========================================================================== */
+class SmoothInertiaScroll {
+  constructor() {
+    if (window.matchMedia("(hover: none), (pointer: coarse)").matches) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    this.currentY = window.scrollY;
+    this.targetY = window.scrollY;
+    this.isScrolling = false;
+    this.maxScroll = 0;
+    this.rafId = null;
+    this.lastTime = 0;
+
+    this.onWheel = this.onWheel.bind(this);
+    this.onKey = this.onKey.bind(this);
+    this.render = this.render.bind(this);
+    this.updateBounds = this.updateBounds.bind(this);
+
+    this.init();
+  }
+
+  updateBounds() {
+    this.maxScroll = Math.max(
+      0,
+      document.documentElement.scrollHeight - window.innerHeight,
+    );
+  }
+
+  init() {
+    this.updateBounds();
+    document.documentElement.classList.add("smooth-scroll-active");
+
+    window.addEventListener("resize", this.updateBounds, { passive: true });
+
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (!this.isScrolling) {
+          this.currentY = window.scrollY;
+          this.targetY = window.scrollY;
+        }
+      },
+      { passive: true },
+    );
+
+    window.addEventListener("wheel", this.onWheel, { passive: false });
+    window.addEventListener("keydown", this.onKey);
+  }
+
+  onWheel(e) {
+    if (
+      document.body.classList.contains("modal-open") ||
+      document.querySelector("dialog[open]")
+    ) {
+      return;
+    }
+
+    let el = e.target;
+    while (el && el !== document.body && el !== document.documentElement) {
+      const style = window.getComputedStyle(el);
+      if (
+        (style.overflowY === "auto" || style.overflowY === "scroll") &&
+        el.scrollHeight > el.clientHeight
+      ) {
+        const canScrollUp = e.deltaY < 0 && el.scrollTop > 0;
+        const canScrollDown =
+          e.deltaY > 0 && el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+        if (canScrollUp || canScrollDown) return;
+      }
+      el = el.parentElement;
+    }
+
+    e.preventDefault();
+    this.updateBounds();
+
+    let delta = e.deltaY;
+    if (e.deltaMode === 1) delta *= 36;
+    else if (e.deltaMode === 2) delta *= window.innerHeight;
+
+    const step = Math.sign(delta) * Math.min(Math.abs(delta) * 1.1, 140);
+    this.targetY = Math.max(0, Math.min(this.targetY + step, this.maxScroll));
+
+    if (!this.isScrolling) {
+      this.isScrolling = true;
+      this.lastTime = performance.now();
+      this.rafId = requestAnimationFrame(this.render);
+    }
+  }
+
+  onKey(e) {
+    if (
+      document.body.classList.contains("modal-open") ||
+      document.querySelector("dialog[open]")
+    ) {
+      return;
+    }
+    if (
+      ["INPUT", "TEXTAREA", "SELECT"].includes(
+        document.activeElement?.tagName,
+      )
+    ) {
+      return;
+    }
+
+    let delta = 0;
+    if (e.key === "ArrowDown") delta = 90;
+    else if (e.key === "ArrowUp") delta = -90;
+    else if (e.key === "PageDown" || (e.key === " " && !e.shiftKey))
+      delta = window.innerHeight * 0.8;
+    else if (e.key === "PageUp" || (e.key === " " && e.shiftKey))
+      delta = -window.innerHeight * 0.8;
+    else if (e.key === "Home") delta = -this.targetY;
+    else if (e.key === "End") delta = this.maxScroll - this.targetY;
+
+    if (delta !== 0) {
+      e.preventDefault();
+      this.updateBounds();
+      this.targetY = Math.max(
+        0,
+        Math.min(this.targetY + delta, this.maxScroll),
+      );
+      if (!this.isScrolling) {
+        this.isScrolling = true;
+        this.lastTime = performance.now();
+        this.rafId = requestAnimationFrame(this.render);
+      }
+    }
+  }
+
+  scrollTo(targetY) {
+    this.updateBounds();
+    this.targetY = Math.max(0, Math.min(targetY, this.maxScroll));
+    if (!this.isScrolling) {
+      this.isScrolling = true;
+      this.lastTime = performance.now();
+      this.rafId = requestAnimationFrame(this.render);
+    }
+  }
+
+  render(time) {
+    if (!this.lastTime) this.lastTime = time;
+    const dt = Math.min((time - this.lastTime) / 16.67, 3);
+    this.lastTime = time;
+
+    const factor = 1 - Math.pow(1 - 0.088, dt);
+    this.currentY += (this.targetY - this.currentY) * factor;
+
+    if (Math.abs(this.targetY - this.currentY) < 0.6) {
+      this.currentY = this.targetY;
+      window.scrollTo(0, this.currentY);
+      this.isScrolling = false;
+      this.lastTime = 0;
+      return;
+    }
+
+    window.scrollTo(0, this.currentY);
+    this.rafId = requestAnimationFrame(this.render);
+  }
+}
+
+function smoothScrollTo(target, offset = 85) {
+  let targetY = 0;
+  if (typeof target === "number") {
+    targetY = target;
+  } else if (typeof target === "string") {
+    if (target === "#home" || target === "#") {
+      targetY = 0;
+    } else {
+      const el = document.querySelector(target);
+      if (!el) return;
+      targetY = el.getBoundingClientRect().top + window.scrollY - offset;
+    }
+  } else if (target instanceof HTMLElement) {
+    targetY = target.getBoundingClientRect().top + window.scrollY - offset;
+  }
+
+  if (window.__smoothScroll) {
+    window.__smoothScroll.scrollTo(targetY);
+  } else {
+    window.scrollTo({ top: targetY, behavior: "smooth" });
+  }
+}
+
+function initScrollFeatures() {
+  const scrollTopBtn = document.querySelector("#scroll-top");
+  const topbar = document.querySelector(".topbar");
+
+  function onScroll() {
+    const y = window.scrollY;
+    if (scrollTopBtn) {
+      scrollTopBtn.classList.toggle("visible", y > 300);
+    }
+    if (topbar) {
+      topbar.classList.toggle("scrolled", y > 20);
+    }
+  }
+
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+
+  if (scrollTopBtn) {
+    scrollTopBtn.addEventListener("click", () => {
+      smoothScrollTo(0);
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    const anchor = e.target.closest('a[href^="#"]');
+    if (anchor) {
+      const href = anchor.getAttribute("href");
+      if (href && href !== "#") {
+        const targetEl = document.querySelector(href);
+        if (targetEl) {
+          e.preventDefault();
+          smoothScrollTo(targetEl);
+        }
+      }
+    }
+  });
+}
+
+let revealObserver = null;
+
+function initScrollReveal() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  revealObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("revealed");
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    },
+    {
+      root: null,
+      rootMargin: "0px 0px -30px 0px",
+      threshold: 0.05,
+    },
+  );
+
+  observeScrollReveal();
+}
+
+function observeScrollReveal() {
+  if (!revealObserver) return;
+  const elements = document.querySelectorAll(
+    ".hero, .benefits, .section-heading, .catalog-controls, .product-card:not(.revealed), .bottom-banner, footer",
+  );
+  elements.forEach((el, index) => {
+    if (
+      !el.classList.contains("scroll-reveal") &&
+      !el.classList.contains("revealed")
+    ) {
+      el.classList.add("scroll-reveal");
+      if (el.classList.contains("product-card")) {
+        el.style.setProperty("--reveal-index", index % 6);
+      }
+      revealObserver.observe(el);
+    }
+  });
+}
+
+// Initialize components
+initAnnouncement();
+window.__smoothScroll = new SmoothInertiaScroll();
+initScrollFeatures();
+initScrollReveal();
+

@@ -10,6 +10,8 @@ import {
   getUserOrders,
   getAdminOrders,
   updateAdminOrder,
+  getAnnouncement,
+  saveAnnouncement,
 } from "./store.js";
 import { validateOrderItems } from "./catalog.js";
 import {
@@ -470,6 +472,21 @@ export function createApp(db, config) {
             claimLink: body.claimLink,
           });
           return json(200, { success: true, order: updated });
+        }
+        if (req.method === "GET" && route === "/api/announcement") {
+          const ann = getAnnouncement(db);
+          return json(200, { success: true, announcement: ann });
+        }
+        if (req.method === "GET" && route === "/api/admin/announcement") {
+          requireAdmin(req);
+          const ann = getAnnouncement(db);
+          return json(200, { success: true, announcement: ann });
+        }
+        if (req.method === "POST" && route === "/api/admin/announcement") {
+          requireAdmin(req);
+          const body = parse(await readBody(req));
+          const ann = saveAnnouncement(db, body.content, body.is_active !== false);
+          return json(200, { success: true, announcement: ann });
         }
         throw fail(404, "Không tìm thấy chức năng.");
       }

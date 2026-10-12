@@ -59,3 +59,11 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS orders_user ON orders(user_id, created_at);
 CREATE INDEX IF NOT EXISTS orders_created ON orders(created_at);
+
+CREATE TABLE IF NOT EXISTS site_announcements (
+  id TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  updated_at INTEGER NOT NULL
+);
+

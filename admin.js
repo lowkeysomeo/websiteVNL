@@ -74,6 +74,7 @@
     loginScreen.hidden = true;
     adminApp.hidden = false;
     loadOrders();
+    loadAnnouncement();
   }
 
   async function checkAuthAndInit() {
@@ -454,6 +455,79 @@
       return;
     }
   });
+
+  // Announcement Banner Management
+  const announcementTextarea = document.querySelector("#admin-announcement-text");
+  const announcementActive = document.querySelector("#admin-announcement-active");
+  const announcementStatusText = document.querySelector("#admin-announcement-status-text");
+  const announcementCounter = document.querySelector("#admin-announcement-counter");
+  const saveAnnouncementBtn = document.querySelector("#admin-save-announcement-btn");
+
+  function updateAnnouncementCounter() {
+    if (!announcementTextarea || !announcementCounter) return;
+    const len = announcementTextarea.value.length;
+    announcementCounter.textContent = `${len} / 400 ký tự`;
+  }
+
+  function updateAnnouncementStatusLabel() {
+    if (!announcementActive || !announcementStatusText) return;
+    const isActive = announcementActive.checked;
+    announcementStatusText.textContent = isActive ? "Bật hiển thị" : "Tắt (Ẩn)";
+    announcementStatusText.classList.toggle("status-active", isActive);
+    announcementStatusText.classList.toggle("status-inactive", !isActive);
+  }
+
+  if (announcementTextarea) {
+    announcementTextarea.addEventListener("input", updateAnnouncementCounter);
+  }
+  if (announcementActive) {
+    announcementActive.addEventListener("change", updateAnnouncementStatusLabel);
+  }
+
+  async function loadAnnouncement() {
+    if (!announcementTextarea) return;
+    try {
+      const data = await api("/api/admin/announcement");
+      if (data.announcement) {
+        announcementTextarea.value = data.announcement.content || "";
+        if (announcementActive) {
+          announcementActive.checked = Boolean(data.announcement.is_active);
+        }
+        updateAnnouncementCounter();
+        updateAnnouncementStatusLabel();
+      }
+    } catch (err) {
+      console.warn("Could not load announcement:", err);
+    }
+  }
+
+  if (saveAnnouncementBtn) {
+    saveAnnouncementBtn.addEventListener("click", async () => {
+      const content = announcementTextarea ? announcementTextarea.value.trim() : "";
+      if (!content) {
+        notify("Vui lòng nhập nội dung thông báo.");
+        announcementTextarea?.focus();
+        return;
+      }
+      saveAnnouncementBtn.disabled = true;
+      saveAnnouncementBtn.textContent = "Đang lưu...";
+      try {
+        await api("/api/admin/announcement", {
+          method: "POST",
+          body: JSON.stringify({
+            content,
+            is_active: announcementActive ? announcementActive.checked : true,
+          }),
+        });
+        notify("Đã lưu và cập nhật thông báo thành công! ⚡");
+      } catch (err) {
+        notify("Lỗi khi lưu thông báo: " + err.message);
+      } finally {
+        saveAnnouncementBtn.disabled = false;
+        saveAnnouncementBtn.textContent = "Lưu & Đăng thông báo ⚡";
+      }
+    });
+  }
 
   // Init
   checkAuthAndInit();

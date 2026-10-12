@@ -157,6 +157,121 @@ body {
   color: var(--accent);
 }
 
+/* Announcement Control Card */
+.admin-announcement-card {
+  background: #1d1013;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 12px;
+  padding: 20px 22px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 16px rgba(139, 92, 246, 0.08);
+}
+.admin-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.admin-card-header h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #f3e8ff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-card-header p {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+.announcement-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #140b0e;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.switch-label {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  cursor: pointer;
+}
+.switch-label input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.switch-slider {
+  position: absolute;
+  inset: 0;
+  background-color: #3b2228;
+  border-radius: 22px;
+  transition: 0.25s;
+}
+.switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.25s;
+}
+.switch-label input:checked + .switch-slider {
+  background-color: #8b5cf6;
+}
+.switch-label input:checked + .switch-slider:before {
+  transform: translateX(16px);
+}
+#admin-announcement-status-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #a78bfa;
+}
+#admin-announcement-status-text.status-inactive {
+  color: #9ca3af;
+}
+.admin-announcement-form textarea {
+  width: 100%;
+  background: #140a0c;
+  border: 1px solid #3d2328;
+  border-radius: 8px;
+  color: #ffd15c;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 10px 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 56px;
+  box-sizing: border-box;
+}
+.admin-announcement-form textarea:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.25);
+}
+.admin-announcement-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.char-counter {
+  font-size: 10px;
+  color: #8f7f83;
+}
+
 /* Controls */
 .admin-controls {
   display: flex;

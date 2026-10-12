@@ -313,3 +313,53 @@ export function updateAdminOrder(db, orderId, { status, claimLink }) {
     completedAt,
   };
 }
+
+export function getAnnouncement(db) {
+  try {
+    const row = db
+      .prepare(
+        "SELECT id, content, is_active, updated_at FROM site_announcements WHERE id = 'current'",
+      )
+      .get();
+    if (!row) {
+      return {
+        content:
+          "🔥 Chào mừng bạn đến với VietNam Legacy! Shop cung cấp Discord Nitro Boost, Nitro Trial, Decor Gift/Log và Setup Server uy tín số 1 Việt Nam.",
+        is_active: 1,
+        updated_at: Date.now(),
+      };
+    }
+    return {
+      content: row.content,
+      is_active: Boolean(row.is_active),
+      updated_at: row.updated_at,
+    };
+  } catch {
+    return {
+      content:
+        "🔥 Chào mừng bạn đến với VietNam Legacy! Shop cung cấp Discord Nitro Boost, Nitro Trial, Decor Gift/Log và Setup Server uy tín số 1 Việt Nam.",
+      is_active: 1,
+      updated_at: Date.now(),
+    };
+  }
+}
+
+export function saveAnnouncement(db, content, is_active = 1, now = Date.now()) {
+  const cleanContent = String(content ?? "").trim();
+  if (!cleanContent) {
+    const error = new Error("Nội dung thông báo không được để trống.");
+    error.status = 400;
+    throw error;
+  }
+  db.prepare(
+    `INSERT INTO site_announcements (id, content, is_active, updated_at)
+     VALUES ('current', ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       content = excluded.content,
+       is_active = excluded.is_active,
+       updated_at = excluded.updated_at`,
+  ).run(cleanContent, is_active ? 1 : 0, now);
+
+  return getAnnouncement(db);
+}
+
