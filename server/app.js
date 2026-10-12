@@ -475,7 +475,8 @@ export function createApp(db, config) {
       }
       if (!["GET", "HEAD"].includes(req.method))
         throw fail(405, "Phương thức không được hỗ trợ.");
-      const relative = route === "/" ? "index.html" : route.slice(1);
+      let relative = route === "/" ? "index.html" : route.slice(1);
+      if (relative === "admin") relative = "admin.html";
       // Never expose backend code, environment files, databases or arbitrary project files.
       if (
         ![
