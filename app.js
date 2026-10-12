@@ -979,6 +979,8 @@ function initMouseEffects() {
 
   if (!glow || !dot || !ring || !canvas) return;
 
+  document.body.classList.add("has-custom-cursor");
+
   const ctx = canvas.getContext("2d");
   let width = window.innerWidth;
   let height = window.innerHeight;
@@ -1150,10 +1152,11 @@ function initMouseEffects() {
       hasMoved = true;
       mouse.x = ringPos.x = glowPos.x = e.clientX;
       mouse.y = ringPos.y = glowPos.y = e.clientY;
-      glow.classList.add("active");
-      dot.classList.add("active");
-      ring.classList.add("active");
     }
+
+    if (!glow.classList.contains("active")) glow.classList.add("active");
+    if (!dot.classList.contains("active")) dot.classList.add("active");
+    if (!ring.classList.contains("active")) ring.classList.add("active");
 
     const dx = e.clientX - mouse.lastX;
     const dy = e.clientY - mouse.lastY;
