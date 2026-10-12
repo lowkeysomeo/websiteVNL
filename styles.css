@@ -2163,80 +2163,66 @@ form textarea {
   }
 }
 
-@media (hover: hover) and (pointer: fine) {
-  body {
-    cursor: none;
-  }
-  button,
-  a,
-  select,
-  .filter,
-  .favorite-button,
-  .product-open,
-  .scroll-top-button {
-    cursor: none;
-  }
-  input,
-  textarea {
-    cursor: text;
-  }
+/* Đảm bảo con trỏ chuột hệ điều hành LUÔN LUÔN hiển thị 100%, không bao giờ bị mất chuột */
+body {
+  cursor: default !important;
+}
 
-  /* Khôi phục con trỏ chuột bình thường khi mở bất kỳ modal / dialog nào */
-  body.modal-open,
-  body:has(dialog[open]),
-  dialog,
-  dialog::backdrop,
-  dialog * {
-    cursor: auto !important;
-  }
+button,
+a,
+select,
+.filter,
+.favorite-button,
+.product-open,
+.scroll-top-button,
+.nav-item,
+.add-button,
+.buy-button,
+[role="button"],
+.icon-button {
+  cursor: pointer !important;
+}
 
-  dialog button,
-  dialog a,
-  dialog select,
-  dialog .button,
-  dialog [data-close],
-  dialog .dialog-close,
-  dialog [role="button"],
-  dialog .icon-button,
-  dialog label[for],
-  dialog [data-copy-link],
-  body.modal-open button,
-  body.modal-open a,
-  body.modal-open select,
-  body:has(dialog[open]) button,
-  body:has(dialog[open]) a,
-  body:has(dialog[open]) select {
-    cursor: pointer !important;
-  }
+button:disabled,
+.button:disabled {
+  cursor: not-allowed !important;
+}
 
-  dialog button:disabled,
-  body.modal-open button:disabled,
-  body:has(dialog[open]) button:disabled {
-    cursor: not-allowed !important;
-  }
+input,
+textarea {
+  cursor: text !important;
+}
 
-  dialog input,
-  dialog textarea,
-  body.modal-open input,
-  body.modal-open textarea,
-  body:has(dialog[open]) input,
-  body:has(dialog[open]) textarea {
-    cursor: text !important;
-  }
+dialog,
+dialog::backdrop,
+dialog * {
+  cursor: auto !important;
+}
 
-  /* Ẩn con trỏ ảo khi dialog đang mở để không bị che khuất hoặc gây loạn hiển thị */
-  body.modal-open .cursor-dot,
-  body.modal-open .cursor-ring,
-  body.modal-open .cursor-glow,
-  body.modal-open .cursor-particles,
-  body:has(dialog[open]) .cursor-dot,
-  body:has(dialog[open]) .cursor-ring,
-  body:has(dialog[open]) .cursor-glow,
-  body:has(dialog[open]) .cursor-particles {
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-  }
+dialog button,
+dialog a,
+dialog select,
+dialog .button,
+dialog [data-close],
+dialog .dialog-close,
+dialog [role="button"],
+dialog .icon-button {
+  cursor: pointer !important;
+}
+
+dialog input,
+dialog textarea {
+  cursor: text !important;
+}
+
+/* Ẩn dot ảo để con trỏ thật của hệ điều hành làm điểm chỉ định chính xác tuyệt đối */
+.cursor-dot {
+  display: none !important;
+}
+
+/* Vòng tròn vàng đóng vai trò là quầng sáng (aura halo) bám theo con trỏ chuột tạo hiệu ứng mượt mà */
+.cursor-ring {
+  pointer-events: none !important;
 }
 
 /* ==========================================================================
