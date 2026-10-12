@@ -970,7 +970,9 @@ window.matchMedia("(max-width: 760px)").addEventListener("change", closeMenu);
    INTERACTIVE CURSOR & MOUSE EFFECTS ENGINE
    ========================================================================== */
 function initMouseEffects() {
-  if (window.matchMedia("(hover: none), (pointer: coarse)").matches) return;
+  if (window.matchMedia("(hover: none)").matches && !window.matchMedia("(hover: hover)").matches) {
+    return;
+  }
 
   const glow = document.querySelector("#cursor-glow");
   const dot = document.querySelector("#cursor-dot");
@@ -1052,13 +1054,14 @@ function initMouseEffects() {
 
   // Particle engine
   const particles = [];
-  const maxParticles = 75;
+  const maxParticles = 90;
   const colors = [
-    "#ffd15c", // Gold Amber
-    "#ffeaa7", // Soft Gold
-    "#c084fc", // Discord Purple
-    "#ffffff", // Brilliant White
-    "#f59e0b", // Deep Amber
+    "#ffd15c", // Royal Gold
+    "#ffeaa7", // Luminous Champagne
+    "#ffffff", // Diamond Stardust
+    "#c084fc", // Amethyst Violet
+    "#f59e0b", // Imperial Deep Gold
+    "#f472b6", // Rose Radiance
   ];
 
   class Particle {
@@ -1162,8 +1165,11 @@ function initMouseEffects() {
     const dy = e.clientY - mouse.lastY;
     mouse.speed = Math.hypot(dx, dy);
 
-    if (mouse.speed > 5 && Math.random() > 0.45 && !document.body.classList.contains("modal-open")) {
-      spawnTrail(e.clientX, e.clientY, 1);
+    if (mouse.speed > 1.8 && !document.body.classList.contains("modal-open")) {
+      const chance = mouse.speed > 12 ? 0.95 : (mouse.speed > 5 ? 0.82 : 0.6);
+      if (Math.random() < chance) {
+        spawnTrail(e.clientX, e.clientY, mouse.speed > 20 ? 2 : 1);
+      }
     }
 
     mouse.lastX = e.clientX;

@@ -1329,116 +1329,35 @@ form textarea {
   padding: 25px;
   min-width: 0;
 }
-/* 3D Volumetric Typography Card (Womp 3D Style) */
+/* 3D Volumetric Typography (Seamless Hero Integration) */
 .hero-3d-card {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9.2;
-  min-height: 250px;
-  border: 1px solid rgba(255, 209, 92, 0.3);
-  border-radius: 14px;
-  overflow: hidden;
-  background:
-    radial-gradient(ellipse at 50% 45%, rgba(68, 24, 31, 0.72) 0%, rgba(20, 11, 13, 0.96) 72%),
-    linear-gradient(135deg, #220e12, #140b0d);
-  box-shadow:
-    0 20px 50px rgba(9, 1, 2, 0.85),
-    0 0 40px rgba(223, 101, 36, 0.15),
-    inset 0 1px 0 rgba(255, 209, 92, 0.25),
-    inset 0 0 30px rgba(239, 68, 68, 0.12);
+  min-height: 260px;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  background: transparent;
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: center;
   user-select: none;
-  cursor: grab;
   touch-action: none;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-.hero-3d-card:active {
-  cursor: grabbing;
-}
-.hero-3d-card:hover {
-  border-color: rgba(255, 209, 92, 0.5);
-  box-shadow:
-    0 24px 60px rgba(9, 1, 2, 0.9),
-    0 0 50px rgba(255, 209, 92, 0.22),
-    inset 0 1px 0 rgba(255, 209, 92, 0.4),
-    inset 0 0 35px rgba(239, 68, 68, 0.18);
 }
 .hero-3d-canvas {
   width: 100%;
   height: 100%;
   display: block;
+  background: transparent;
 }
-.hero-3d-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 14px 16px;
-  z-index: 2;
-}
-.hero-3d-badge {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(20, 11, 13, 0.72);
-  border: 1px solid rgba(255, 209, 92, 0.32);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  color: #ffd15c;
-  text-shadow: 0 0 8px rgba(255, 209, 92, 0.45);
-}
-.hero-3d-badge-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 8px #10b981, 0 0 14px #10b981;
-  animation: badge-pulse 2s infinite ease-in-out;
-}
-@keyframes badge-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
-}
-.hero-3d-hint {
-  align-self: flex-end;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 9px;
-  border-radius: 6px;
-  background: rgba(15, 8, 10, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  font-size: 8px;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-  color: #d1b8ab;
-  transition: opacity 0.5s ease, transform 0.5s ease;
-}
-.hero-3d-hint svg,
-.hero-3d-hint [data-icon] {
-  width: 10px;
-  height: 10px;
-  color: #ffd15c;
-}
-.hero-3d-hint.hidden {
-  opacity: 0;
-  transform: translateY(6px);
-  pointer-events: none;
-}
-.hero-3d-card.is-fallback .hero-3d-overlay {
-  display: none;
+.hero-3d-card.is-fallback .fallback-banner {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid #9e643658;
+  border-radius: 12px;
 }
 .hero-brand-banner {
   display: block;
@@ -1775,15 +1694,6 @@ form textarea {
   .hero-3d-card {
     aspect-ratio: 16 / 11;
     min-height: 240px;
-    border-radius: 12px;
-  }
-  .hero-3d-badge {
-    font-size: 7.5px;
-    padding: 3px 8px;
-  }
-  .hero-3d-hint {
-    font-size: 7.5px;
-    padding: 3px 7px;
   }
 }
 @media (max-width: 480px) {
@@ -2290,8 +2200,8 @@ form textarea {
   z-index: 9997;
 }
 
-/* Touch & Mobile Fallback: Disable custom cursors gracefully */
-@media (hover: none), (pointer: coarse) {
+/* Touch & Mobile Fallback: Disable custom cursors only on pure touch-only devices */
+@media (hover: none) and (pointer: coarse) {
   .cursor-glow,
   .cursor-dot,
   .cursor-ring,
@@ -2301,7 +2211,7 @@ form textarea {
 }
 
 /* Hiệu ứng con trỏ chuột cao cấp (Dual Precision Gold Cursor & Aura Ring) */
-@media (hover: hover) and (pointer: fine) {
+@media (hover: hover) {
   body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) {
     cursor: none;
   }

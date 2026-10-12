@@ -1,10 +1,11 @@
 /**
- * VietNam Legacy · 3D Volumetric Typography Engine
- * Inspired by Womp 3D puffy, glossy, metallic typography.
+ * VietNam Legacy · High-End 3D Typography Engine
+ * Professional, seamless volumetric 3D letters for "VIETNAM" & "LEGACY".
  * Features:
- * - Real-time 3D beveled volumetric letters ("VIETNAM" & "LEGACY")
+ * - Clean, highly-legible Droid Sans typography with custom tracking & razor-sharp chamfers
+ * - Seamless integration without frames or borders
  * - 3D Golden Star emblem with continuous rotation
- * - Procedural luxury studio reflection environment map
+ * - Procedural studio reflection environment map
  * - Specular reflection sweep tracking mouse cursor
  * - Interactive 3D tilt, drag-to-rotate, and elastic jelly bounce ("goop" physics)
  * - Drifting ambient 3D stardust / sparkle motes
@@ -17,7 +18,6 @@
   function initHero3D() {
     const card = document.getElementById('hero-3d-card');
     const canvas = document.getElementById('hero-3d-canvas');
-    const hint = document.getElementById('hero-3d-hint');
 
     if (!card || !canvas) return;
 
@@ -29,7 +29,7 @@
     }
 
     try {
-      startScene(card, canvas, hint);
+      startScene(card, canvas);
     } catch (err) {
       console.error('Failed to initialize 3D Hero scene:', err);
       showFallback(card);
@@ -60,9 +60,9 @@
 
     // Background luxury obsidian gradient
     const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-    bgGrad.addColorStop(0, '#15090b');
-    bgGrad.addColorStop(0.5, '#261015');
-    bgGrad.addColorStop(1, '#0e0507');
+    bgGrad.addColorStop(0, '#1a090c');
+    bgGrad.addColorStop(0.5, '#2c1218');
+    bgGrad.addColorStop(1, '#110507');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
 
@@ -90,8 +90,8 @@
 
     // Overhead high-specular rim highlight strip
     const rimGrad = ctx.createLinearGradient(0, 0, 0, 45);
-    rimGrad.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
-    rimGrad.addColorStop(0.6, 'rgba(255, 220, 170, 0.4)');
+    rimGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+    rimGrad.addColorStop(0.6, 'rgba(255, 220, 170, 0.45)');
     rimGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = rimGrad;
     ctx.fillRect(0, 0, w, 45);
@@ -99,7 +99,7 @@
     // Subtle golden horizon reflection line
     const horizGrad = ctx.createLinearGradient(0, h * 0.46, 0, h * 0.54);
     horizGrad.addColorStop(0, 'rgba(255, 209, 92, 0)');
-    horizGrad.addColorStop(0.5, 'rgba(255, 209, 92, 0.35)');
+    horizGrad.addColorStop(0.5, 'rgba(255, 209, 92, 0.4)');
     horizGrad.addColorStop(1, 'rgba(255, 209, 92, 0)');
     ctx.fillStyle = horizGrad;
     ctx.fillRect(0, h * 0.46, w, h * 0.08);
@@ -124,28 +124,54 @@
     return shape;
   }
 
-  function startScene(card, canvas, hint) {
+  function createWordGroup(word, font, textOptions, material, tracking = 3.2) {
+    const group = new THREE.Group();
+    let currentX = 0;
+    for (let i = 0; i < word.length; i++) {
+      const char = word[i];
+      if (char === ' ') {
+        currentX += textOptions.size * 0.5;
+        continue;
+      }
+      const geom = new THREE.TextGeometry(char, textOptions);
+      geom.computeBoundingBox();
+      geom.computeVertexNormals();
+      const w = geom.boundingBox.max.x - geom.boundingBox.min.x;
+      const mesh = new THREE.Mesh(geom, material);
+      mesh.position.x = currentX - geom.boundingBox.min.x;
+      group.add(mesh);
+      currentX += w + tracking;
+    }
+    const totalW = currentX - tracking;
+    group.children.forEach(function (m) {
+      m.position.x -= totalW / 2;
+    });
+    return { group: group, width: totalW };
+  }
+
+  function startScene(card, canvas) {
     // Scene & Camera
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x130a0c, 0.0035);
+    scene.fog = new THREE.FogExp2(0x1a0b0e, 0.003);
 
-    const camera = new THREE.PerspectiveCamera(40, 1, 1, 1000);
-    camera.position.set(0, 0, 135);
+    const camera = new THREE.PerspectiveCamera(38, 1, 1, 1000);
+    camera.position.set(0, 0, 140);
 
-    // Renderer
+    // Renderer with full transparency for seamless integration
     const renderer = new THREE.WebGLRenderer({
       canvas: canvas,
       antialias: true,
       alpha: true,
       powerPreference: 'high-performance'
     });
+    renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     if (renderer.outputEncoding !== undefined) {
       renderer.outputEncoding = THREE.sRGBEncoding;
     }
     if (renderer.toneMapping !== undefined) {
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.15;
+      renderer.toneMappingExposure = 1.2;
     }
 
     // Procedural Studio Environment Reflection
@@ -155,24 +181,24 @@
     }
 
     // Lights
-    const ambientLight = new THREE.AmbientLight(0xffeedd, 0.85);
+    const ambientLight = new THREE.AmbientLight(0xffeedd, 0.9);
     scene.add(ambientLight);
 
-    const dirKeyLight = new THREE.DirectionalLight(0xfff7e6, 1.4);
+    const dirKeyLight = new THREE.DirectionalLight(0xfff7e6, 1.5);
     dirKeyLight.position.set(45, 60, 80);
     scene.add(dirKeyLight);
 
-    const dirCrimsonLight = new THREE.DirectionalLight(0xff4466, 1.1);
+    const dirCrimsonLight = new THREE.DirectionalLight(0xff3b56, 1.2);
     dirCrimsonLight.position.set(-50, -35, 50);
     scene.add(dirCrimsonLight);
 
-    const dirRimLight = new THREE.DirectionalLight(0xffd15c, 0.75);
+    const dirRimLight = new THREE.DirectionalLight(0xffd15c, 0.85);
     dirRimLight.position.set(0, 45, -50);
     scene.add(dirRimLight);
 
     // Interactive cursor point light (makes specular reflections roll across letters)
-    const cursorLight = new THREE.PointLight(0xffd15c, 2.4, 280);
-    cursorLight.position.set(0, 0, 60);
+    const cursorLight = new THREE.PointLight(0xffd15c, 2.6, 300);
+    cursorLight.position.set(0, 0, 65);
     scene.add(cursorLight);
 
     // 3D Sculpture Group
@@ -183,81 +209,79 @@
     const loader = new THREE.FontLoader();
     const font = loader.parse(window.VNL_FONT_DATA);
 
-    // Puffy, beveled Womp-style 3D letter parameters
+    // Professional, razor-sharp beveled parameters
     const textConfig = {
       font: font,
       curveSegments: 14,
       bevelEnabled: true,
-      bevelThickness: 3.2,
-      bevelSize: 1.8,
+      bevelThickness: 1.2,
+      bevelSize: 0.6,
       bevelOffset: 0,
-      bevelSegments: 7
+      bevelSegments: 5
     };
 
-    // Material 1: Imperial Gold ("VIETNAM")
+    // Material 1: Royal 24K Gold ("VIETNAM")
     const goldMaterial = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(0xffd15c),
-      emissive: new THREE.Color(0x2d1704),
-      emissiveIntensity: 0.18,
+      emissive: new THREE.Color(0x381b03),
+      emissiveIntensity: 0.22,
       metalness: 0.88,
-      roughness: 0.16,
+      roughness: 0.14,
       clearcoat: 1.0,
       clearcoatRoughness: 0.08,
       reflectivity: 1.0
     });
 
-    // Material 2: Radiant Ruby Crimson ("LEGACY")
+    // Material 2: Luxury Ruby Crimson ("LEGACY")
     const rubyMaterial = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(0xff5768),
-      emissive: new THREE.Color(0x350810),
-      emissiveIntensity: 0.22,
+      color: new THREE.Color(0xff3b56),
+      emissive: new THREE.Color(0x42020d),
+      emissiveIntensity: 0.26,
       metalness: 0.86,
-      roughness: 0.18,
+      roughness: 0.16,
       clearcoat: 1.0,
       clearcoatRoughness: 0.1,
       reflectivity: 1.0
     });
 
-    // Geometry 1: "VIETNAM"
-    const geomVietnam = new THREE.TextGeometry('VIETNAM', {
-      ...textConfig,
-      size: 15.5,
-      height: 5.2
-    });
-    geomVietnam.center();
-    geomVietnam.computeVertexNormals();
-    const meshVietnam = new THREE.Mesh(geomVietnam, goldMaterial);
-    meshVietnam.position.set(0, 10.5, 0);
-    rootGroup.add(meshVietnam);
+    // Word 1: "VIETNAM" with elegant tracking
+    const word1 = createWordGroup(
+      'VIETNAM',
+      font,
+      { ...textConfig, size: 14.5, height: 5.5 },
+      goldMaterial,
+      3.0
+    );
+    word1.group.position.set(0, 10.5, 0);
+    rootGroup.add(word1.group);
 
-    // Geometry 2: "LEGACY"
-    const geomLegacy = new THREE.TextGeometry('LEGACY', {
-      ...textConfig,
-      size: 14.5,
-      height: 5.2
-    });
-    geomLegacy.center();
-    geomLegacy.computeVertexNormals();
-    const meshLegacy = new THREE.Mesh(geomLegacy, rubyMaterial);
-    meshLegacy.position.set(0, -9.5, 0);
-    rootGroup.add(meshLegacy);
+    // Word 2: "LEGACY" with elegant tracking
+    const word2 = createWordGroup(
+      'LEGACY',
+      font,
+      { ...textConfig, size: 13.8, height: 5.5 },
+      rubyMaterial,
+      3.6
+    );
+    word2.group.position.set(0, -9.5, 0);
+    rootGroup.add(word2.group);
 
-    // Geometry 3: Puffy Golden Star emblem (floating at the top)
-    const starShape = createStarShape(7.5, 3.2, 5);
+    // Geometry 3: Bold Puffy Golden Star emblem (floating at the top)
+    const starShape = createStarShape(8.5, 3.6, 5);
     const starGeom = new THREE.ExtrudeGeometry(starShape, {
-      depth: 2.8,
+      depth: 3.2,
       bevelEnabled: true,
-      bevelThickness: 2.0,
-      bevelSize: 1.3,
+      bevelThickness: 1.6,
+      bevelSize: 0.9,
       bevelSegments: 5,
-      curveSegments: 10
+      curveSegments: 12
     });
     starGeom.center();
     starGeom.computeVertexNormals();
 
     const starMaterial = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(0xffe277),
-      emissive: new THREE.Color(0x452906),
+      color: new THREE.Color(0xffea79),
+      emissive: new THREE.Color(0x4d2a05),
       emissiveIntensity: 0.35,
       metalness: 0.92,
       roughness: 0.12,
@@ -266,18 +290,18 @@
     });
 
     const starMesh = new THREE.Mesh(starGeom, starMaterial);
-    starMesh.position.set(0, 27.5, 1.5);
+    starMesh.position.set(0, 28.5, 1.5);
     rootGroup.add(starMesh);
 
     // Floating Stardust Particles (luxury atmosphere)
-    const particleCount = 48;
+    const particleCount = 45;
     const particleGeom = new THREE.BufferGeometry();
     const particlePositions = new Float32Array(particleCount * 3);
     const particleScales = new Float32Array(particleCount);
     const particleOriginals = [];
 
     for (let i = 0; i < particleCount; i++) {
-      const px = (Math.random() - 0.5) * 160;
+      const px = (Math.random() - 0.5) * 170;
       const py = (Math.random() - 0.5) * 110;
       const pz = (Math.random() - 0.5) * 80;
       particlePositions[i * 3] = px;
@@ -315,7 +339,7 @@
       size: 4.5,
       map: particleTexture,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.75,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -346,13 +370,11 @@
     let velScaleY = 0;
     let velScaleZ = 0;
 
-    function triggerJellyPulse(strength = 1.0) {
-      velScaleX = 0.22 * strength;
-      velScaleY = -0.28 * strength;
-      velScaleZ = 0.18 * strength;
-      if (hint && !hint.classList.contains('hidden')) {
-        hint.classList.add('hidden');
-      }
+    function triggerJellyPulse(strength) {
+      const s = strength || 1.0;
+      velScaleX = 0.18 * s;
+      velScaleY = -0.24 * s;
+      velScaleZ = 0.15 * s;
     }
 
     // Dynamic Sizing & Camera Framing
@@ -364,14 +386,13 @@
       camera.aspect = width / height;
 
       // Adjust camera distance so text fits perfectly on all screen sizes (mobile -> 4K)
-      // Reference aspect ratio is ~1.75 on desktop
-      const refAspect = 1.6;
+      const refAspect = 1.55;
       if (camera.aspect < refAspect) {
         // Narrower screens (phones): pull camera back proportionally
         const zoomFactor = refAspect / camera.aspect;
-        camera.position.z = 135 * Math.min(zoomFactor, 1.65);
+        camera.position.z = 140 * Math.min(zoomFactor, 1.6);
       } else {
-        camera.position.z = 135;
+        camera.position.z = 140;
       }
 
       camera.updateProjectionMatrix();
@@ -381,14 +402,16 @@
     // ResizeObserver for zero-lag container responsiveness
     let resizeObserver = null;
     if (window.ResizeObserver) {
-      resizeObserver = new ResizeObserver(() => updateDimensions());
+      resizeObserver = new ResizeObserver(function () {
+        updateDimensions();
+      });
       resizeObserver.observe(card);
     } else {
       window.addEventListener('resize', updateDimensions);
     }
     updateDimensions();
 
-    // Interaction Handlers
+    // Interaction Handlers (seamless with custom cursor)
     function handlePointerMove(e) {
       const rect = card.getBoundingClientRect();
       const px = e.clientX - rect.left;
@@ -419,18 +442,18 @@
       isDragging = true;
       dragStartX = e.clientX;
       dragStartY = e.clientY;
-      triggerJellyPulse(0.7);
+      triggerJellyPulse(0.6);
     }
 
     function handlePointerUp() {
       if (isDragging) {
         isDragging = false;
-        triggerJellyPulse(0.5);
+        triggerJellyPulse(0.4);
       }
     }
 
     card.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointermove', (e) => {
+    window.addEventListener('pointermove', function (e) {
       if (isDragging) handlePointerMove(e);
     });
     card.addEventListener('pointerdown', handlePointerDown);
@@ -438,11 +461,13 @@
     window.addEventListener('pointercancel', handlePointerUp);
 
     // Double tap / click for big bouncy squash-and-stretch
-    card.addEventListener('dblclick', () => triggerJellyPulse(1.4));
+    card.addEventListener('dblclick', function () {
+      triggerJellyPulse(1.3);
+    });
 
     // Mobile Device Orientation (Gyroscope holographic parallax)
     if (window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission !== 'function') {
-      window.addEventListener('deviceorientation', (e) => {
+      window.addEventListener('deviceorientation', function (e) {
         if (e.gamma !== null && e.beta !== null && !isDragging) {
           const gx = Math.min(Math.max(e.gamma / 35, -1), 1);
           const gy = Math.min(Math.max((e.beta - 40) / 40, -1), 1);
@@ -453,11 +478,11 @@
     }
 
     // Animation Loop
-    let clock = new THREE.Clock();
+    const clock = new THREE.Clock();
     let animId = null;
     let isVisible = true;
 
-    document.addEventListener('visibilitychange', () => {
+    document.addEventListener('visibilitychange', function () {
       isVisible = !document.hidden;
       if (isVisible) clock.getDelta(); // reset clock delta
     });
@@ -538,7 +563,7 @@
     renderFrame();
 
     // Clean up if needed
-    window.addEventListener('beforeunload', () => {
+    window.addEventListener('beforeunload', function () {
       if (animId) cancelAnimationFrame(animId);
       if (resizeObserver) resizeObserver.disconnect();
     });
