@@ -2221,21 +2221,10 @@ form textarea {
   z-index: 9997;
 }
 
-/* Touch & Mobile Fallback: Disable custom cursors only on pure touch-only devices */
-@media (hover: none) and (pointer: coarse) {
-  .cursor-glow,
-  .cursor-dot,
-  .cursor-ring,
-  .cursor-particles {
-    display: none !important;
-  }
-}
-
 /* Hiệu ứng con trỏ chuột cao cấp (Dual Precision Gold Cursor & Aura Ring) */
-@media (hover: hover) {
-  body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) {
-    cursor: none;
-  }
+body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) {
+  cursor: none;
+}
   body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) button,
   body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) a,
   body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) select,
@@ -2308,7 +2297,6 @@ form textarea {
     visibility: hidden !important;
     pointer-events: none !important;
   }
-}
 
 /* ==========================================================================
    SMOOTH SCROLL REVEAL ANIMATIONS

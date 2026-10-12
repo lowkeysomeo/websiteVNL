@@ -970,9 +970,6 @@ window.matchMedia("(max-width: 760px)").addEventListener("change", closeMenu);
    INTERACTIVE CURSOR & MOUSE EFFECTS ENGINE
    ========================================================================== */
 function initMouseEffects() {
-  if (window.matchMedia("(hover: none)").matches && !window.matchMedia("(hover: hover)").matches) {
-    return;
-  }
 
   const glow = document.querySelector("#cursor-glow");
   const dot = document.querySelector("#cursor-dot");
@@ -1147,6 +1144,13 @@ function initMouseEffects() {
     }
   }
 
+  window.addEventListener("touchstart", () => {
+    document.body.classList.remove("has-custom-cursor");
+    glow.classList.remove("active");
+    dot.classList.remove("active");
+    ring.classList.remove("active");
+  }, { passive: true });
+
   window.addEventListener("mousemove", (e) => {
     mouse.targetX = e.clientX;
     mouse.targetY = e.clientY;
@@ -1155,6 +1159,10 @@ function initMouseEffects() {
       hasMoved = true;
       mouse.x = ringPos.x = glowPos.x = e.clientX;
       mouse.y = ringPos.y = glowPos.y = e.clientY;
+    }
+
+    if (!document.body.classList.contains("has-custom-cursor")) {
+      document.body.classList.add("has-custom-cursor");
     }
 
     if (!glow.classList.contains("active")) glow.classList.add("active");
