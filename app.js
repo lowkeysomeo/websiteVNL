@@ -962,3 +962,253 @@ updateCounts();
 renderProducts();
 closeMenu();
 window.matchMedia("(max-width: 760px)").addEventListener("change", closeMenu);
+
+/* ==========================================================================
+   INTERACTIVE CURSOR & MOUSE EFFECTS ENGINE
+   ========================================================================== */
+function initMouseEffects() {
+  if (window.matchMedia("(hover: none), (pointer: coarse)").matches) return;
+
+  const glow = document.querySelector("#cursor-glow");
+  const dot = document.querySelector("#cursor-dot");
+  const ring = document.querySelector("#cursor-ring");
+  const canvas = document.querySelector("#cursor-particles");
+
+  if (!glow || !dot || !ring || !canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  let width = window.innerWidth;
+  let height = window.innerHeight;
+
+  function resizeCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+  }
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+
+  const mouse = {
+    x: -500,
+    y: -500,
+    targetX: -500,
+    targetY: -500,
+    lastX: -500,
+    lastY: -500,
+    speed: 0,
+  };
+  const ringPos = { x: -500, y: -500 };
+  const glowPos = { x: -500, y: -500 };
+  let hasMoved = false;
+
+  // Particle engine
+  const particles = [];
+  const maxParticles = 75;
+  const colors = [
+    "#ffd15c", // Gold Amber
+    "#ffeaa7", // Soft Gold
+    "#c084fc", // Discord Purple
+    "#ffffff", // Brilliant White
+    "#f59e0b", // Deep Amber
+  ];
+
+  class Particle {
+    constructor(x, y, vx, vy, color, size, decay) {
+      this.x = x;
+      this.y = y;
+      this.vx = vx;
+      this.vy = vy;
+      this.color = color;
+      this.size = size;
+      this.alpha = 1;
+      this.decay = decay;
+      this.rotation = Math.random() * Math.PI * 2;
+      this.vRot = (Math.random() - 0.5) * 0.12;
+      this.isStar = Math.random() > 0.35;
+    }
+
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      this.vx *= 0.94;
+      this.vy *= 0.94;
+      this.vy += 0.035; // Gentle downward float
+      this.alpha -= this.decay;
+      this.rotation += this.vRot;
+      return this.alpha > 0;
+    }
+
+    draw(context) {
+      context.save();
+      context.globalAlpha = Math.max(0, this.alpha);
+      context.translate(this.x, this.y);
+      context.rotate(this.rotation);
+      context.fillStyle = this.color;
+      context.shadowColor = this.color;
+      context.shadowBlur = 6;
+
+      if (this.isStar) {
+        // Delicate 4-pointed sparkle star
+        const r = this.size;
+        context.beginPath();
+        context.moveTo(0, -r * 1.6);
+        context.quadraticCurveTo(0, 0, r * 1.6, 0);
+        context.quadraticCurveTo(0, 0, 0, r * 1.6);
+        context.quadraticCurveTo(0, 0, -r * 1.6, 0);
+        context.quadraticCurveTo(0, 0, 0, -r * 1.6);
+        context.closePath();
+        context.fill();
+      } else {
+        context.beginPath();
+        context.arc(0, 0, this.size, 0, Math.PI * 2);
+        context.fill();
+      }
+      context.restore();
+    }
+  }
+
+  function spawnTrail(x, y, count = 1) {
+    if (particles.length >= maxParticles) return;
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 1.2 + 0.3;
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed - 0.2;
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const size = Math.random() * 2.2 + 1;
+      const decay = Math.random() * 0.025 + 0.02;
+      particles.push(new Particle(x, y, vx, vy, color, size, decay));
+    }
+  }
+
+  function spawnBurst(x, y) {
+    const count = 12;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+      const speed = Math.random() * 3.6 + 1.8;
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed;
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const size = Math.random() * 3.2 + 1.6;
+      const decay = Math.random() * 0.022 + 0.016;
+      particles.push(new Particle(x, y, vx, vy, color, size, decay));
+    }
+  }
+
+  window.addEventListener("mousemove", (e) => {
+    mouse.targetX = e.clientX;
+    mouse.targetY = e.clientY;
+
+    if (!hasMoved) {
+      hasMoved = true;
+      mouse.x = ringPos.x = glowPos.x = e.clientX;
+      mouse.y = ringPos.y = glowPos.y = e.clientY;
+      glow.classList.add("active");
+      dot.classList.add("active");
+      ring.classList.add("active");
+    }
+
+    const dx = e.clientX - mouse.lastX;
+    const dy = e.clientY - mouse.lastY;
+    mouse.speed = Math.hypot(dx, dy);
+
+    if (mouse.speed > 5 && Math.random() > 0.45) {
+      spawnTrail(e.clientX, e.clientY, 1);
+    }
+
+    mouse.lastX = e.clientX;
+    mouse.lastY = e.clientY;
+
+    // Interactive Card Spotlight
+    const card = e.target.closest(
+      ".product-card, .support-card, .bottom-banner, .benefit-item, .order-card, .catalog-controls",
+    );
+    if (card) {
+      const rect = card.getBoundingClientRect();
+      card.style.setProperty("--mouse-x", `${e.clientX - rect.left}px`);
+      card.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
+    }
+  });
+
+  window.addEventListener("mousedown", (e) => {
+    ring.classList.add("clicking");
+    dot.classList.add("clicking");
+    spawnBurst(e.clientX, e.clientY);
+  });
+
+  window.addEventListener("mouseup", () => {
+    ring.classList.remove("clicking");
+    dot.classList.remove("clicking");
+  });
+
+  document.addEventListener("mouseover", (e) => {
+    const target = e.target.closest(
+      "button, a, input, select, textarea, .product-card, .filter, [role='button'], .favorite-button, [data-action], .nav-item, .add-button, .buy-button",
+    );
+    if (target) {
+      ring.classList.add("hover");
+      dot.classList.add("hover");
+    }
+  });
+
+  document.addEventListener("mouseout", (e) => {
+    const target = e.target.closest(
+      "button, a, input, select, textarea, .product-card, .filter, [role='button'], .favorite-button, [data-action], .nav-item, .add-button, .buy-button",
+    );
+    if (target) {
+      ring.classList.remove("hover");
+      dot.classList.remove("hover");
+    }
+  });
+
+  document.addEventListener("mouseleave", () => {
+    glow.classList.remove("active");
+    dot.classList.remove("active");
+    ring.classList.remove("active");
+  });
+
+  document.addEventListener("mouseenter", () => {
+    if (hasMoved) {
+      glow.classList.add("active");
+      dot.classList.add("active");
+      ring.classList.add("active");
+    }
+  });
+
+  function renderLoop() {
+    // Smooth easing
+    mouse.x += (mouse.targetX - mouse.x) * 0.8;
+    mouse.y += (mouse.targetY - mouse.y) * 0.8;
+
+    ringPos.x += (mouse.targetX - ringPos.x) * 0.18;
+    ringPos.y += (mouse.targetY - ringPos.y) * 0.18;
+
+    glowPos.x += (mouse.targetX - glowPos.x) * 0.08;
+    glowPos.y += (mouse.targetY - glowPos.y) * 0.08;
+
+    dot.style.transform = `translate3d(${mouse.x}px, ${mouse.y}px, 0) translate(-50%, -50%)`;
+    ring.style.transform = `translate3d(${ringPos.x}px, ${ringPos.y}px, 0) translate(-50%, -50%)`;
+    glow.style.transform = `translate3d(${glowPos.x}px, ${glowPos.y}px, 0) translate(-50%, -50%)`;
+
+    // Render particles
+    ctx.clearRect(0, 0, width, height);
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      if (p.update()) {
+        p.draw(ctx);
+      } else {
+        particles.splice(i, 1);
+      }
+    }
+
+    requestAnimationFrame(renderLoop);
+  }
+
+  requestAnimationFrame(renderLoop);
+}
+
+initMouseEffects();

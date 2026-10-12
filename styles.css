@@ -583,15 +583,41 @@ h2 {
   border-radius: 10px;
   overflow: hidden;
   transition:
-    border-color 0.2s,
-    transform 0.2s;
+    border-color 0.25s,
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.25s;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+.product-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    380px circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
+    rgba(255, 209, 92, 0.18),
+    rgba(147, 51, 234, 0.08) 40%,
+    transparent 80%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.product-card:hover::before {
+  opacity: 1;
 }
 .product-card:hover {
-  border-color: #615149;
-  transform: translateY(-3px);
+  border-color: rgba(255, 209, 92, 0.55);
+  box-shadow: 0 14px 34px -12px rgba(0, 0, 0, 0.65), 0 0 24px rgba(255, 209, 92, 0.12);
+  transform: translateY(-4px);
+}
+.product-card > * {
+  position: relative;
+  z-index: 2;
 }
 .product-media {
   height: 177px;
@@ -1868,3 +1894,147 @@ form textarea {
   color: var(--text);
   border-color: var(--accent);
 }
+
+/* ==========================================================================
+   INTERACTIVE CURSOR & MOUSE EFFECTS
+   ========================================================================== */
+
+/* 1. Ambient Background Spotlight Glow */
+.cursor-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 209, 92, 0.14) 0%,
+    rgba(147, 51, 234, 0.1) 35%,
+    rgba(20, 11, 13, 0) 70%
+  );
+  filter: blur(65px);
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+.cursor-glow.active {
+  opacity: 1;
+}
+
+/* 2. Precision Dual Cursor (Dot & Trailing Ring) */
+.cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow:
+    0 0 10px rgba(255, 209, 92, 0.9),
+    0 0 20px rgba(255, 209, 92, 0.5);
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.15s ease, background 0.2s ease;
+  will-change: transform;
+}
+
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 209, 92, 0.45);
+  background: rgba(255, 209, 92, 0.02);
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition:
+    opacity 0.3s ease,
+    width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    height 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+  will-change: transform;
+}
+
+.cursor-dot.active,
+.cursor-ring.active {
+  opacity: 1;
+}
+
+/* Hovering over clickable items */
+.cursor-ring.hover {
+  width: 58px;
+  height: 58px;
+  border-color: var(--accent);
+  background: rgba(255, 209, 92, 0.12);
+  box-shadow: 0 0 24px rgba(255, 209, 92, 0.28);
+}
+
+.cursor-dot.hover {
+  transform: translate(-50%, -50%) scale(0.65);
+  background: #ffffff;
+}
+
+/* Mouse click state */
+.cursor-ring.clicking {
+  width: 26px;
+  height: 26px;
+  background: rgba(255, 209, 92, 0.25);
+  border-color: #ffffff;
+}
+
+.cursor-dot.clicking {
+  transform: translate(-50%, -50%) scale(1.4);
+}
+
+/* 3. Sparkling Stardust Canvas */
+.cursor-particles {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9997;
+}
+
+/* Touch & Mobile Fallback: Disable custom cursors gracefully */
+@media (hover: none), (pointer: coarse) {
+  .cursor-glow,
+  .cursor-dot,
+  .cursor-ring,
+  .cursor-particles {
+    display: none !important;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body {
+    cursor: none;
+  }
+  button,
+  a,
+  select,
+  .filter,
+  .favorite-button,
+  .product-open {
+    cursor: none;
+  }
+  input,
+  textarea {
+    cursor: text;
+  }
+}
+
