@@ -503,6 +503,7 @@ export function createApp(db, config) {
           "products.js",
           "app.js",
           "hero3d.js",
+          "cursor.js",
           "wallet.js",
           "wallet.css",
           "admin.html",
