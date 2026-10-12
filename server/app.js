@@ -32,6 +32,7 @@ const types = {
   ".js": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".json": "application/json",
 };
 
 async function readBody(req) {
@@ -501,13 +502,14 @@ export function createApp(db, config) {
           "styles.css",
           "products.js",
           "app.js",
+          "hero3d.js",
           "wallet.js",
           "wallet.css",
           "admin.html",
           "admin.js",
           "admin.css",
         ].includes(relative) &&
-        !/^assets\/[a-zA-Z0-9_-]+\.(svg|png)$/.test(relative)
+        !/^assets\/(vendor\/|fonts\/)?[a-zA-Z0-9_.-]+\.(svg|png|js|json)$/.test(relative)
       )
         throw fail(404, "Không tìm thấy trang.");
       const bytes = await readFile(path.join(root, relative));

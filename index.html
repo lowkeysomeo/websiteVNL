@@ -10,6 +10,9 @@
     />
     <title>VietNam Legacy · Digital store, chất riêng của bạn</title>
     <link rel="stylesheet" href="styles.css" />
+    <script src="assets/vendor/three.min.js" defer></script>
+    <script src="assets/fonts/vnl-font.js" defer></script>
+    <script src="hero3d.js" defer></script>
     <script src="products.js" defer></script>
     <script src="app.js" defer></script>
     <link rel="stylesheet" href="wallet.css" />
@@ -184,14 +187,23 @@
             </div>
           </div>
           <div class="hero-media">
-            <img
-              class="hero-brand-banner"
-              src="assets/vnl-banner.png"
-              alt="Banner VietNam Legacy màu đỏ vàng, logo VNL và cờ ngôi sao vàng"
-              width="1672"
-              height="941"
-              fetchpriority="high"
-            /><span class="hero-media-caption"
+            <div
+              class="hero-3d-card"
+              id="hero-3d-card"
+              role="region"
+              aria-label="Chữ 3D tương tác VietNam Legacy phong cách Womp 3D"
+            >
+              <canvas id="hero-3d-canvas" class="hero-3d-canvas"></canvas>
+              <div class="hero-3d-overlay" aria-hidden="true">
+                <span class="hero-3d-badge">
+                  <span class="hero-3d-badge-dot"></span> 3D LIVE
+                </span>
+                <span class="hero-3d-hint" id="hero-3d-hint">
+                  <span data-icon="sparkles"></span> Chạm &amp; xoay 3D
+                </span>
+              </div>
+            </div>
+            <span class="hero-media-caption"
               >VIETNAM LEGACY · DIGITAL STORE</span
             >
           </div>
