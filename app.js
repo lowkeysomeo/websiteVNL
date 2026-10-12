@@ -214,7 +214,10 @@ function renderProducts() {
           ${
             product.service
               ? `<button class="add-button" data-detail="${product.id}">Tư vấn ${icon("arrow")}</button>`
-              : `<button class="add-button" data-add="${product.id}">${icon("bag")} Thêm giỏ</button>`
+              : `<div class="product-card-actions">
+                  <button class="add-button" data-add="${product.id}" title="Thêm vào giỏ hàng">${icon("bag")} Thêm giỏ</button>
+                  <button class="buy-button" data-buy="${product.id}" title="Mua trực tiếp không cần giỏ">Mua ngay ⚡</button>
+                </div>`
           }
         </div>
       </div>
@@ -247,7 +250,7 @@ function resetFilters() {
   renderProducts();
 }
 
-function showProduct(id) {
+function showProduct(id, isDirectBuy = false) {
   const product = getProduct(id);
   if (!product) return;
   const first = product.variants[0];
@@ -257,6 +260,7 @@ function showProduct(id) {
       <div class="detail-copy" data-product="${product.id}">
         <div class="eyebrow">${categoryNames[product.category].toUpperCase()}</div>
         <h2 id="product-title">${product.name}</h2>
+        ${isDirectBuy ? '<div class="direct-buy-banner">⚡ MUA TRỰC TIẾP · Chọn gói bạn muốn để tiến hành thanh toán ngay</div>' : ""}
         <p>${product.detail}</p>
         <ul class="product-features">${product.features.map((feature) => `<li>${icon("check")}${feature}</li>`).join("")}</ul>
         ${
@@ -266,11 +270,14 @@ function showProduct(id) {
           <p class="fine-print">Báo giá sau khi thống nhất yêu cầu và phạm vi thực hiện.</p>
         `
             : `
-          <label for="variant">Chọn gói · giá minh họa</label>
+          <label for="variant">Chọn gói sản phẩm</label>
           <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name} — ${money(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${money(first.price)}</div>
-          <button class="button primary full-width" id="detail-add">Thêm vào giỏ ${icon("bag")}</button>
-          <p class="fine-print">Thông tin và giá đang là mẫu. Hỏi shop trên Discord về gói thực tế.</p>
+          <div class="detail-actions">
+            <button class="button secondary" id="detail-add">${icon("bag")} Thêm giỏ</button>
+            <button class="button primary detail-buy-btn" id="detail-buy">Mua ngay ⚡</button>
+          </div>
+          <p class="fine-print">Thanh toán an toàn qua số dư ví VietNam Legacy.</p>
         `
         }
       </div>
@@ -286,9 +293,35 @@ function showProduct(id) {
       addToCart(id, select.value);
       productDialog.close();
     });
+    document.querySelector("#detail-buy").addEventListener("click", () => {
+      productDialog.close();
+      buyNowDirect(id, select.value);
+    });
   }
   productDialog.showModal();
 }
+
+function buyNowDirect(productId, variantId) {
+  const product = getProduct(productId);
+  if (!product || product.service) return;
+  const variant = variantId
+    ? getVariant(product, variantId)
+    : product.variants[0];
+  if (!variant) return;
+
+  const directItem = {
+    productId: product.id,
+    variantId: variant.id,
+    name: product.name,
+    variant: variant.name,
+    price: variant.price,
+    quantity: 1,
+    deliveryType: variant.deliveryType || "gift",
+  };
+
+  startCheckout(directItem);
+}
+
 
 function addToCart(productId, variantId) {
   const product = getProduct(productId);
@@ -337,14 +370,21 @@ function renderCart() {
     `<div class="cart-total"><span>Tổng giá trị mẫu</span><strong>${money(cartTotal())}</strong></div><p class="muted">Giá minh họa. Chưa kết nối thanh toán.</p><button class="button primary full-width" id="start-checkout">Tiếp tục đặt hàng thử ${icon("arrow")}</button>`;
 }
 
-async function startCheckout() {
-  if (!state.cart.length) return;
+let currentDirectItem = null;
+
+async function startCheckout(directItem = null) {
+  currentDirectItem = directItem;
+  const items = directItem ? [directItem] : state.cart;
+  if (!items.length) return;
   cartDialog.close();
 
-  const total = cartTotal();
+  const total = directItem
+    ? directItem.price * directItem.quantity
+    : cartTotal();
   document.querySelector("#checkout-total").textContent = money(total);
 
-  const hasLog = state.cart.some((item) => {
+  const hasLog = items.some((item) => {
+    if (directItem) return directItem.deliveryType === "log";
     const product = getProduct(item.productId);
     const variant = getVariant(product, item.variantId);
     return variant?.deliveryType === "log";
@@ -582,6 +622,7 @@ document.addEventListener("click", (event) => {
   if (button.hasAttribute("data-close")) button.closest("dialog")?.close();
   if (button.dataset.detail) showProduct(button.dataset.detail);
   if (button.dataset.add) addToCart(button.dataset.add);
+  if (button.dataset.buy) showProduct(button.dataset.buy, true);
   if (button.dataset.action) handleAction(button.dataset.action);
   if (button.dataset.favorite) {
     const id = button.dataset.favorite;
@@ -695,25 +736,23 @@ document
   .querySelector("#checkout-form")
   .addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!state.cart.length) return;
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    const name = String(data.get("name")).trim();
-    const email = String(data.get("email")).trim();
-    const note = String(data.get("note") || "").trim();
-    const submitBtn = document.querySelector("#checkout-submit-btn");
+    const itemsToOrder = currentDirectItem
+      ? [currentDirectItem]
+      : state.cart.map((item) => {
+          const product = getProduct(item.productId);
+          const variant = getVariant(product, item.variantId);
+          return {
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+            price: variant.price,
+            deliveryType: variant.deliveryType,
+          };
+        });
 
-    if (!name) {
-      form.elements.name.setCustomValidity("Vui lòng nhập tên người nhận.");
-      form.elements.name.reportValidity();
-      return;
-    }
+    if (!itemsToOrder.length) return;
 
-    const hasLog = state.cart.some((item) => {
-      const product = getProduct(item.productId);
-      const variant = getVariant(product, item.variantId);
-      return variant?.deliveryType === "log";
-    });
+    const hasLog = itemsToOrder.some((item) => item.deliveryType === "log");
 
     const discordAccount = String(data.get("discordAccount") || "").trim();
     const discordPassword = String(data.get("discordPassword") || "").trim();
@@ -764,7 +803,10 @@ document
         );
       }
 
-      const total = cartTotal();
+      const total = currentDirectItem
+        ? currentDirectItem.price * currentDirectItem.quantity
+        : cartTotal();
+
       if ((session.balance || 0) < total) {
         throw new Error(
           `Số dư ví không đủ (hiện có ${money(session.balance || 0)}, đơn cần ${money(total)}). Vui lòng nạp thêm tiền vào ví.`,
@@ -777,7 +819,7 @@ document
         email,
         note,
         paymentMethod: "wallet",
-        items: state.cart.map((item) => ({
+        items: itemsToOrder.map((item) => ({
           productId: item.productId,
           variantId: item.variantId,
           quantity: item.quantity,
@@ -802,10 +844,14 @@ document
         throw new Error(resData.error || "Không thể tạo đơn hàng.");
       }
 
-      // 3. Clear cart & update state
-      state.cart = [];
-      saveState();
-      updateCounts();
+      // 3. Clear cart if not direct buy
+      if (!currentDirectItem) {
+        state.cart = [];
+        saveState();
+        updateCounts();
+      }
+      currentDirectItem = null;
+
       form.reset();
       checkoutDialog.close();
 
