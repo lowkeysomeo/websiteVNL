@@ -1175,9 +1175,9 @@ function initMouseEffects() {
     mouse.lastX = e.clientX;
     mouse.lastY = e.clientY;
 
-    // Interactive Card Spotlight
+    // Interactive Card & Hero Spotlight
     const card = e.target.closest(
-      ".product-card, .support-card, .bottom-banner, .benefit-item, .order-card, .catalog-controls",
+      ".hero, .hero-media, .product-card, .support-card, .bottom-banner, .benefit-item, .order-card, .catalog-controls",
     );
     if (card) {
       const rect = card.getBoundingClientRect();
@@ -1240,8 +1240,8 @@ function initMouseEffects() {
     ringPos.x += (mouse.targetX - ringPos.x) * 0.18;
     ringPos.y += (mouse.targetY - ringPos.y) * 0.18;
 
-    glowPos.x += (mouse.targetX - glowPos.x) * 0.08;
-    glowPos.y += (mouse.targetY - glowPos.y) * 0.08;
+    glowPos.x += (mouse.targetX - glowPos.x) * 0.14;
+    glowPos.y += (mouse.targetY - glowPos.y) * 0.14;
 
     dot.style.transform = `translate3d(${mouse.x}px, ${mouse.y}px, 0) translate(-50%, -50%)`;
     ring.style.transform = `translate3d(${ringPos.x}px, ${ringPos.y}px, 0) translate(-50%, -50%)`;

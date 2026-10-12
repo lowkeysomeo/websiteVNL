@@ -491,6 +491,25 @@ main {
     radial-gradient(ellipse at 85% 50%, #44181f75, transparent 57%),
     linear-gradient(115deg, #271619, #231214);
 }
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
+    rgba(255, 209, 92, 0.14),
+    rgba(239, 68, 68, 0.08) 40%,
+    transparent 75%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.hero:hover::before {
+  opacity: 1;
+}
 .hero-copy {
   padding: 38px 0 35px 37px;
   z-index: 2;
@@ -2098,17 +2117,20 @@ form textarea {
   height: 520px;
   border-radius: 50%;
   pointer-events: none;
-  z-index: 0;
+  z-index: 9996;
   transform: translate(-50%, -50%);
   background: radial-gradient(
-    circle,
-    rgba(255, 209, 92, 0.14) 0%,
-    rgba(147, 51, 234, 0.1) 35%,
-    rgba(20, 11, 13, 0) 70%
+    circle at center,
+    rgba(255, 209, 92, 0.28) 0%,
+    rgba(245, 158, 11, 0.18) 25%,
+    rgba(239, 68, 68, 0.12) 45%,
+    rgba(147, 51, 234, 0.08) 65%,
+    transparent 80%
   );
-  filter: blur(65px);
+  filter: blur(35px);
+  mix-blend-mode: screen;
   opacity: 0;
-  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.4s ease;
   will-change: transform, opacity;
 }
 
