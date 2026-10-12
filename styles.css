@@ -1931,13 +1931,13 @@ form textarea {
   position: fixed;
   top: 0;
   left: 0;
-  width: 7px;
-  height: 7px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--accent);
   box-shadow:
-    0 0 10px rgba(255, 209, 92, 0.9),
-    0 0 20px rgba(255, 209, 92, 0.5);
+    0 0 8px rgba(255, 209, 92, 0.9),
+    0 0 16px rgba(255, 209, 92, 0.4);
   pointer-events: none;
   z-index: 9999;
   transform: translate(-50%, -50%);
@@ -1950,10 +1950,10 @@ form textarea {
   position: fixed;
   top: 0;
   left: 0;
-  width: 36px;
-  height: 36px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 209, 92, 0.45);
+  border: 1.2px solid rgba(255, 209, 92, 0.55);
   background: rgba(255, 209, 92, 0.02);
   pointer-events: none;
   z-index: 9998;
@@ -1976,28 +1976,28 @@ form textarea {
 
 /* Hovering over clickable items */
 .cursor-ring.hover {
-  width: 58px;
-  height: 58px;
+  width: 36px;
+  height: 36px;
   border-color: var(--accent);
-  background: rgba(255, 209, 92, 0.12);
-  box-shadow: 0 0 24px rgba(255, 209, 92, 0.28);
+  background: rgba(255, 209, 92, 0.1);
+  box-shadow: 0 0 16px rgba(255, 209, 92, 0.25);
 }
 
 .cursor-dot.hover {
-  transform: translate(-50%, -50%) scale(0.65);
+  transform: translate(-50%, -50%) scale(0.8);
   background: #ffffff;
 }
 
 /* Mouse click state */
 .cursor-ring.clicking {
-  width: 26px;
-  height: 26px;
+  width: 15px;
+  height: 15px;
   background: rgba(255, 209, 92, 0.25);
   border-color: #ffffff;
 }
 
 .cursor-dot.clicking {
-  transform: translate(-50%, -50%) scale(1.4);
+  transform: translate(-50%, -50%) scale(1.3);
 }
 
 /* 3. Sparkling Stardust Canvas */
@@ -2036,5 +2036,63 @@ form textarea {
   textarea {
     cursor: text;
   }
+
+  /* Khôi phục con trỏ chuột bình thường khi mở bất kỳ modal / dialog nào */
+  body.modal-open,
+  body:has(dialog[open]),
+  dialog,
+  dialog::backdrop,
+  dialog * {
+    cursor: auto !important;
+  }
+
+  dialog button,
+  dialog a,
+  dialog select,
+  dialog .button,
+  dialog [data-close],
+  dialog .dialog-close,
+  dialog [role="button"],
+  dialog .icon-button,
+  dialog label[for],
+  dialog [data-copy-link],
+  body.modal-open button,
+  body.modal-open a,
+  body.modal-open select,
+  body:has(dialog[open]) button,
+  body:has(dialog[open]) a,
+  body:has(dialog[open]) select {
+    cursor: pointer !important;
+  }
+
+  dialog button:disabled,
+  body.modal-open button:disabled,
+  body:has(dialog[open]) button:disabled {
+    cursor: not-allowed !important;
+  }
+
+  dialog input,
+  dialog textarea,
+  body.modal-open input,
+  body.modal-open textarea,
+  body:has(dialog[open]) input,
+  body:has(dialog[open]) textarea {
+    cursor: text !important;
+  }
+
+  /* Ẩn con trỏ ảo khi dialog đang mở để không bị che khuất hoặc gây loạn hiển thị */
+  body.modal-open .cursor-dot,
+  body.modal-open .cursor-ring,
+  body.modal-open .cursor-glow,
+  body.modal-open .cursor-particles,
+  body:has(dialog[open]) .cursor-dot,
+  body:has(dialog[open]) .cursor-ring,
+  body:has(dialog[open]) .cursor-glow,
+  body:has(dialog[open]) .cursor-particles {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
 }
+
 

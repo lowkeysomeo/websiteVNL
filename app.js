@@ -992,6 +992,46 @@ function initMouseEffects() {
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
 
+  // Đồng bộ trạng thái mở modal/dialog để đảm bảo con trỏ chuột không bị mất khi mua hàng
+  function updateModalCursorState() {
+    const hasOpenDialog = Array.from(document.querySelectorAll("dialog")).some(
+      (d) => d.open,
+    );
+    document.body.classList.toggle("modal-open", hasOpenDialog);
+  }
+
+  if (typeof MutationObserver !== "undefined") {
+    const dialogObserver = new MutationObserver(() => {
+      updateModalCursorState();
+    });
+
+    document.querySelectorAll("dialog").forEach((dialog) => {
+      dialogObserver.observe(dialog, {
+        attributes: true,
+        attributeFilter: ["open"],
+      });
+      dialog.addEventListener("close", updateModalCursorState);
+      dialog.addEventListener("cancel", updateModalCursorState);
+    });
+  }
+
+  if (typeof HTMLDialogElement !== "undefined") {
+    const origShowModal = HTMLDialogElement.prototype.showModal;
+    HTMLDialogElement.prototype.showModal = function () {
+      const res = origShowModal.apply(this, arguments);
+      document.body.classList.add("modal-open");
+      return res;
+    };
+    const origClose = HTMLDialogElement.prototype.close;
+    HTMLDialogElement.prototype.close = function () {
+      const res = origClose.apply(this, arguments);
+      updateModalCursorState();
+      return res;
+    };
+  }
+
+  updateModalCursorState();
+
   const mouse = {
     x: -500,
     y: -500,
@@ -1116,7 +1156,7 @@ function initMouseEffects() {
     const dy = e.clientY - mouse.lastY;
     mouse.speed = Math.hypot(dx, dy);
 
-    if (mouse.speed > 5 && Math.random() > 0.45) {
+    if (mouse.speed > 5 && Math.random() > 0.45 && !document.body.classList.contains("modal-open")) {
       spawnTrail(e.clientX, e.clientY, 1);
     }
 
@@ -1135,6 +1175,7 @@ function initMouseEffects() {
   });
 
   window.addEventListener("mousedown", (e) => {
+    if (document.body.classList.contains("modal-open")) return;
     ring.classList.add("clicking");
     dot.classList.add("clicking");
     spawnBurst(e.clientX, e.clientY);
