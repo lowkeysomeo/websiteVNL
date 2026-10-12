@@ -298,8 +298,11 @@
         </section>
         <footer>
           <a class="footer-logo" href="#home">VietNam<span>LEGACY</span></a>
-          <p>© 2026 VietNam Legacy. Giao diện cửa hàng mẫu.</p>
-          <button data-action="demo">Thông tin bản mẫu <span>↗</span></button>
+          <p>© 2026 VietNam Legacy. Cửa hàng số chính hãng.</p>
+          <div class="footer-links">
+            <button data-action="demo">Thông tin cửa hàng <span>↗</span></button>
+            <a class="admin-link-btn" href="admin.html" target="_blank" rel="noopener noreferrer">Quản trị Admin <span>🔐</span></a>
+          </div>
         </footer>
       </main>
     </div>
@@ -333,11 +336,10 @@
     >
       <button class="dialog-close icon-button" data-close aria-label="Đóng">
         ×</button
-      ><span class="eyebrow">HOÀN TẤT LỰA CHỌN</span>
-      <h2 id="checkout-title">Đặt hàng thử</h2>
+      ><span class="eyebrow">HOÀN TẤT ĐƠN HÀNG</span>
+      <h2 id="checkout-title">Thanh toán đơn hàng</h2>
       <p class="muted">
-        Đơn mẫu lưu trên trình duyệt này. Không thu tiền hoặc gửi dữ liệu tới
-        shop.
+        Thanh toán an toàn qua số dư ví tài khoản VietNam Legacy.
       </p>
       <form id="checkout-form">
         <label
@@ -354,21 +356,84 @@
             required
             maxlength="120"
             placeholder="ban@example.com"
-            autocomplete="email" /></label
-        ><label
-          >Ghi chú <span class="muted">(tùy chọn)</span
+            autocomplete="email" /></label>
+
+        <!-- Gift Notice: Appears when all items are gift -->
+        <div class="checkout-notice gift-notice" id="checkout-gift-notice" hidden>
+          <div class="notice-badge">🎁 GÓI GIFT (LINK QUÀ TẶNG)</div>
+          <p>
+            Bạn <strong>không cần cung cấp tài khoản hay mật khẩu</strong>. Sau khi đặt đơn thành công, shop sẽ gửi link claim quà Discord trực tiếp vào mục Đơn hàng của bạn!
+          </p>
+        </div>
+
+        <!-- Log Notice: Appears when any item is log -->
+        <div class="checkout-notice log-notice" id="checkout-log-notice" hidden>
+          <div class="notice-badge">🔑 GÓI NẠP ACC (LOG DISCORD)</div>
+          <p>
+            Đơn của bạn có gói nạp trực tiếp vào tài khoản Discord. Thông tin được mã hóa bảo mật, <strong>chỉ riêng Admin shop mới có quyền xem</strong> để đăng nhập nạp gói.
+          </p>
+          <label
+            >Tài khoản Discord (Email hoặc SĐT)
+            <input
+              id="checkout-discord-account"
+              name="discordAccount"
+              maxlength="100"
+              placeholder="VD: discord_user@gmail.com hoặc 0912345678"
+              autocomplete="username"
+            />
+          </label>
+          <label
+            >Mật khẩu Discord
+            <input
+              id="checkout-discord-password"
+              name="discordPassword"
+              type="password"
+              maxlength="128"
+              placeholder="Nhập mật khẩu Discord của bạn"
+              autocomplete="current-password"
+            />
+          </label>
+          <label
+            >3 Mã dự phòng Discord (Backup Codes)
+            <span class="muted small-hint">
+              (Cài đặt Discord → Tài khoản → Xem mã dự phòng 2FA. Nhập 3 mã 8 số cách nhau bằng dấu phẩy)
+            </span>
+            <input
+              id="checkout-backup-codes"
+              name="backupCodes"
+              maxlength="150"
+              placeholder="VD: 12345678, 87654321, 99887766"
+            />
+          </label>
+        </div>
+
+        <label
+          >Ghi chú đơn hàng <span class="muted">(tùy chọn)</span
           ><textarea
             name="note"
             maxlength="400"
-            rows="3"
-            placeholder="Ví dụ: màu sắc hoặc nhu cầu sử dụng"
+            rows="2"
+            placeholder="Ghi chú thêm về yêu cầu hoặc lưu ý..."
           ></textarea>
         </label>
-        <div class="checkout-total">
-          <span>Tổng giá trị mẫu</span><strong id="checkout-total"></strong>
+
+        <div class="checkout-wallet-box" id="checkout-wallet-box">
+          <div class="checkout-wallet-row">
+            <span>Phương thức thanh toán:</span>
+            <strong class="wallet-method-tag">Số dư Ví VietNam Legacy</strong>
+          </div>
+          <div class="checkout-wallet-row">
+            <span>Số dư hiện tại:</span>
+            <span class="checkout-wallet-balance" id="checkout-wallet-balance">Đang kiểm tra...</span>
+          </div>
+          <p class="checkout-wallet-alert" id="checkout-wallet-alert" hidden></p>
         </div>
-        <button class="button primary full-width" type="submit">
-          Xác nhận đơn mẫu <span data-icon="arrow"></span>
+
+        <div class="checkout-total">
+          <span>Tổng thanh toán</span><strong id="checkout-total"></strong>
+        </div>
+        <button class="button primary full-width" id="checkout-submit-btn" type="submit">
+          Xác nhận thanh toán <span data-icon="arrow"></span>
         </button>
       </form>
     </dialog>

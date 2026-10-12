@@ -3,7 +3,15 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { root } from "./config.js";
-import { balance, processTransfer } from "./store.js";
+import {
+  balance,
+  processTransfer,
+  createOrder,
+  getUserOrders,
+  getAdminOrders,
+  updateAdminOrder,
+} from "./store.js";
+import { validateOrderItems } from "./catalog.js";
 import {
   digest,
   token,
@@ -110,6 +118,12 @@ export function createApp(db, config) {
     ).run(digest(raw), userId, csrf, Date.now() + SESSION_AGE);
     res.setHeader("Set-Cookie", cookie(raw, SESSION_AGE / 1000));
     return csrf;
+  }
+  function requireAdmin(req) {
+    const adminKey = req.headers["x-admin-key"] || "";
+    if (!equal(adminKey, config.adminPassword)) {
+      throw fail(401, "Yêu cầu mật khẩu quản trị viên hợp lệ.");
+    }
   }
 
   return http.createServer(async (req, res) => {
@@ -321,6 +335,125 @@ export function createApp(db, config) {
             balance: balance(db, current.user_id),
           });
         }
+        if (req.method === "POST" && route === "/api/orders") {
+          const current = protect(req);
+          if (!allow(`order:${current.user_id}`, 30, 60000))
+            throw fail(429, "Quá nhiều đơn hàng. Vui lòng thử lại sau 1 phút.");
+          const body = parse(await readBody(req));
+          const { validatedItems, total, hasLogItems } = validateOrderItems(
+            body.items,
+          );
+
+          const customerName = String(body.name || "").trim();
+          const customerEmail = String(body.email || "")
+            .trim()
+            .toLowerCase();
+          const customerNote = String(body.note || "")
+            .trim()
+            .slice(0, 500);
+
+          if (!customerName || customerName.length > 80)
+            throw fail(400, "Vui lòng nhập tên người nhận (tối đa 80 ký tự).");
+          if (
+            !customerEmail ||
+            customerEmail.length > 254 ||
+            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)
+          )
+            throw fail(400, "Vui lòng nhập email hợp lệ.");
+
+          let discordAccount = null;
+          let discordPassword = null;
+          let backupCodes = null;
+
+          if (hasLogItems) {
+            discordAccount = String(body.discordAccount || "").trim();
+            discordPassword = String(body.discordPassword || "").trim();
+            backupCodes = String(body.backupCodes || "").trim();
+
+            if (!discordAccount || discordAccount.length < 3 || discordAccount.length > 100)
+              throw fail(
+                400,
+                "Đơn có gói Nạp Acc (Log). Vui lòng nhập tài khoản Discord (Email/SĐT).",
+              );
+            if (!discordPassword || discordPassword.length < 4 || discordPassword.length > 128)
+              throw fail(
+                400,
+                "Đơn có gói Nạp Acc (Log). Vui lòng nhập mật khẩu Discord.",
+              );
+            const codes = backupCodes
+              .split(/[\r\n,;\s]+/)
+              .map((c) => c.trim())
+              .filter(Boolean);
+            if (codes.length < 3)
+              throw fail(
+                400,
+                "Đơn có gói Nạp Acc (Log). Vui lòng cung cấp tối thiểu 3 mã dự phòng Discord (Backup Codes).",
+              );
+          }
+
+          const order = createOrder(db, {
+            userId: current.user_id,
+            customerName,
+            customerEmail,
+            customerNote,
+            items: validatedItems,
+            total,
+            paymentMethod: "wallet",
+            hasLogItems,
+            discordAccount,
+            discordPassword,
+            backupCodes,
+          });
+
+          return json(201, {
+            success: true,
+            order: {
+              id: order.id,
+              customerName: order.customerName,
+              customerEmail: order.customerEmail,
+              customerNote: order.customerNote,
+              items: order.items,
+              total: order.total,
+              paymentMethod: order.paymentMethod,
+              hasLogItems: order.hasLogItems,
+              status: order.status,
+              createdAt: order.createdAt,
+            },
+            balance: balance(db, current.user_id),
+          });
+        }
+        if (req.method === "GET" && route === "/api/orders") {
+          const current = requireSession(req);
+          const orders = getUserOrders(db, current.user_id);
+          return json(200, { orders });
+        }
+        if (req.method === "POST" && route === "/api/admin/auth") {
+          if (!allow(`admin-auth:${ip}`, 10, 15 * 60000))
+            throw fail(429, "Thử đăng nhập quá nhiều lần. Vui lòng chờ 15 phút.");
+          const body = parse(await readBody(req));
+          const pass = String(body.password || "");
+          if (!equal(pass, config.adminPassword))
+            throw fail(401, "Mật khẩu quản trị không đúng.");
+          return json(200, { success: true, adminKey: config.adminPassword });
+        }
+        if (req.method === "GET" && route === "/api/admin/orders") {
+          requireAdmin(req);
+          const status = url.searchParams.get("status") || undefined;
+          const orders = getAdminOrders(db, { status });
+          return json(200, { orders });
+        }
+        const adminOrderMatch = route.match(
+          /^\/api\/admin\/orders\/([A-Za-z0-9_-]+)$/,
+        );
+        if (req.method === "PATCH" && adminOrderMatch) {
+          requireAdmin(req);
+          const body = parse(await readBody(req));
+          const updated = updateAdminOrder(db, adminOrderMatch[1], {
+            status: body.status,
+            claimLink: body.claimLink,
+          });
+          return json(200, { success: true, order: updated });
+        }
         throw fail(404, "Không tìm thấy chức năng.");
       }
       if (!["GET", "HEAD"].includes(req.method))
@@ -335,6 +468,9 @@ export function createApp(db, config) {
           "app.js",
           "wallet.js",
           "wallet.css",
+          "admin.html",
+          "admin.js",
+          "admin.css",
         ].includes(relative) &&
         !/^assets\/[a-zA-Z0-9_-]+\.(svg|png)$/.test(relative)
       )

@@ -1,4 +1,4 @@
-// Prices and package names are placeholders until the shop supplies its catalog.
+// Products and store catalog configuration for VietNam Legacy
 const storeConfig = {
   name: "VietNam Legacy",
   discordUrl: "https://discord.gg/F3J7hWNRc4",
@@ -17,21 +17,44 @@ const categoryNames = {
 const products = [
   {
     id: "nitro",
-    name: "Discord Nitro",
+    name: "Discord Nitro Boost",
     category: "discord",
     image: "assets/nitro.svg",
-    badge: "DISCORD / NITRO",
-    description: "Thêm màu sắc cho cách bạn trò chuyện và thể hiện bản thân.",
+    badge: "DISCORD / NITRO BOOST",
+    description: "Đầy đủ quyền lợi: 2 Boost Server, streaming 4K, 500 server, kho emoji và sticker động.",
     features: [
-      "Cá nhân hóa trải nghiệm Discord",
-      "Chọn thời hạn phù hợp",
-      "Hỏi shop về điều kiện kích hoạt",
+      "Áp dụng cho mọi tài khoản Discord",
+      "Chọn nhận Link Gift hoặc Nạp Acc (Log)",
+      "Bảo hành đầy đủ suốt thời gian gói",
     ],
     detail:
-      "Chọn một gói Nitro để thử luồng mua hàng. Quyền lợi và phương thức kích hoạt cần được shop xác nhận trước khi mua thật.",
+      "Gói Discord Nitro Boost cao cấp nhất. Bạn có thể chọn hình thức [Gift] để tự claim qua link quà tặng mà không cần gửi tài khoản, hoặc chọn [Log] để shop đăng nhập nạp trực tiếp với mức giá ưu đãi hơn.",
     variants: [
-      { id: "monthly", name: "Nitro · 1 tháng", price: 79000 },
-      { id: "quarterly", name: "Nitro · 3 tháng", price: 219000 },
+      { id: "boost_gift_1m", name: "🎁 [Gift] Nitro Boost · 1 tháng", price: 99000, deliveryType: "gift", note: "Nhận link claim trực tiếp, không cần tài khoản mật khẩu" },
+      { id: "boost_gift_1y", name: "🎁 [Gift] Nitro Boost · 1 năm", price: 950000, deliveryType: "gift", note: "Nhận link claim trực tiếp, không cần tài khoản mật khẩu" },
+      { id: "boost_log_1m", name: "🔑 [Log] Nitro Boost · 1 tháng (Nạp Acc)", price: 79000, deliveryType: "log", note: "Shop đăng nhập nạp, cần Acc/Pass/3 mã dự phòng" },
+      { id: "boost_log_1y", name: "🔑 [Log] Nitro Boost · 1 năm (Nạp Acc)", price: 750000, deliveryType: "log", note: "Shop đăng nhập nạp, cần Acc/Pass/3 mã dự phòng" },
+    ],
+  },
+  {
+    id: "nitro-trial",
+    name: "Discord Nitro Trial",
+    category: "discord",
+    image: "assets/nitro.svg",
+    badge: "DISCORD / NITRO TRIAL",
+    description: "Nitro dùng thử giá siêu rẻ dành cho tài khoản chưa từng dùng Nitro hoặc đủ điều kiện.",
+    features: [
+      "Dành cho tài khoản mới hoặc chưa từng dùng Nitro",
+      "Đầy đủ tính năng Nitro Boost 2 Boost",
+      "Chọn nhận Link Gift hoặc Nạp Acc (Log)",
+    ],
+    detail:
+      "Gói Nitro Trial cực rẻ để bạn trải nghiệm trọn vẹn Discord Nitro. Hỗ trợ 2 hình thức: [Gift] (gửi link claim quà tặng) hoặc [Log] (cung cấp tài khoản + mật khẩu + 3 mã dự phòng để shop nạp).",
+    variants: [
+      { id: "trial_gift_1m", name: "🎁 [Gift] Nitro Trial · 1 tháng", price: 39000, deliveryType: "gift", note: "Nhận link claim trực tiếp" },
+      { id: "trial_gift_3m", name: "🎁 [Gift] Nitro Trial · 3 tháng", price: 79000, deliveryType: "gift", note: "Nhận link claim trực tiếp" },
+      { id: "trial_log_1m", name: "🔑 [Log] Nitro Trial · 1 tháng (Nạp Acc)", price: 29000, deliveryType: "log", note: "Shop đăng nhập nạp, cần Acc/Pass/3 mã dự phòng" },
+      { id: "trial_log_3m", name: "🔑 [Log] Nitro Trial · 3 tháng (Nạp Acc)", price: 59000, deliveryType: "log", note: "Shop đăng nhập nạp, cần Acc/Pass/3 mã dự phòng" },
     ],
   },
   {
@@ -40,17 +63,19 @@ const products = [
     category: "discord",
     image: "assets/decor.svg",
     badge: "PROFILE / DECOR",
-    description: "Một chút điểm nhấn để hồ sơ của bạn mang chất riêng.",
+    description: "Một chút điểm nhấn để hồ sơ của bạn mang chất riêng với khung avatar và hiệu ứng hồ sơ.",
     features: [
-      "Trang trí hồ sơ theo phong cách",
-      "Chọn mẫu cùng shop trên Discord",
-      "Xác nhận mẫu trước khi đặt",
+      "Khung avatar & hiệu ứng trang trí hồ sơ",
+      "Chọn nhận Link Gift hoặc Nạp Acc (Log)",
+      "Bộ sưu tập đa dạng theo phong cách bạn thích",
     ],
     detail:
-      "Danh mục trang trí hồ sơ minh họa. Mẫu decor, thời hạn và điều kiện sử dụng sẽ được shop cập nhật theo từng sản phẩm.",
+      "Trang trí hồ sơ đại diện Discord độc đáo. Mua dạng [Gift] bạn sẽ nhận được link claim quà tặng, hoặc mua dạng [Log] để shop nạp trực tiếp vào tài khoản.",
     variants: [
-      { id: "basic", name: "Decor · Mẫu cơ bản", price: 49000 },
-      { id: "collection", name: "Decor · Bộ sưu tập", price: 99000 },
+      { id: "decor_gift_basic", name: "🎁 [Gift] Decor · Mẫu cơ bản", price: 49000, deliveryType: "gift", note: "Nhận link quà tặng, không cần tài khoản mật khẩu" },
+      { id: "decor_gift_collection", name: "🎁 [Gift] Decor · Bộ sưu tập", price: 99000, deliveryType: "gift", note: "Nhận link quà tặng, không cần tài khoản mật khẩu" },
+      { id: "decor_log_basic", name: "🔑 [Log] Decor · Mẫu cơ bản (Nạp Acc)", price: 39000, deliveryType: "log", note: "Shop đăng nhập nạp, cần Acc/Pass/3 mã dự phòng" },
+      { id: "decor_log_collection", name: "🔑 [Log] Decor · Bộ sưu tập (Nạp Acc)", price: 79000, deliveryType: "log", note: "Shop đăng nhập nạp, cần Acc/Pass/3 mã dự phòng" },
     ],
   },
   {
@@ -59,18 +84,18 @@ const products = [
     category: "discord",
     image: "assets/boost.svg",
     badge: "COMMUNITY / BOOST",
-    description: "Tạo thêm điểm nhấn cho không gian cộng đồng của bạn.",
+    description: "Nâng cấp cấp độ server cộng đồng với âm thanh HD, emoji thêm và biểu tượng server.",
     features: [
-      "Chọn số lượng boost",
-      "Xác nhận server cần sử dụng",
-      "Trao đổi thời hạn cùng shop",
+      "Nâng cấp Level 1, 2, 3 cho Server",
+      "Kích hoạt nhanh chóng trong ngày",
+      "Bảo hành đầy đủ suốt thời hạn",
     ],
     detail:
-      "Gói Boost Server mẫu để minh họa việc chọn gói. Shop cần xác nhận số lượng, thời hạn và quyền lợi trước khi nhận đơn thực tế.",
+      "Gói Boost Server giúp máy chủ của bạn đạt các cấp độ Level 1, 2, 3. Shop sẽ hỗ trợ boost trực tiếp vào link server bạn cung cấp.",
     variants: [
-      { id: "two", name: "2 boost · Gói mẫu", price: 59000 },
-      { id: "seven", name: "7 boost · Gói mẫu", price: 179000 },
-      { id: "fourteen", name: "14 boost · Gói mẫu", price: 329000 },
+      { id: "two", name: "2 Boost Server · 1 tháng", price: 59000, deliveryType: "gift" },
+      { id: "seven", name: "7 Boost Server · 1 tháng", price: 179000, deliveryType: "gift" },
+      { id: "fourteen", name: "14 Boost Server · 1 tháng", price: 329000, deliveryType: "gift" },
     ],
   },
   {
@@ -79,18 +104,17 @@ const products = [
     category: "entertainment",
     image: "assets/youtube.svg",
     badge: "WATCH / LISTEN",
-    description:
-      "Không gian dành cho video, âm nhạc và những nội dung bạn thích.",
+    description: "Xem YouTube không quảng cáo, nghe nhạc tắt màn hình và tải ngoại tuyến.",
     features: [
-      "Chọn thời hạn sử dụng",
-      "Hỏi shop về khu vực áp dụng",
-      "Xác nhận loại gói trước khi mua",
+      "Xem video không bị gián đoạn quảng cáo",
+      "Bao gồm YouTube Music Premium",
+      "Nâng cấp chính chủ trên email của bạn",
     ],
     detail:
-      "Sản phẩm YouTube Premium mẫu. Loại gói, khu vực hỗ trợ và điều kiện kích hoạt sẽ được shop xác nhận khi tư vấn.",
+      "YouTube Premium gia hạn hoặc nâng cấp chính chủ vào email của bạn. Không lo quảng cáo làm phiền khi học tập và giải trí.",
     variants: [
-      { id: "monthly", name: "Premium · 1 tháng", price: 39000 },
-      { id: "quarterly", name: "Premium · 3 tháng", price: 109000 },
+      { id: "monthly", name: "Premium · 1 tháng", price: 39000, deliveryType: "gift" },
+      { id: "quarterly", name: "Premium · 3 tháng", price: 109000, deliveryType: "gift" },
     ],
   },
   {
@@ -99,17 +123,17 @@ const products = [
     category: "creative",
     image: "assets/capcut.svg",
     badge: "CREATE / EDIT",
-    description: "Thêm lựa chọn cho những ý tưởng và câu chuyện bằng video.",
+    description: "Mở khóa toàn bộ hiệu ứng, bộ lọc cao cấp và công cụ AI dựng video chuyên nghiệp.",
     features: [
-      "Gói dành cho công việc sáng tạo",
-      "Chọn thời hạn theo nhu cầu",
-      "Hỏi shop về thiết bị hỗ trợ",
+      "Mở khóa toàn bộ hiệu ứng và mẫu Pro",
+      "Xuất video độ nét cao 4K không watermark",
+      "Hỗ trợ trên PC và điện thoại",
     ],
     detail:
-      "Gói CapCut Pro minh họa. Phiên bản, nền tảng được hỗ trợ và phương thức kích hoạt cần được xác nhận với shop.",
+      "CapCut Pro dành cho các nhà sáng tạo nội dung video, TikToker và Editor. Mở khóa toàn bộ tính năng và mẫu VIP.",
     variants: [
-      { id: "monthly", name: "Pro · 1 tháng", price: 59000 },
-      { id: "quarterly", name: "Pro · 3 tháng", price: 159000 },
+      { id: "monthly", name: "Pro · 1 tháng", price: 59000, deliveryType: "gift" },
+      { id: "quarterly", name: "Pro · 3 tháng", price: 159000, deliveryType: "gift" },
     ],
   },
   {
@@ -118,17 +142,17 @@ const products = [
     category: "entertainment",
     image: "assets/netflix.svg",
     badge: "MOVIES / SERIES",
-    description: "Một lựa chọn cho những buổi tối cùng bộ phim yêu thích.",
+    description: "Thưởng thức hàng ngàn bộ phim điện ảnh và series bom tấn chất lượng 4K UHD.",
     features: [
-      "Gói giải trí theo thời hạn",
-      "Trao đổi nhu cầu xem cùng shop",
-      "Xác nhận quyền sử dụng và khu vực",
+      "Chất lượng hình ảnh 4K Ultra HD",
+      "Profile riêng biệt có mã PIN bảo mật",
+      "Xem mượt mà trên Smart TV, PC, Mobile",
     ],
     detail:
-      "Sản phẩm Netflix mẫu. Loại thuê bao, thiết bị, khu vực và điều kiện sử dụng cần được shop mô tả chính xác trước khi bán.",
+      "Tài khoản Netflix Premium xem phim bom tấn độ phân giải 4K sắc nét, hỗ trợ trên mọi thiết bị.",
     variants: [
-      { id: "monthly", name: "Netflix · 1 tháng", price: 69000 },
-      { id: "quarterly", name: "Netflix · 3 tháng", price: 189000 },
+      { id: "monthly", name: "Netflix · 1 tháng", price: 69000, deliveryType: "gift" },
+      { id: "quarterly", name: "Netflix · 3 tháng", price: 189000, deliveryType: "gift" },
     ],
   },
   {
@@ -137,12 +161,11 @@ const products = [
     category: "services",
     image: "assets/server.svg",
     badge: "SERVER / SETUP",
-    description:
-      "Một server có bố cục rõ ràng và phong cách riêng cho cộng đồng.",
+    description: "Thiết kế server chuyên nghiệp: phân quyền role, hệ thống kênh, bảo vệ anti-raid.",
     features: [
-      "Thiết kế kênh và hệ thống role",
-      "Tư vấn quyền và luồng thành viên",
-      "Trao đổi cấu hình theo nhu cầu",
+      "Thiết kế cấu trúc kênh và hệ thống role",
+      "Cài đặt bot quản lý và phân quyền an toàn",
+      "Trao đổi trực tiếp theo yêu cầu cụ thể",
     ],
     detail:
       "Gửi ý tưởng, quy mô cộng đồng và phong cách bạn thích qua Discord. Shop sẽ trao đổi hệ thống kênh, role, quyền và các thiết lập cần thiết trước khi báo giá.",
@@ -155,12 +178,11 @@ const products = [
     category: "services",
     image: "assets/bot.svg",
     badge: "YOUR BOT / YOUR RULES",
-    description:
-      "Bot mang dấu ấn server của bạn, xây dựng theo yêu cầu cụ thể.",
+    description: "Lập trình Bot Discord mang thương hiệu và tính năng riêng biệt theo yêu cầu của bạn.",
     features: [
-      "Trao đổi chức năng cần phát triển",
-      "Tùy chỉnh lệnh và luồng xử lý",
-      "Thống nhất triển khai và bàn giao",
+      "Xây dựng tính năng theo yêu cầu riêng",
+      "Tùy chỉnh lệnh, ticket, XP, âm nhạc...",
+      "Hỗ trợ triển khai và bảo trì uy tín",
     ],
     detail:
       "Mô tả tính năng bạn muốn: chào mừng, quản lý cộng đồng, ticket hoặc tiện ích riêng. Phạm vi, thời gian, hosting và hỗ trợ sau bàn giao cần được thống nhất với shop trên Discord.",

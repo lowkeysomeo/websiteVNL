@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VietNam Legacy · Quản trị Đơn hàng</title>
+    <link rel="icon" type="image/png" href="assets/vnl-avatar.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="admin.css" />
+    <script src="admin.js" defer></script>
+  </head>
+  <body>
+    <!-- Login Screen -->
+    <div class="admin-login-screen" id="admin-login-screen">
+      <div class="admin-login-box">
+        <div class="admin-login-header">
+          <img src="assets/vnl-avatar.png" alt="VNL" width="48" height="48" />
+          <div>
+            <h1>VietNam <span>LEGACY</span></h1>
+            <p>Hệ thống Quản trị Đơn hàng (Nitro & Decor)</p>
+          </div>
+        </div>
+        <form id="admin-login-form">
+          <label>
+            Mật khẩu quản trị viên (Admin Key)
+            <input
+              id="admin-password-input"
+              type="password"
+              placeholder="Nhập mật khẩu Admin..."
+              autocomplete="current-password"
+              required
+            />
+          </label>
+          <p class="admin-error-msg" id="admin-login-error" hidden></p>
+          <button type="submit" class="button primary full-width">
+            Đăng nhập Quản trị
+          </button>
+        </form>
+        <p class="admin-login-hint">
+          Chỉ dành riêng cho chủ shop VietNam Legacy để xem thông tin nạp tài khoản và gửi link claim.
+        </p>
+      </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div class="admin-app" id="admin-app" hidden>
+      <header class="admin-topbar">
+        <div class="admin-brand">
+          <img src="assets/vnl-avatar.png" alt="VNL" width="36" height="36" />
+          <div>
+            <strong>VietNam Legacy <span>ADMIN</span></strong>
+            <small>Quản lý đơn hàng Nitro & Decor</small>
+          </div>
+        </div>
+        <div class="admin-topbar-actions">
+          <a href="/" class="admin-nav-link" target="_blank" rel="noopener noreferrer">
+            Xem cửa hàng ↗
+          </a>
+          <button class="button secondary btn-small" id="admin-logout-btn">
+            Đăng xuất
+          </button>
+        </div>
+      </header>
+
+      <main class="admin-main">
+        <!-- Stats Row -->
+        <section class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <span class="stat-label">TỔNG ĐƠN HÀNG</span>
+            <strong id="stat-total-orders">0</strong>
+          </div>
+          <div class="admin-stat-card stat-processing">
+            <span class="stat-label">CẦN XỬ LÝ / NẠP</span>
+            <strong id="stat-processing-orders">0</strong>
+          </div>
+          <div class="admin-stat-card stat-completed">
+            <span class="stat-label">ĐÃ HOÀN TẤT</span>
+            <strong id="stat-completed-orders">0</strong>
+          </div>
+          <div class="admin-stat-card stat-revenue">
+            <span class="stat-label">TỔNG DOANH THU</span>
+            <strong id="stat-total-revenue">0₫</strong>
+          </div>
+        </section>
+
+        <!-- Controls: Filters & Search -->
+        <section class="admin-controls">
+          <div class="admin-tabs" id="admin-status-tabs" role="tablist">
+            <button class="admin-tab active" data-filter="all">Tất cả</button>
+            <button class="admin-tab" data-filter="processing">Đang nạp / Chờ</button>
+            <button class="admin-tab" data-filter="completed">Hoàn tất</button>
+            <button class="admin-tab" data-filter="cancelled">Đã hủy</button>
+          </div>
+          <div class="admin-search-group">
+            <input
+              id="admin-search-input"
+              type="search"
+              placeholder="Tìm theo mã đơn, email, acc discord..."
+            />
+            <button class="button secondary btn-small" id="admin-refresh-btn">
+              Làm mới ↻
+            </button>
+          </div>
+        </section>
+
+        <!-- Orders List Container -->
+        <section class="admin-orders-container">
+          <div id="admin-orders-list">
+            <p class="admin-loading-text">Đang tải danh sách đơn hàng...</p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

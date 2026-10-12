@@ -28,6 +28,7 @@ export function readConfig(env = process.env) {
     production,
     databasePath: path.resolve(root, env.DATABASE_PATH || "./data/vnl.sqlite"),
     paymentsMode: env.PAYMENTS_MODE || "disabled",
+    adminPassword: env.ADMIN_PASSWORD || "vnladmin2026",
     bank: {
       code: env.BANK_CODE || "",
       gateway: env.BANK_GATEWAY || "",

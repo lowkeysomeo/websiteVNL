@@ -38,3 +38,23 @@ CREATE TABLE IF NOT EXISTS wallet_ledger (
   amount INTEGER NOT NULL CHECK(amount > 0),
   created_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS orders (
+  id TEXT PRIMARY KEY,
+  user_id TEXT REFERENCES users(id),
+  customer_name TEXT NOT NULL,
+  customer_email TEXT NOT NULL,
+  customer_note TEXT,
+  items_json TEXT NOT NULL,
+  total INTEGER NOT NULL CHECK(total >= 0),
+  payment_method TEXT NOT NULL DEFAULT 'wallet',
+  has_log_items INTEGER NOT NULL DEFAULT 0,
+  discord_account TEXT,
+  discord_password TEXT,
+  backup_codes TEXT,
+  claim_link TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','processing','completed','cancelled')),
+  created_at INTEGER NOT NULL,
+  completed_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS orders_user ON orders(user_id, created_at);
+CREATE INDEX IF NOT EXISTS orders_created ON orders(created_at);

@@ -337,10 +337,71 @@ function renderCart() {
     `<div class="cart-total"><span>Tổng giá trị mẫu</span><strong>${money(cartTotal())}</strong></div><p class="muted">Giá minh họa. Chưa kết nối thanh toán.</p><button class="button primary full-width" id="start-checkout">Tiếp tục đặt hàng thử ${icon("arrow")}</button>`;
 }
 
-function startCheckout() {
+async function startCheckout() {
   if (!state.cart.length) return;
   cartDialog.close();
-  document.querySelector("#checkout-total").textContent = money(cartTotal());
+
+  const total = cartTotal();
+  document.querySelector("#checkout-total").textContent = money(total);
+
+  const hasLog = state.cart.some((item) => {
+    const product = getProduct(item.productId);
+    const variant = getVariant(product, item.variantId);
+    return variant?.deliveryType === "log";
+  });
+
+  const giftNotice = document.querySelector("#checkout-gift-notice");
+  const logNotice = document.querySelector("#checkout-log-notice");
+  const accInput = document.querySelector("#checkout-discord-account");
+  const passInput = document.querySelector("#checkout-discord-password");
+  const codesInput = document.querySelector("#checkout-backup-codes");
+  const balanceEl = document.querySelector("#checkout-wallet-balance");
+  const alertEl = document.querySelector("#checkout-wallet-alert");
+  const submitBtn = document.querySelector("#checkout-submit-btn");
+
+  if (hasLog) {
+    if (logNotice) logNotice.hidden = false;
+    if (giftNotice) giftNotice.hidden = true;
+    if (accInput) accInput.required = true;
+    if (passInput) passInput.required = true;
+    if (codesInput) codesInput.required = true;
+  } else {
+    if (logNotice) logNotice.hidden = true;
+    if (giftNotice) giftNotice.hidden = false;
+    if (accInput) accInput.required = false;
+    if (passInput) passInput.required = false;
+    if (codesInput) codesInput.required = false;
+  }
+
+  if (balanceEl) balanceEl.textContent = "Đang kiểm tra...";
+  if (alertEl) alertEl.hidden = true;
+  if (submitBtn) submitBtn.disabled = false;
+
+  try {
+    const res = await fetch("/api/session", { credentials: "same-origin" });
+    const sess = await res.json();
+    if (sess.user) {
+      if (balanceEl) balanceEl.textContent = money(sess.balance || 0);
+      const emailInput = document.querySelector('#checkout-form [name="email"]');
+      if (emailInput && !emailInput.value) emailInput.value = sess.user.email;
+
+      if ((sess.balance || 0) < total) {
+        if (alertEl) {
+          alertEl.textContent = `⚠️ Số dư ví không đủ (${money(sess.balance || 0)} < ${money(total)}). Vui lòng nạp thêm tiền vào ví để thanh toán đơn.`;
+          alertEl.hidden = false;
+        }
+      }
+    } else {
+      if (balanceEl) balanceEl.textContent = "Chưa đăng nhập";
+      if (alertEl) {
+        alertEl.textContent = "⚠️ Bạn chưa đăng nhập ví. Vui lòng bấm vào nút 'Đăng nhập' ở thanh trên để đăng nhập tài khoản trước khi thanh toán.";
+        alertEl.hidden = false;
+      }
+    }
+  } catch {
+    if (balanceEl) balanceEl.textContent = "Chưa kết nối máy chủ";
+  }
+
   checkoutDialog.showModal();
 }
 
@@ -350,25 +411,110 @@ function showInfo(title, body) {
   if (!infoDialog.open) infoDialog.showModal();
 }
 
-function showOrders() {
+async function showOrders() {
+  showInfo(
+    "Đơn hàng của tôi",
+    '<p class="muted">Đang tải danh sách đơn hàng từ tài khoản của bạn...</p>',
+  );
+
+  let serverOrders = [];
+  try {
+    const res = await fetch("/api/orders", { credentials: "same-origin" });
+    if (res.ok) {
+      const data = await res.json();
+      serverOrders = data.orders || [];
+    }
+  } catch {
+    // Offline or not logged in
+  }
+
+  if (serverOrders.length > 0) {
+    const statusLabels = {
+      pending: "Chờ xử lý",
+      processing: "Đang nạp gói",
+      completed: "Đã hoàn thành",
+      cancelled: "Đã hủy",
+    };
+
+    const ordersHtml = serverOrders
+      .map((order) => {
+        const dateStr = new Date(order.createdAt).toLocaleString("vi-VN");
+        const statusClass = `status-${order.status}`;
+        const statusText = statusLabels[order.status] || order.status;
+
+        let claimSection = "";
+        if (order.claimLink) {
+          claimSection = `
+            <div class="order-claim-box">
+              <strong>🎁 Link Claim quà tặng Discord của bạn:</strong>
+              <div class="claim-link-group">
+                <a href="${escapeHtml(order.claimLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(order.claimLink)}</a>
+                <button class="claim-copy-btn" data-copy-link="${escapeHtml(order.claimLink)}">Sao chép</button>
+              </div>
+            </div>
+          `;
+        }
+
+        let logNotice = "";
+        if (order.hasLogItems) {
+          logNotice = `
+            <div class="order-log-info">
+              🔑 Đơn Nạp Acc: Thông tin tài khoản & mã dự phòng của bạn đã được mã hóa bảo mật tuyệt đối. Shop đang tiến hành nạp gói.
+            </div>
+          `;
+        }
+
+        const itemsHtml = order.items
+          .map(
+            (item) =>
+              `<li>${escapeHtml(item.productName || item.name)} — ${escapeHtml(item.variantName || item.variant)} [${item.deliveryType === "log" ? "LOG" : "GIFT"}] × ${item.quantity} (${money(item.subtotal || item.price * item.quantity)})</li>`,
+          )
+          .join("");
+
+        return `
+          <article class="order-card">
+            <div class="order-top">
+              <strong>${escapeHtml(order.id)}</strong>
+              <span class="order-status-badge ${statusClass}">${statusText}</span>
+            </div>
+            <p class="muted" style="font-size:11px; margin-bottom: 6px;">
+              ${dateStr} · Khách: ${escapeHtml(order.customerName)} (${escapeHtml(order.customerEmail)})
+            </p>
+            <ul>${itemsHtml}</ul>
+            ${claimSection}
+            ${logNotice}
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+              <span class="muted" style="font-size:11px;">Thanh toán: Ví VietNam Legacy</span>
+              <strong class="order-total" style="color:var(--accent); font-size:15px;">${money(order.total)}</strong>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+
+    showInfo("Đơn hàng của tôi", ordersHtml);
+    return;
+  }
+
   if (!state.orders.length) {
     showInfo(
       "Đơn hàng của tôi",
-      '<p>Bạn chưa có đơn mẫu nào trên trình duyệt này. Thêm sản phẩm vào giỏ và thử đặt đơn để xem lịch sử tại đây.</p><button class="button secondary" data-close>Tiếp tục khám phá</button>',
+      '<p>Bạn chưa có đơn hàng nào. Thêm sản phẩm vào giỏ và thanh toán để xem lịch sử đơn tại đây.</p><button class="button secondary" data-close>Tiếp tục khám phá</button>',
     );
     return;
   }
   showInfo(
     "Đơn hàng của tôi",
-    `<p>Đây là đơn thử được lưu trên thiết bị này, chưa gửi tới shop.</p>${state.orders
+    `<p class="muted">Đơn mẫu trên trình duyệt này:</p>${state.orders
       .map(
         (order) => `
-    <article class="order-card"><div class="order-top"><strong>${escapeHtml(order.id)}</strong><span>Đơn mẫu</span></div><p>${new Date(order.createdAt).toLocaleString("vi-VN")} · ${escapeHtml(order.name)}</p><ul>${order.items.map((item) => `<li>${escapeHtml(item.name)} — ${escapeHtml(item.variant)} × ${item.quantity}</li>`).join("")}</ul><strong class="order-total">${money(order.total)}</strong></article>
+    <article class="order-card"><div class="order-top"><strong>${escapeHtml(order.id)}</strong><span class="order-status-badge status-completed">Đơn mẫu</span></div><p style="font-size:11px;">${new Date(order.createdAt).toLocaleString("vi-VN")} · ${escapeHtml(order.name)}</p><ul>${order.items.map((item) => `<li>${escapeHtml(item.name)} — ${escapeHtml(item.variant)} × ${item.quantity}</li>`).join("")}</ul><strong class="order-total" style="color:var(--accent); font-size:15px;">${money(order.total)}</strong></article>
   `,
       )
       .join("")}`,
   );
 }
+
 
 function showSupport() {
   showInfo(
@@ -529,52 +675,177 @@ document.querySelectorAll("dialog").forEach((dialog) => {
   });
 });
 
-document.querySelector("#checkout-form").addEventListener("submit", (event) => {
-  event.preventDefault();
-  if (!state.cart.length) return;
-  const form = event.currentTarget;
-  const data = new FormData(form);
-  const name = String(data.get("name")).trim();
-  if (!name) {
-    form.elements.name.setCustomValidity("Vui lòng nhập tên người nhận.");
-    form.elements.name.reportValidity();
-    return;
+document.addEventListener("click", async (event) => {
+  const copyBtn = event.target.closest("[data-copy-link]");
+  if (copyBtn) {
+    const text = copyBtn.getAttribute("data-copy-link");
+    try {
+      await navigator.clipboard.writeText(text);
+      copyBtn.textContent = "Đã chép!";
+      setTimeout(() => {
+        copyBtn.textContent = "Sao chép";
+      }, 2000);
+    } catch {
+      notify("Không thể sao chép tự động. Hãy bôi đen link để chép.");
+    }
   }
-  const order = {
-    id: `VNL-${Date.now().toString(36).toUpperCase()}`,
-    name,
-    email: String(data.get("email")).trim(),
-    note: String(data.get("note")).trim(),
-    createdAt: new Date().toISOString(),
-    total: cartTotal(),
-    items: state.cart.map((item) => {
+});
+
+document
+  .querySelector("#checkout-form")
+  .addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!state.cart.length) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const name = String(data.get("name")).trim();
+    const email = String(data.get("email")).trim();
+    const note = String(data.get("note") || "").trim();
+    const submitBtn = document.querySelector("#checkout-submit-btn");
+
+    if (!name) {
+      form.elements.name.setCustomValidity("Vui lòng nhập tên người nhận.");
+      form.elements.name.reportValidity();
+      return;
+    }
+
+    const hasLog = state.cart.some((item) => {
       const product = getProduct(item.productId);
       const variant = getVariant(product, item.variantId);
-      return {
-        name: product.name,
-        variant: variant.name,
-        quantity: item.quantity,
-        price: variant.price,
+      return variant?.deliveryType === "log";
+    });
+
+    const discordAccount = String(data.get("discordAccount") || "").trim();
+    const discordPassword = String(data.get("discordPassword") || "").trim();
+    const backupCodes = String(data.get("backupCodes") || "").trim();
+
+    if (hasLog) {
+      if (!discordAccount) {
+        alert("Vui lòng nhập tài khoản Discord (Email hoặc SĐT) để nạp gói.");
+        form.elements.discordAccount?.focus();
+        return;
+      }
+      if (!discordPassword) {
+        alert("Vui lòng nhập mật khẩu Discord để nạp gói.");
+        form.elements.discordPassword?.focus();
+        return;
+      }
+      const codes = backupCodes
+        .split(/[\r\n,;\s]+/)
+        .map((c) => c.trim())
+        .filter(Boolean);
+      if (codes.length < 3) {
+        alert(
+          "Vui lòng nhập tối thiểu 3 mã dự phòng Discord (Backup Codes) cách nhau bởi dấu phẩy.",
+        );
+        form.elements.backupCodes?.focus();
+        return;
+      }
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Đang xử lý...";
+
+    try {
+      // 1. Check session
+      let session = null;
+      try {
+        const sessRes = await fetch("/api/session", {
+          credentials: "same-origin",
+        });
+        session = await sessRes.json();
+      } catch {
+        throw new Error("Không thể kết nối máy chủ. Vui lòng thử lại.");
+      }
+
+      if (!session || !session.user) {
+        throw new Error(
+          "Vui lòng đăng nhập tài khoản / ví trước khi đặt hàng (Bấm nút 'Đăng nhập' ở góc phải trên).",
+        );
+      }
+
+      const total = cartTotal();
+      if ((session.balance || 0) < total) {
+        throw new Error(
+          `Số dư ví không đủ (hiện có ${money(session.balance || 0)}, đơn cần ${money(total)}). Vui lòng nạp thêm tiền vào ví.`,
+        );
+      }
+
+      // 2. Submit order to server
+      const payload = {
+        name,
+        email,
+        note,
+        paymentMethod: "wallet",
+        items: state.cart.map((item) => ({
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+        })),
+        discordAccount: hasLog ? discordAccount : undefined,
+        discordPassword: hasLog ? discordPassword : undefined,
+        backupCodes: hasLog ? backupCodes : undefined,
       };
-    }),
-  };
-  state.orders.unshift(order);
-  state.orders = state.orders.slice(0, 20);
-  state.cart = [];
-  saveState();
-  form.reset();
-  checkoutDialog.close();
-  showInfo(
-    "Đã tạo đơn mẫu!",
-    `<div class="success-icon">${icon("check")}</div><p>Mã đơn: <strong>${escapeHtml(order.id)}</strong></p><p>Đơn đã lưu trên trình duyệt của bạn. Chưa có thanh toán và chưa gửi thông tin tới shop.</p><p>Muốn đặt thực tế? Gửi tên sản phẩm và gói bạn chọn tới Discord VietNam Legacy.</p><a class="button primary" href="${storeConfig.discordUrl}" target="_blank" rel="noopener noreferrer">Liên hệ Discord ${icon("arrow")}</a>`,
-  );
-});
+
+      const orderRes = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": session.csrfToken,
+        },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+      });
+
+      const resData = await orderRes.json();
+      if (!orderRes.ok) {
+        throw new Error(resData.error || "Không thể tạo đơn hàng.");
+      }
+
+      // 3. Clear cart & update state
+      state.cart = [];
+      saveState();
+      updateCounts();
+      form.reset();
+      checkoutDialog.close();
+
+      // Update wallet balance label in topbar
+      const walletLabel = document.querySelector("#wallet-label");
+      if (walletLabel && typeof resData.balance === "number") {
+        walletLabel.textContent = money(resData.balance);
+      }
+
+      showInfo(
+        "Đặt hàng thành công!",
+        `<div class="success-icon">${icon("check")}</div>
+        <p>Mã đơn hàng: <strong>${escapeHtml(resData.order.id)}</strong></p>
+        <p>Đã thanh toán: <strong>${money(resData.order.total)}</strong> qua Ví VietNam Legacy.</p>
+        ${
+          resData.order.hasLogItems
+            ? '<div class="order-log-info">🔑 <strong>Gói Nạp Acc (Log):</strong> Tài khoản & mã dự phòng của bạn đã được mã hóa bảo mật, chỉ riêng Admin shop mới xem được để đăng nhập nạp gói.</div>'
+            : '<div class="gift-notice" style="margin:12px 0; padding:10px; border-radius:6px;">🎁 <strong>Gói Link Gift:</strong> Shop sẽ sớm gửi Link Claim trực tiếp trong mục "Đơn hàng của tôi".</div>'
+        }
+        <div style="display:flex; gap:10px; margin-top:16px;">
+          <button class="button primary" data-action="orders">Xem Đơn hàng của tôi</button>
+          <button class="button secondary" data-close>Tiếp tục mua sắm</button>
+        </div>`,
+      );
+    } catch (err) {
+      alert(err.message);
+      notify(err.message);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Xác nhận thanh toán <span data-icon="arrow"></span>';
+      paintIcons();
+    }
+  });
 
 document
   .querySelector('#checkout-form [name="name"]')
   .addEventListener("input", (event) => {
     event.target.setCustomValidity("");
   });
+
 
 paintIcons();
 updateCounts();
