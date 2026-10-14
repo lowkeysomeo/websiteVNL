@@ -150,7 +150,6 @@
   }
 
   function startScene(card, canvas) {
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const lightDevice = window.matchMedia('(pointer: coarse)').matches ||
       (navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4) ||
       (navigator.deviceMemory > 0 && navigator.deviceMemory <= 4);
@@ -504,7 +503,7 @@
     }
 
     document.addEventListener('visibilitychange', syncAnimation);
-    reducedMotion.addEventListener('change', syncAnimation);
+
     const visibilityObserver = window.IntersectionObserver
       ? new IntersectionObserver(entries => {
           inViewport = entries.some(entry => entry.isIntersecting);
@@ -516,7 +515,7 @@
     function renderFrame(time) {
       animId = null;
       if (disposed || document.hidden || !inViewport) return;
-      if (!reducedMotion.matches) scheduleFrame();
+      scheduleFrame();
       // Màn hình 120/144 Hz không cần dựng thêm hình cho hiệu ứng trang trí.
       if (lastFrame !== null && time - lastFrame < 1000 / 60 - 0.5) return;
       lastFrame = time;
@@ -598,7 +597,7 @@
       if (animId !== null) cancelAnimationFrame(animId);
       if (visibilityObserver) visibilityObserver.disconnect();
       document.removeEventListener('visibilitychange', syncAnimation);
-      reducedMotion.removeEventListener('change', syncAnimation);
+
       if (resizeObserver) resizeObserver.disconnect();
     });
   }

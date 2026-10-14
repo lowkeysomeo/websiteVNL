@@ -40,14 +40,15 @@ test('3D dừng hoàn toàn ngoài màn hình và tab ẩn, tiếp tục với m
   h.context.document.hidden = false; h.events.visibilitychange(); h.tick(1000);
   assert.equal(h.context.renders, 2);
 });
-test('Giới hạn vẽ trên màn hình tần số cao và tôn trọng giảm chuyển động', () => {
-  const h = setup(); h.visible(true);
+test('Giới hạn vẽ trên màn hình tần số cao nhưng vẫn chạy khi hệ thống giảm chuyển động', () => {
+  const h = setup(true); h.visible(true);
   h.tick(0); h.tick(7); h.tick(14);
   assert.equal(h.context.renders, 1);
   h.tick(21); assert.equal(h.context.renders, 2);
-  h.context.reducedMotion.matches = true; h.events.motion(); h.tick(28);
-  assert.equal(h.context.renders, 3);
-  assert.equal(h.frames.size, 0);
-  h.context.reducedMotion.matches = false; h.events.motion();
+  assert.equal(h.frames.size, 1);
+  h.tick(42); assert.equal(h.context.renders, 3);
+  h.visible(false); assert.equal(h.frames.size, 0);
+  h.visible(true); h.tick(100);
+  assert.equal(h.context.renders, 4);
   assert.equal(h.frames.size, 1);
 });
