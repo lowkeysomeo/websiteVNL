@@ -1,6 +1,11 @@
 // Giao diện giá, ưu đãi và nạp tiền QR dùng chung phiên đăng nhập của trang quản trị.
 window.initAdminPricing = (() => {
-  let api, notify, products = [], promotions = [], bankSettings = { bank: {}, isActive: false }, depositsList = [], depositFilter = "all", depositSearch = "", guideData = null, guidesList = [], guideFilter = "all", guideSearch = "", currentView = "orders", initialized = false, loaded = false;
+  let api, notify, products = [], promotions = [], bankSettings = { bank: {}, isActive: false }, depositsList = [], depositFilter = "all", depositSearch = "", guideData = null, guidesList = [], guideFilter = "all", guideSearch = "", categoriesList = [
+    { id: "discord", name: "Discord", icon: "gamepad" },
+    { id: "entertainment", name: "Giải trí", icon: "layers" },
+    { id: "creative", name: "Sáng tạo", icon: "sparkles" },
+    { id: "services", name: "Dịch vụ Discord", icon: "box" },
+  ], adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false;
   const guideCategoryLabels = { guide: "Hướng dẫn", tips: "Mẹo & Thủ thuật", news: "Tin tức", other: "Khác" };
   const $ = (selector) => document.querySelector(selector);
   const money = n => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
@@ -113,6 +118,9 @@ window.initAdminPricing = (() => {
       loaded = true;
       products = pricingData.products;
       promotions = pricingData.promotions;
+      if (Array.isArray(pricingData.categories) && pricingData.categories.length) {
+        categoriesList = pricingData.categories;
+      }
       bankSettings = bankData.settings || { bank: {}, isActive: false };
       depositsList = depositsData.deposits || [];
       guideData = guideRes.guide || null;
@@ -134,36 +142,184 @@ window.initAdminPricing = (() => {
     if (view !== "orders") render();
   }
 
+  function slugify(text) {
+    return String(text || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40);
+  }
+
+  function getCategoryDisplayName(catId) {
+    const found = categoriesList.find(c => c.id === catId);
+    if (found) return found.name;
+    if (catId === "discord") return "Discord";
+    if (catId === "entertainment") return "Giải trí";
+    if (catId === "creative") return "Sáng tạo";
+    if (catId === "services") return "Dịch vụ Discord";
+    return catId || "Chung";
+  }
+
+  async function moveProduct(productId, direction) {
+    const idx = products.findIndex(p => p.id === productId);
+    if (idx === -1) return;
+    const targetIdx = idx + direction;
+    if (targetIdx < 0 || targetIdx >= products.length) return;
+    const item = products.splice(idx, 1)[0];
+    products.splice(targetIdx, 0, item);
+    render();
+    try {
+      const res = await api("/api/admin/catalog/reorder", {
+        method: "PUT",
+        body: JSON.stringify({ productIds: products.map(p => p.id) }),
+      });
+      if (res?.products) products = res.products;
+      notify(`Đã chuyển vị trí "${item.name}" thành công!`);
+    } catch (err) {
+      notify("Lỗi cập nhật vị trí: " + err.message);
+      await load();
+    }
+  }
+
+  async function setProductPosition(productId, targetIdx) {
+    const idx = products.findIndex(p => p.id === productId);
+    if (idx === -1 || targetIdx < 0 || targetIdx >= products.length || idx === targetIdx) return;
+    const item = products.splice(idx, 1)[0];
+    products.splice(targetIdx, 0, item);
+    render();
+    try {
+      const res = await api("/api/admin/catalog/reorder", {
+        method: "PUT",
+        body: JSON.stringify({ productIds: products.map(p => p.id) }),
+      });
+      if (res?.products) products = res.products;
+      notify(`Đã chuyển "${item.name}" tới vị trí #${targetIdx + 1}!`);
+    } catch (err) {
+      notify("Lỗi cập nhật vị trí: " + err.message);
+      await load();
+    }
+  }
+
+  function openCategoriesManager() {
+    $("#catalog-editor").innerHTML = `
+      <div class="pricing-card categories-manager-card">
+        <div class="promotion-title">
+          <div>
+            <h3>⚙️ Quản lý & Phân chia Hạng mục</h3>
+            <p class="admin-cat-help" style="font-size:12px; color:var(--muted); margin:4px 0 0;">Thêm mới, đổi tên hoặc sắp xếp lại thứ tự các hạng mục trên cửa hàng.</p>
+          </div>
+          <button type="button" class="button secondary btn-small" data-catalog-close>Đóng ✕</button>
+        </div>
+
+        <div class="cat-list-wrap" style="margin-top:16px;">
+          <h4 style="font-size:13px; margin-bottom:8px; color:var(--accent);">Danh sách hạng mục hiện có (${categoriesList.length}):</h4>
+          <div class="cat-rows-container">
+            ${categoriesList.map((cat, idx) => {
+              const count = products.filter(p => p.category === cat.id).length;
+              return `
+                <div class="cat-manager-row">
+                  <div class="cat-row-info">
+                    <span class="cat-index-badge">#${idx + 1}</span>
+                    <strong class="cat-name-display">${esc(cat.name)}</strong>
+                    <code class="cat-id-code">[${esc(cat.id)}]</code>
+                    <span class="status-badge" style="background:#26181b; font-size:10px;">${count} sản phẩm</span>
+                  </div>
+                  <div class="cat-row-actions">
+                    <button type="button" class="button secondary btn-xs" data-cat-up="${esc(cat.id)}" ${idx === 0 ? "disabled" : ""} title="Đưa lên trên">▲ Lên</button>
+                    <button type="button" class="button secondary btn-xs" data-cat-down="${esc(cat.id)}" ${idx === categoriesList.length - 1 ? "disabled" : ""} title="Đưa xuống dưới">▼ Xuống</button>
+                    <button type="button" class="button secondary btn-xs btn-danger" data-cat-delete="${esc(cat.id)}" ${count > 0 ? 'disabled title="Còn sản phẩm thuộc hạng mục này, không thể xóa"' : 'title="Xóa hạng mục này"'}>✕ Xóa</button>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+
+        <form id="category-add-form" class="category-add-form" style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">
+          <h4 style="font-size:13px; margin-bottom:12px;">+ Tạo thêm hạng mục mới:</h4>
+          <div class="pricing-form-grid">
+            <label>Tên hiển thị hạng mục *<input name="catName" required maxlength="50" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa..."></label>
+            <label>Mã hạng mục (Tùy chọn)<input name="catId" maxlength="30" placeholder="Để trống sẽ tự tạo từ tên..."></label>
+            <label>Biểu tượng (Icon)<select name="catIcon">
+              <option value="gamepad">🎮 Tay cầm Game / Giải trí (gamepad)</option>
+              <option value="layers">🎬 Phim ảnh / Gói xếp lớp (layers)</option>
+              <option value="sparkles">✨ Ngôi sao / Sáng tạo (sparkles)</option>
+              <option value="box">📦 Hộp quà / Dịch vụ (box)</option>
+              <option value="grid">🔲 Lưới / Tổng hợp (grid)</option>
+              <option value="headphones">🎧 Âm nhạc / Hỗ trợ (headphones)</option>
+              <option value="book">📖 Sách / Hướng dẫn (book)</option>
+            </select></label>
+          </div>
+          <p class="pricing-form-message" role="status"></p>
+          <button type="submit" class="button primary" style="margin-top:10px;">+ Thêm hạng mục này</button>
+        </form>
+      </div>
+    `;
+    $("#category-add-form [name=catName]").focus();
+  }
+
   function render() {
     const panel = $("#admin-pricing-view");
     if (currentView === "orders") return;
     if (!loaded) { panel.innerHTML = '<p class="pricing-hint">Đang tải giá và ưu đãi...</p><button type="button" class="button secondary" data-pricing-reload>Tải lại dữ liệu</button>'; return; }
     if (currentView === "prices") {
+      const displayedProducts = products.filter(p => {
+        if (adminCategoryFilter !== "all" && p.category !== adminCategoryFilter) return false;
+        return true;
+      });
+
       panel.innerHTML = `<header class="pricing-heading">
         <div>
           <span class="pricing-eyebrow">DANH MỤC CỬA HÀNG</span>
-          <h2>Giá & Mặt hàng</h2>
-          <p>Tùy chỉnh danh mục: thêm mới, bỏ bán (ẩn) hoặc chỉnh giá niêm yết từng gói.</p>
+          <h2>Giá, Vị trí & Mặt hàng</h2>
+          <p>Tùy chỉnh thứ tự vị trí hiển thị, phân chia các hạng mục, thêm mới, sửa hoặc ẩn/hiện từng gói.</p>
         </div>
         <div class="pricing-actions">
+          <button type="button" class="button secondary" data-categories-manage>⚙️ Quản lý hạng mục</button>
           <button type="button" class="button primary" data-product-new>+ Thêm mặt hàng mới</button>
         </div>
       </header>
+
+      <div class="admin-category-filter-bar">
+        <span class="cat-filter-label" style="font-size:11px; color:var(--muted); align-self:center; margin-right:4px;">Lọc hạng mục:</span>
+        <button type="button" class="admin-cat-pill ${adminCategoryFilter === 'all' ? 'active' : ''}" data-filter-cat="all">Tất cả (${products.length})</button>
+        ${categoriesList.map(cat => {
+          const count = products.filter(p => p.category === cat.id).length;
+          return `<button type="button" class="admin-cat-pill ${adminCategoryFilter === cat.id ? 'active' : ''}" data-filter-cat="${esc(cat.id)}">${esc(cat.name)} (${count})</button>`;
+        }).join("")}
+      </div>
+
       <div id="catalog-editor"></div>
       <form id="admin-prices-form">
         <div class="price-product-grid">
-          ${products.filter(p => !p.service).map(p => `
+          ${displayedProducts.map(p => {
+            const globalIdx = products.findIndex(x => x.id === p.id);
+            const totalProds = products.length;
+            return `
             <section class="pricing-card product-manage-card ${p.isActive ? "" : "is-inactive"}">
               <div class="product-card-top">
                 <div>
                   <div class="product-title-row">
+                    <span class="product-pos-badge" title="Thứ tự vị trí hiển thị trên cửa hàng">#${globalIdx + 1}</span>
                     <h3>${esc(p.name)}</h3>
+                    <span class="product-category-chip">${esc(getCategoryDisplayName(p.category))}</span>
+                    ${p.service ? '<span class="status-badge service-sm">🛠️ Dịch vụ</span>' : ""}
                     ${p.isCustom ? '<span class="status-badge custom">Tự tạo</span>' : ""}
                     ${p.isActive ? '<span class="status-badge active">Đang bán</span>' : '<span class="status-badge disabled">Đã ẩn / Bỏ bán</span>'}
                   </div>
                   <p class="product-desc-snippet">${esc(p.description || "Chưa có mô tả.")}</p>
                 </div>
                 <div class="product-card-actions">
+                  <div class="reorder-btn-group" title="Sắp xếp vị trí của mặt hàng này">
+                    <button type="button" class="button secondary btn-small btn-move" data-product-up="${p.id}" ${globalIdx === 0 ? "disabled" : ""} title="Đưa lên trên">▲ Lên</button>
+                    <button type="button" class="button secondary btn-small btn-move" data-product-down="${p.id}" ${globalIdx === totalProds - 1 ? "disabled" : ""} title="Đưa xuống dưới">▼ Xuống</button>
+                    <select class="product-pos-select" data-product-pos="${p.id}" title="Chọn nhanh số thứ tự vị trí">
+                      ${products.map((_, i) => `<option value="${i}" ${i === globalIdx ? "selected" : ""}>Vị trí ${i + 1}</option>`).join("")}
+                    </select>
+                  </div>
                   <button type="button" class="button secondary btn-small" data-variant-new="${p.id}">+ Thêm gói</button>
                   <button type="button" class="button secondary btn-small" data-product-edit="${p.id}" title="Chỉnh sửa thông tin mặt hàng">✏️ Sửa</button>
                   <button type="button" class="button secondary btn-small" data-product-toggle="${p.id}">${p.isActive ? "Bỏ bán (Ẩn)" : "Mở bán lại"}</button>
@@ -171,6 +327,11 @@ window.initAdminPricing = (() => {
                 </div>
               </div>
               <div class="variants-container">
+                ${p.service ? `
+                  <div class="service-notice-admin" style="background:#1b1013; padding:10px 14px; border-radius:6px; border:1px dashed #4a343a; font-size:11px; color:#c5b5ae; margin-bottom:8px;">
+                    🛠️ <strong>Dịch vụ báo giá theo yêu cầu:</strong> Khách hàng trao đổi trực tiếp trên Discord để thống nhất yêu cầu và chi phí trước khi báo giá.
+                  </div>
+                ` : ""}
                 ${(p.variants || []).length ? p.variants.map(v => `
                   <div class="price-variant ${v.isActive ? "" : "is-inactive"}">
                     <div class="variant-meta">
@@ -192,13 +353,13 @@ window.initAdminPricing = (() => {
                       <button type="button" class="button secondary btn-xs btn-danger" data-variant-delete="${p.id}:${v.id}" title="Xóa vĩnh viễn gói này">✕</button>
                     </div>
                   </div>
-                `).join("") : '<p class="empty-variants-hint">Chưa có gói sản phẩm nào. Bấm "+ Thêm gói" để tạo gói đầu tiên.</p>'}
+                `).join("") : (p.service ? "" : '<p class="empty-variants-hint">Chưa có gói sản phẩm nào. Bấm "+ Thêm gói" để tạo gói đầu tiên.</p>')}
               </div>
             </section>
-          `).join("")}
+          `}).join("")}
         </div>
         <div class="pricing-savebar">
-          <p>Giá mới áp dụng cho đơn tạo sau khi lưu. Đơn đã thanh toán giữ nguyên.</p>
+          <p>Giá mới áp dụng cho đơn tạo sau khi lưu. Thứ tự vị trí và hạng mục được cập nhật tự động ngay khi chọn.</p>
           <button class="button primary" type="submit">Lưu bảng giá</button>
         </div>
         <p class="pricing-form-message" role="status"></p>
@@ -409,12 +570,13 @@ window.initAdminPricing = (() => {
         <div class="promotion-title"><h3>✏️ Chỉnh sửa mặt hàng: ${esc(p.name)}</h3><button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button></div>
         <div class="pricing-form-grid">
           <label>Tên mặt hàng *<input name="name" required maxlength="100" value="${esc(p.name)}"></label>
-          <label>Danh mục *<select name="category" required>
-            <option value="discord" ${p.category === "discord" ? "selected" : ""}>Discord</option>
-            <option value="entertainment" ${p.category === "entertainment" ? "selected" : ""}>Giải trí & Premium</option>
-            <option value="creative" ${p.category === "creative" ? "selected" : ""}>Sáng tạo & Công cụ</option>
-            <option value="services" ${p.category === "services" ? "selected" : ""}>Setup Server & Bot</option>
+          <label>Danh mục / Hạng mục *<select name="category" required id="product-category-select">
+            ${categoriesList.map(c => `<option value="${esc(c.id)}" ${p.category === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
+            <option value="__custom__">+ Nhập hạng mục mới...</option>
           </select></label>
+          <div id="new-cat-inline-wrap" style="display:none; grid-column:1 / -1; margin-top:-6px;">
+            <label style="color:var(--accent);">Tên hạng mục mới cần tạo *<input name="newCategoryName" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa..."></label>
+          </div>
           <label>Huy hiệu / Badge (Góc ảnh)<input name="badge" maxlength="50" placeholder="Ví dụ: DISCORD / NITRO BOOST" value="${esc(p.badge || "")}"></label>
           <label>Ảnh minh họa (Icon)<select name="image">
             <option value="assets/nitro.svg" ${p.image === "assets/nitro.svg" ? "selected" : ""}>Biểu tượng Nitro (Sấm sét)</option>
@@ -439,12 +601,13 @@ window.initAdminPricing = (() => {
       <div class="promotion-title"><h3>+ Thêm mặt hàng mới vào cửa hàng</h3><button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button></div>
       <div class="pricing-form-grid">
         <label>Tên mặt hàng *<input name="name" required maxlength="100" placeholder="Ví dụ: Spotify Premium, Canva Pro..."></label>
-        <label>Danh mục *<select name="category" required>
-          <option value="discord">Discord</option>
-          <option value="entertainment" selected>Giải trí & Premium</option>
-          <option value="creative">Sáng tạo & Công cụ</option>
-          <option value="services">Setup Server & Bot</option>
+        <label>Danh mục / Hạng mục *<select name="category" required id="product-category-select">
+          ${categoriesList.map(c => `<option value="${esc(c.id)}" ${c.id === "entertainment" ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
+          <option value="__custom__">+ Nhập hạng mục mới...</option>
         </select></label>
+        <div id="new-cat-inline-wrap" style="display:none; grid-column:1 / -1; margin-top:-6px;">
+          <label style="color:var(--accent);">Tên hạng mục mới cần tạo *<input name="newCategoryName" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa..."></label>
+        </div>
         <label>Huy hiệu / Badge (Góc ảnh)<input name="badge" maxlength="50" placeholder="Ví dụ: MUSIC / VIP, DESIGN / PRO..."></label>
         <label>Ảnh minh họa (Icon)<select name="image">
           <option value="assets/nitro.svg">Biểu tượng Nitro (Sấm sét)</option>
@@ -873,10 +1036,32 @@ window.initAdminPricing = (() => {
         });
         bankSettings = res.settings;
         notify(isActive ? "Đã lưu thông tin ngân hàng và bật nạp QR." : "Đã lưu thông tin ngân hàng (đang tắt nạp QR).");
+      } else if (form.id === "category-add-form") {
+        const data = new FormData(form);
+        const catName = (data.get("catName") || "").trim();
+        if (!catName) throw new Error("Vui lòng nhập tên hiển thị hạng mục.");
+        let catId = slugify((data.get("catId") || "").trim() || catName);
+        if (!catId) catId = "cat-" + Date.now();
+        const catIcon = data.get("catIcon") || "box";
+        if (categoriesList.some(c => c.id === catId)) throw new Error(`Mã hạng mục "${catId}" đã tồn tại.`);
+        categoriesList.push({ id: catId, name: catName, icon: catIcon });
+        await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+        notify(`Đã thêm hạng mục "${catName}"!`);
+        openCategoriesManager();
       } else if (form.id === "product-create-form") {
         const data = new FormData(form);
         const name = data.get("name").trim();
-        const category = data.get("category");
+        let category = data.get("category");
+        if (category === "__custom__") {
+          const newName = (data.get("newCategoryName") || "").trim();
+          if (!newName) throw new Error("Vui lòng nhập tên cho hạng mục mới.");
+          const newId = slugify(newName) || "cat-" + Date.now();
+          if (!categoriesList.some(c => c.id === newId)) {
+            categoriesList.push({ id: newId, name: newName, icon: "box" });
+            await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+          }
+          category = newId;
+        }
         const badge = data.get("badge").trim();
         const description = data.get("description").trim();
         const image = data.get("image") || "assets/nitro.svg";
@@ -892,7 +1077,17 @@ window.initAdminPricing = (() => {
         const data = new FormData(form);
         const productId = form.dataset.productId;
         const name = data.get("name").trim();
-        const category = data.get("category");
+        let category = data.get("category");
+        if (category === "__custom__") {
+          const newName = (data.get("newCategoryName") || "").trim();
+          if (!newName) throw new Error("Vui lòng nhập tên cho hạng mục mới.");
+          const newId = slugify(newName) || "cat-" + Date.now();
+          if (!categoriesList.some(c => c.id === newId)) {
+            categoriesList.push({ id: newId, name: newName, icon: "box" });
+            await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+          }
+          category = newId;
+        }
         const badge = data.get("badge").trim();
         const description = data.get("description").trim();
         const image = data.get("image") || "assets/nitro.svg";
@@ -972,6 +1167,13 @@ window.initAdminPricing = (() => {
             statusText.textContent = event.target.checked ? "Đang bật hiển thị" : "Tạm ẩn";
             statusText.className = event.target.checked ? "status-active" : "status-inactive";
           }
+        }
+        if (event.target.dataset.productPos) {
+          setProductPosition(event.target.dataset.productPos, Number(event.target.value));
+        }
+        if (event.target.id === "product-category-select") {
+          const wrap = document.querySelector("#new-cat-inline-wrap");
+          if (wrap) wrap.style.display = event.target.value === "__custom__" ? "block" : "none";
         }
       });
       document.addEventListener("input", event => {
@@ -1137,6 +1339,49 @@ window.initAdminPricing = (() => {
         }
         if (button.dataset.depositQr) {
           openQrModal(button.dataset.qrUrl, button.dataset.qrCode, Number(button.dataset.qrAmount));
+        }
+        if (button.dataset.productUp) {
+          moveProduct(button.dataset.productUp, -1);
+        }
+        if (button.dataset.productDown) {
+          moveProduct(button.dataset.productDown, 1);
+        }
+        if (button.hasAttribute("data-categories-manage")) {
+          openCategoriesManager();
+        }
+        if (button.dataset.filterCat) {
+          adminCategoryFilter = button.dataset.filterCat;
+          render();
+        }
+        if (button.dataset.catUp) {
+          const cId = button.dataset.catUp;
+          const idx = categoriesList.findIndex(c => c.id === cId);
+          if (idx > 0) {
+            const item = categoriesList.splice(idx, 1)[0];
+            categoriesList.splice(idx - 1, 0, item);
+            await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+            notify("Đã cập nhật thứ tự hạng mục.");
+            openCategoriesManager();
+          }
+        }
+        if (button.dataset.catDown) {
+          const cId = button.dataset.catDown;
+          const idx = categoriesList.findIndex(c => c.id === cId);
+          if (idx >= 0 && idx < categoriesList.length - 1) {
+            const item = categoriesList.splice(idx, 1)[0];
+            categoriesList.splice(idx + 1, 0, item);
+            await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+            notify("Đã cập nhật thứ tự hạng mục.");
+            openCategoriesManager();
+          }
+        }
+        if (button.dataset.catDelete) {
+          const cId = button.dataset.catDelete;
+          if (!confirm("Bạn có chắc chắn muốn xóa hạng mục này?")) return;
+          categoriesList = categoriesList.filter(c => c.id !== cId);
+          await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+          notify("Đã xóa hạng mục.");
+          openCategoriesManager();
         }
         if (button.hasAttribute("data-modal-close")) {
           $("#catalog-editor").replaceChildren();

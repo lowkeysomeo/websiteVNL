@@ -11,6 +11,9 @@ import {
   deleteVariant,
   savePrices,
   quoteOrder,
+  getCategories,
+  saveCategories,
+  saveCatalogOrder,
 } from "../server/pricing.js";
 import { createApp } from "../server/app.js";
 import { readConfig } from "../server/config.js";
@@ -285,3 +288,118 @@ test("Admin có thể chỉnh sửa và xóa mặt hàng/gói mặc định (Dis
     db.close();
   }
 });
+
+test("Tùy chỉnh vị trí hiển thị mặt hàng và phân chia hạng mục: lưu DB, reorder API, danh mục tùy chỉnh", async () => {
+  const db = await openStore(":memory:");
+  const config = readConfig({
+    ORIGIN: "https://shop.vietnamlegacy.test",
+    ADMIN_PASSWORD: "test-admin-order-cats",
+  });
+  const server = createApp(db, config);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+
+  try {
+    // 1. Kiểm tra danh mục ban đầu
+    const defaultCats = await getCategories(db);
+    assert(defaultCats.some(c => c.id === "discord"));
+    assert(defaultCats.some(c => c.id === "entertainment"));
+    assert(defaultCats.some(c => c.id === "services"));
+
+    // 2. Cập nhật danh mục mới qua saveCategories
+    const customCats = [
+      { id: "giai-tri", name: "Giải trí & Phim ảnh", icon: "play" },
+      { id: "discord-nitro", name: "Discord & Nitro", icon: "sparkles" },
+      { id: "thiet-ke", name: "Thiết kế & Bot", icon: "box" },
+    ];
+    await saveCategories(db, customCats);
+    const updatedCats = await getCategories(db);
+    assert.equal(updatedCats.length, 3);
+    assert.equal(updatedCats[0].id, "giai-tri");
+
+    // 3. Thay đổi thứ tự mặt hàng (cho youtube lên đầu tiên, sau đó tới server-setup)
+    const initialCatalog = await getCatalog(db, Date.now(), true);
+    const reorderedIds = [
+      "youtube",
+      "server-setup",
+      "nitro",
+      "netflix",
+      ...initialCatalog.map(p => p.id).filter(id => !["youtube", "server-setup", "nitro", "netflix"].includes(id)),
+    ];
+    await saveCatalogOrder(db, reorderedIds);
+
+    const reorderedCatalog = await getCatalog(db, Date.now(), true);
+    assert.equal(reorderedCatalog[0].id, "youtube", "YouTube phải đứng vị trí #1");
+    assert.equal(reorderedCatalog[1].id, "server-setup", "server-setup phải đứng vị trí #2");
+    assert.equal(reorderedCatalog[2].id, "nitro", "Nitro phải đứng vị trí #3");
+
+    // 4. Kiểm tra qua HTTP API công khai
+    const pubCatRes = await fetch(origin + "/api/catalog");
+    assert.equal(pubCatRes.status, 200);
+    const pubCatData = await pubCatRes.json();
+    assert.equal(pubCatData.products[0].id, "youtube", "Khách hàng thấy YouTube đầu tiên theo vị trí admin chỉnh");
+    assert(pubCatData.categories.some(c => c.id === "giai-tri"), "Khách hàng nhận được danh mục tùy chỉnh");
+
+    const getCategoriesRes = await fetch(origin + "/api/categories");
+    assert.equal(getCategoriesRes.status, 200);
+    const getCategoriesData = await getCategoriesRes.json();
+    assert.equal(getCategoriesData.categories.length, 3);
+
+    // 5. Kiểm tra HTTP API Admin
+    const adminHeaders = {
+      Origin: config.origin,
+      "Content-Type": "application/json",
+      "X-Admin-Key": config.adminPassword,
+    };
+
+    // 6. Admin cập nhật lại thứ tự mặt hàng qua PUT /api/admin/catalog/reorder
+    const putReorderRes = await fetch(origin + "/api/admin/catalog/reorder", {
+      method: "PUT",
+      headers: adminHeaders,
+      body: JSON.stringify({
+        productIds: ["capcut", "youtube", "nitro"],
+      }),
+    });
+    assert.equal(putReorderRes.status, 200);
+    const reorderedFromAdmin = (await putReorderRes.json()).products;
+    assert.equal(reorderedFromAdmin[0].id, "capcut", "CapCut lên vị trí số #1");
+    assert.equal(reorderedFromAdmin[1].id, "youtube", "YouTube ở vị trí số #2");
+
+    // 7. Admin thêm/cập nhật danh mục qua PUT /api/admin/categories
+    const putCatsRes = await fetch(origin + "/api/admin/categories", {
+      method: "PUT",
+      headers: adminHeaders,
+      body: JSON.stringify({
+        categories: [
+          { id: "hot", name: "Gói Bán Chạy", icon: "sparkles" },
+          { id: "giai-tri", name: "Giải trí", icon: "play" },
+          { id: "discord", name: "Discord Nitro & Decor", icon: "box" },
+          { id: "dich-vu", name: "Dịch vụ Server & Bot", icon: "box" },
+        ],
+      }),
+    });
+    assert.equal(putCatsRes.status, 200);
+    const savedCatsFromAdmin = (await putCatsRes.json()).categories;
+    assert.equal(savedCatsFromAdmin.length, 4);
+    assert.equal(savedCatsFromAdmin[0].id, "hot");
+
+    // 8. Chặn request không có quyền admin hoặc sai CSRF
+    const unauthReorder = await fetch(origin + "/api/admin/catalog/reorder", {
+      method: "PUT",
+      headers: { Origin: config.origin, "Content-Type": "application/json" },
+      body: JSON.stringify({ productIds: ["nitro"] }),
+    });
+    assert.equal(unauthReorder.status, 401, "Từ chối khi không có phiên đăng nhập admin");
+
+    const unauthCats = await fetch(origin + "/api/admin/categories", {
+      method: "PUT",
+      headers: { Origin: config.origin, "Content-Type": "application/json" },
+      body: JSON.stringify({ categories: [] }),
+    });
+    assert.equal(unauthCats.status, 401, "Từ chối khi không có phiên đăng nhập admin");
+  } finally {
+    server.close();
+    db.close();
+  }
+});
+

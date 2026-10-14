@@ -249,6 +249,17 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
   });
 
   const allProducts = [...defaultList, ...customList];
+
+  let orderList = overridesMap.get("system:catalog_product_order");
+  if (Array.isArray(orderList) && orderList.length) {
+    const orderIndex = new Map(orderList.map((id, idx) => [id, idx]));
+    allProducts.sort((a, b) => {
+      const idxA = orderIndex.has(a.id) ? orderIndex.get(a.id) : 10000;
+      const idxB = orderIndex.has(b.id) ? orderIndex.get(b.id) : 10000;
+      return idxA - idxB;
+    });
+  }
+
   if (includeInactive) return allProducts;
 
   return allProducts
@@ -258,6 +269,53 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
       variants: (p.variants || []).filter(v => v.isActive),
     }))
     .filter(p => p.service || p.variants.length > 0);
+}
+
+export const DEFAULT_CATEGORIES = [
+  { id: "discord", name: "Discord", icon: "gamepad" },
+  { id: "entertainment", name: "Giải trí", icon: "layers" },
+  { id: "creative", name: "Sáng tạo", icon: "sparkles" },
+  { id: "services", name: "Dịch vụ Discord", icon: "box" },
+];
+
+export async function getCategories(db) {
+  let saved = [];
+  try {
+    const row = await db.prepare("SELECT data_json FROM catalog_item_overrides WHERE item_key = 'system:catalog_categories'").get();
+    if (row?.data_json) saved = JSON.parse(row.data_json);
+  } catch {}
+  if (!Array.isArray(saved) || !saved.length) {
+    saved = [...DEFAULT_CATEGORIES];
+  }
+  return saved;
+}
+
+export async function saveCategories(db, categories, now = Date.now()) {
+  if (!Array.isArray(categories) || !categories.length) throw fail("Danh sách hạng mục không hợp lệ.");
+  const cleaned = categories.map((cat, idx) => {
+    const id = slugify(cat.id || cat.name) || `cat-${idx + 1}`;
+    const name = String(cat.name || id).trim().slice(0, 50);
+    const icon = String(cat.icon || "box").trim().slice(0, 30);
+    return { id, name, icon };
+  });
+  const seen = new Set();
+  for (const c of cleaned) {
+    if (seen.has(c.id)) throw fail(`Mã hạng mục "${c.id}" bị trùng lặp.`);
+    seen.add(c.id);
+  }
+  await db.prepare(`INSERT INTO catalog_item_overrides (item_key, data_json, updated_at) VALUES (?, ?, ?)
+    ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`)
+    .run("system:catalog_categories", JSON.stringify(cleaned), now);
+  return cleaned;
+}
+
+export async function saveCatalogOrder(db, productIds, now = Date.now()) {
+  if (!Array.isArray(productIds) || !productIds.length) throw fail("Danh sách thứ tự mặt hàng không hợp lệ.");
+  const cleanIds = productIds.map(id => String(id).trim()).filter(Boolean);
+  await db.prepare(`INSERT INTO catalog_item_overrides (item_key, data_json, updated_at) VALUES (?, ?, ?)
+    ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`)
+    .run("system:catalog_product_order", JSON.stringify(cleanIds), now);
+  return await getCatalog(db, now, true);
 }
 
 export async function createCustomProduct(db, body, now = Date.now()) {

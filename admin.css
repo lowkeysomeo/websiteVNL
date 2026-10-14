@@ -1072,5 +1072,141 @@ body {
   margin-bottom: 24px;
 }
 
+/* Category filter bar in Admin */
+.admin-category-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 16px 0 20px;
+  padding: 12px 16px;
+  background: #190e11;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.admin-cat-pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid #432e33;
+  background: #221316;
+  color: #cbbcb4;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.admin-cat-pill:hover {
+  border-color: #6a4f56;
+  color: #fff;
+}
+.admin-cat-pill.active {
+  background: #3c1e25;
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Product Position Badge & Reorder Group */
+.product-pos-badge {
+  background: rgba(255, 209, 92, 0.16);
+  color: var(--accent);
+  border: 1px solid rgba(255, 209, 92, 0.35);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+}
+.product-category-chip {
+  background: #2a181c;
+  color: #d8c9c2;
+  border: 1px solid #4a343a;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+.reorder-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #180d10;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid #3c282c;
+}
+.reorder-btn-group .btn-move {
+  min-width: 28px;
+  padding: 4px 6px;
+  font-size: 10px;
+  line-height: 1;
+}
+.product-pos-select {
+  background: #251518;
+  border: 1px solid #483338;
+  color: #f0e6e1;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+/* Category Manager Card */
+.categories-manager-card {
+  border: 1px solid rgba(255, 209, 92, 0.3);
+  background: #1d1013;
+  border-radius: 10px;
+  padding: 22px;
+  margin-bottom: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.cat-rows-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.cat-manager-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #150a0d;
+  border: 1px solid #382428;
+  border-radius: 6px;
+  gap: 12px;
+}
+.cat-row-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cat-index-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(255, 209, 92, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.cat-name-display {
+  font-size: 13px;
+  color: #fff;
+}
+.cat-id-code {
+  font-size: 10px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+.cat-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+
 
 

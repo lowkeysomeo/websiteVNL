@@ -718,6 +718,108 @@ h2 {
   padding: 9px 24px 9px 10px;
   font-size: 9px;
 }
+.catalog-right-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.catalog-view-mode-switch {
+  display: flex;
+  background: #1a0e11;
+  border: 1px solid #3b2a2d;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+.catalog-view-btn {
+  background: transparent;
+  border: 0;
+  color: #a8978f;
+  font-size: 9px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.catalog-view-btn svg {
+  width: 12px;
+  height: 12px;
+}
+.catalog-view-btn:hover {
+  color: #fff;
+}
+.catalog-view-btn.active {
+  background: #381b20;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Category grouping view */
+.catalog-grouped-container {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+.catalog-category-block {
+  display: flex;
+  flex-direction: column;
+}
+.category-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.category-block-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.category-icon-pill {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 209, 92, 0.1);
+  border: 1px solid rgba(255, 209, 92, 0.25);
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+.category-icon-pill svg {
+  width: 16px;
+  height: 16px;
+}
+.category-block-title h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+.category-block-title small {
+  font-size: 9px;
+  color: var(--muted);
+}
+.category-jump-link {
+  background: #251619;
+  border: 1px solid #432e33;
+  color: #c9b9b1;
+  font-size: 9px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.category-jump-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .results-line {
   display: flex;
   align-items: center;

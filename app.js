@@ -118,7 +118,63 @@ const state = {
   query: "",
   sort: "featured",
   favoritesOnly: false,
+  viewMode: "ordered",
 };
+
+let storeCategories = [
+  { id: "discord", name: "Discord", icon: "gamepad" },
+  { id: "entertainment", name: "Giải trí", icon: "layers" },
+  { id: "creative", name: "Sáng tạo", icon: "sparkles" },
+  { id: "services", name: "Dịch vụ Discord", icon: "box" },
+];
+
+function updateCategories(categories) {
+  if (Array.isArray(categories) && categories.length) {
+    storeCategories = categories;
+    categories.forEach((c) => {
+      categoryNames[c.id] = c.name;
+    });
+  }
+  renderCategoryFilterPills();
+}
+
+function renderCategoryFilterPills() {
+  const container = document.querySelector("#catalog-filters");
+  if (!container) return;
+  const allCats = [...storeCategories];
+  products.forEach((p) => {
+    if (!allCats.some((c) => c.id === p.category)) {
+      allCats.push({ id: p.category, name: categoryNames[p.category] || p.category, icon: "box" });
+    }
+  });
+
+  const allActive = state.category === "all";
+  let html = `
+    <button class="filter ${allActive ? "active" : ""}" data-category="all" aria-pressed="${allActive}">
+      <span data-icon="grid"></span> Tất cả
+    </button>
+  `;
+  allCats.forEach((cat) => {
+    const isSel = state.category === cat.id;
+    html += `
+      <button class="filter ${isSel ? "active" : ""}" data-category="${escapeHtml(cat.id)}" aria-pressed="${isSel}">
+        <span data-icon="${escapeHtml(cat.icon || "box")}"></span> ${escapeHtml(cat.name)}
+      </button>
+    `;
+  });
+  container.innerHTML = html;
+  paintIcons(container);
+
+  const sideNav = document.querySelector("#sidebar-category-nav");
+  if (sideNav) {
+    sideNav.innerHTML = allCats.map((cat) => `
+      <button class="nav-item ${state.category === cat.id ? "active" : ""}" data-category="${escapeHtml(cat.id)}">
+        <span data-icon="${escapeHtml(cat.icon || "box")}"></span> ${escapeHtml(cat.name)}
+      </button>
+    `).join("");
+    paintIcons(sideNav);
+  }
+}
 
 const grid = document.querySelector("#product-grid");
 const search = document.querySelector("#search");
@@ -145,6 +201,9 @@ async function refreshCatalog() {
     const response = await fetch("/api/catalog", { cache: "no-store" });
     if (!response.ok) throw new Error();
     const data = await response.json();
+    if (Array.isArray(data.categories) && data.categories.length) {
+      updateCategories(data.categories);
+    }
     const changed = !catalogReady || JSON.stringify(data.products) !== JSON.stringify(products);
     products.splice(0, products.length, ...data.products);
     catalogReady = true;
@@ -277,8 +336,9 @@ function visibleProducts() {
   const list = products.filter((product) => {
     const matchesCategory =
       state.category === "all" || product.category === state.category;
+    const catLabel = categoryNames[product.category] || product.category || "";
     const matchesSearch = normalize(
-      `${product.name} ${product.description} ${categoryNames[product.category]}`,
+      `${product.name} ${product.description} ${catLabel}`,
     ).includes(query);
     const matchesFavorites =
       !state.favoritesOnly || state.favorites.includes(product.id);
@@ -298,40 +358,81 @@ function visibleProducts() {
   return list;
 }
 
+function renderProductCard(product) {
+  const favorite = state.favorites.includes(product.id);
+  const price = product.service
+    ? "Liên hệ"
+    : variantPriceHtml(product.variants.reduce((lowest, variant) => variant.price < lowest.price ? variant : lowest));
+  const catUpper = (categoryNames[product.category] || product.category || "CHUNG").toUpperCase();
+  return `<article class="product-card" data-product="${product.id}">
+  <div class="product-media">
+    <button class="product-open" data-detail="${product.id}" aria-label="Xem chi tiết ${escapeHtml(product.name)}"><img src="${escapeHtml(product.image)}" alt="Minh họa ${escapeHtml(product.name)}" loading="lazy" width="350" height="210"></button>
+    <span class="product-badge">${escapeHtml(product.badge || catUpper)}</span>
+    <button class="favorite-button ${favorite ? "selected" : ""}" data-favorite="${product.id}" aria-pressed="${favorite}" aria-label="${favorite ? "Bỏ yêu thích" : "Yêu thích"} ${escapeHtml(product.name)}">${icon("heart")}</button>
+  </div>
+  <div class="product-body">
+    <div class="product-category">${catUpper}</div>
+    <button class="product-heading" data-detail="${product.id}">${escapeHtml(product.name)}</button>
+    <p class="product-description">${escapeHtml(product.description)}</p>
+    <ul class="product-features">${(product.features || []).map((feature) => `<li>${icon("check")}<span>${escapeHtml(feature)}</span></li>`).join("")}</ul>
+    <div class="product-bottom">
+      <div><span class="price-label">${product.service ? "BÁO GIÁ THEO YÊU CẦU" : "GIÁ TỪ"}</span><span class="price ${product.service ? "service-price" : ""}">${price}</span></div>
+      ${
+        product.service
+          ? `<button class="add-button" data-detail="${product.id}">Tư vấn ${icon("arrow")}</button>`
+          : `<div class="product-card-actions">
+              <button class="add-button" data-add="${product.id}" ${catalogReady ? "" : "disabled"} title="Thêm vào giỏ hàng">${icon("bag")} Thêm giỏ</button>
+              <button class="buy-button" data-buy="${product.id}" ${catalogReady ? "" : "disabled"} title="Mua trực tiếp không cần giỏ">Mua ngay ⚡</button>
+            </div>`
+      }
+    </div>
+  </div>
+</article>`;
+}
+
 function renderProducts() {
   const list = visibleProducts();
-  grid.innerHTML = list
-    .map((product) => {
-      const favorite = state.favorites.includes(product.id);
-      const price = product.service
-        ? "Liên hệ"
-        : variantPriceHtml(product.variants.reduce((lowest, variant) => variant.price < lowest.price ? variant : lowest));
-      return `<article class="product-card" data-product="${product.id}">
-      <div class="product-media">
-        <button class="product-open" data-detail="${product.id}" aria-label="Xem chi tiết ${product.name}"><img src="${product.image}" alt="Minh họa ${product.name}" loading="lazy" width="350" height="210"></button>
-        <span class="product-badge">${product.badge}</span>
-        <button class="favorite-button ${favorite ? "selected" : ""}" data-favorite="${product.id}" aria-pressed="${favorite}" aria-label="${favorite ? "Bỏ yêu thích" : "Yêu thích"} ${product.name}">${icon("heart")}</button>
-      </div>
-      <div class="product-body">
-        <div class="product-category">${categoryNames[product.category].toUpperCase()}</div>
-        <button class="product-heading" data-detail="${product.id}">${product.name}</button>
-        <p class="product-description">${product.description}</p>
-        <ul class="product-features">${product.features.map((feature) => `<li>${icon("check")}<span>${feature}</span></li>`).join("")}</ul>
-        <div class="product-bottom">
-          <div><span class="price-label">${product.service ? "BÁO GIÁ THEO YÊU CẦU" : "GIÁ TỪ"}</span><span class="price ${product.service ? "service-price" : ""}">${price}</span></div>
-          ${
-            product.service
-              ? `<button class="add-button" data-detail="${product.id}">Tư vấn ${icon("arrow")}</button>`
-              : `<div class="product-card-actions">
-                  <button class="add-button" data-add="${product.id}" ${catalogReady ? "" : "disabled"} title="Thêm vào giỏ hàng">${icon("bag")} Thêm giỏ</button>
-                  <button class="buy-button" data-buy="${product.id}" ${catalogReady ? "" : "disabled"} title="Mua trực tiếp không cần giỏ">Mua ngay ⚡</button>
-                </div>`
-          }
+
+  if (state.viewMode === "grouped" && state.category === "all" && !state.query && !state.favoritesOnly) {
+    const presentCats = [];
+    storeCategories.forEach(cat => {
+      const prods = list.filter(p => p.category === cat.id);
+      if (prods.length > 0) {
+        presentCats.push({ ...cat, products: prods });
+      }
+    });
+    list.forEach(p => {
+      if (!presentCats.some(c => c.id === p.category)) {
+        const catProds = list.filter(x => x.category === p.category);
+        presentCats.push({ id: p.category, name: categoryNames[p.category] || p.category, icon: "box", products: catProds });
+      }
+    });
+
+    grid.className = "catalog-grouped-container";
+    grid.innerHTML = presentCats.map(group => `
+      <section class="catalog-category-block" data-cat-block="${escapeHtml(group.id)}">
+        <div class="category-block-header">
+          <div class="category-block-title">
+            <span class="category-icon-pill">${icon(group.icon || "box")}</span>
+            <div>
+              <h3>${escapeHtml(group.name)}</h3>
+              <small>${group.products.length} mặt hàng & gói dịch vụ</small>
+            </div>
+          </div>
+          <button type="button" class="category-jump-link" data-category="${escapeHtml(group.id)}" title="Lọc riêng hạng mục này">
+            Xem riêng mục này ↗
+          </button>
         </div>
-      </div>
-    </article>`;
-    })
-    .join("");
+        <div class="product-grid">
+          ${group.products.map(renderProductCard).join("")}
+        </div>
+      </section>
+    `).join("");
+  } else {
+    grid.className = "product-grid";
+    grid.innerHTML = list.map(renderProductCard).join("");
+  }
+
   document.querySelector("#result-count").textContent =
     `${list.length} sản phẩm & dịch vụ${state.favoritesOnly ? " yêu thích" : ""}`;
   document.querySelector("#empty-state").hidden = list.length > 0;
@@ -342,6 +443,9 @@ function renderProducts() {
     button.classList.toggle("active", selected);
     if (button.classList.contains("filter"))
       button.setAttribute("aria-pressed", String(selected));
+  });
+  document.querySelectorAll("[data-view-mode]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.viewMode === state.viewMode);
   });
   document
     .querySelector('[data-action="favorites"]')
@@ -364,11 +468,12 @@ function showProduct(id, isDirectBuy = false) {
   if (!product) return;
   if (!product.service && !catalogReady) return notify("Đang tải giá sản phẩm, vui lòng thử lại.");
   const first = product.variants[0];
+  const catUpper = (categoryNames[product.category] || product.category || "CHUNG").toUpperCase();
   document.querySelector("#product-detail").innerHTML = `
     <div class="detail-layout">
       <img class="detail-image" src="${product.image}" alt="Minh họa ${product.name}">
       <div class="detail-copy" data-product="${product.id}">
-        <div class="eyebrow">${categoryNames[product.category].toUpperCase()}</div>
+        <div class="eyebrow">${catUpper}</div>
         <h2 id="product-title">${product.name}</h2>
         ${isDirectBuy ? '<div class="direct-buy-banner">⚡ MUA TRỰC TIẾP · Chọn gói bạn muốn để tiến hành thanh toán ngay</div>' : ""}
         <p>${product.detail}</p>
@@ -1161,6 +1266,10 @@ document.addEventListener("click", (event) => {
     if (index === -1) state.favorites.push(id);
     else state.favorites.splice(index, 1);
     saveState();
+    renderProducts();
+  }
+  if (button.dataset.viewMode) {
+    state.viewMode = button.dataset.viewMode;
     renderProducts();
   }
   if (button.dataset.category) {
