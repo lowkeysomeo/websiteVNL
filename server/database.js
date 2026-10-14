@@ -79,6 +79,8 @@ export async function openStore(filename, remote = {}) {
       const columns = await tx.prepare("PRAGMA table_info(orders)").all();
       if (!columns.some((column) => column.name === "server_invite"))
         await tx.exec("ALTER TABLE orders ADD COLUMN server_invite TEXT;");
+      if (!columns.some((column) => column.name === "decor_image"))
+        await tx.exec("ALTER TABLE orders ADD COLUMN decor_image TEXT;");
       const guideCols = await tx.prepare("PRAGMA table_info(shopping_guides)").all();
       if (guideCols.length && !guideCols.some((c) => c.name === "category"))
         await tx.exec("ALTER TABLE shopping_guides ADD COLUMN category TEXT DEFAULT 'guide';");

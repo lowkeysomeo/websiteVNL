@@ -602,6 +602,15 @@ function renderCart() {
 
 let currentDirectItem = null;
 
+function isDecorProduct(productId) {
+  if (!productId) return false;
+  if (productId === "decor" || productId === "decor-gift" || productId === "decor-log") return true;
+  const p = getProduct(productId);
+  if (p?.category === "decor") return true;
+  if (/decor/i.test(productId) || /decor/i.test(p?.name || "")) return true;
+  return false;
+}
+
 async function startCheckout(directItem = null) {
   if (checkoutBusy) return;
   ++checkoutQuoteRequest;
@@ -632,13 +641,23 @@ async function startCheckout(directItem = null) {
     return item.productId === "boost";
   });
 
+  const hasDecor = items.some((item) => {
+    const pid = directItem ? directItem.productId : item.productId;
+    return isDecorProduct(pid);
+  });
+
   const giftNotice = document.querySelector("#checkout-gift-notice");
   const logNotice = document.querySelector("#checkout-log-notice");
   const boostNotice = document.querySelector("#checkout-boost-notice");
+  const decorNotice = document.querySelector("#checkout-decor-notice");
   const accInput = document.querySelector("#checkout-discord-account");
   const passInput = document.querySelector("#checkout-discord-password");
   const codesInput = document.querySelector("#checkout-backup-codes");
   const inviteInput = document.querySelector("#checkout-server-invite");
+  const decorFileInput = document.querySelector("#checkout-decor-file");
+  const decorImageInput = document.querySelector("#checkout-decor-image-input");
+  const decorPreviewWrap = document.querySelector("#checkout-decor-preview-wrap");
+  const decorPreviewImg = document.querySelector("#checkout-decor-preview-img");
   const balanceEl = document.querySelector("#checkout-wallet-balance");
   const alertEl = document.querySelector("#checkout-wallet-alert");
   const submitBtn = document.querySelector("#checkout-submit-btn");
@@ -662,6 +681,16 @@ async function startCheckout(directItem = null) {
     if (boostNotice) boostNotice.hidden = true;
     if (inviteInput) inviteInput.required = false;
   }
+
+  if (hasDecor) {
+    if (decorNotice) decorNotice.hidden = false;
+  } else {
+    if (decorNotice) decorNotice.hidden = true;
+  }
+  if (decorFileInput) decorFileInput.value = "";
+  if (decorImageInput) decorImageInput.value = "";
+  if (decorPreviewWrap) decorPreviewWrap.style.display = "none";
+  if (decorPreviewImg) decorPreviewImg.src = "";
 
   if (!hasLog && !hasBoost) {
     if (giftNotice) giftNotice.hidden = false;
@@ -771,6 +800,23 @@ async function showOrders() {
           `;
         }
 
+        let decorSection = "";
+        if (order.decorImage) {
+          decorSection = `
+            <div class="order-decor-info" style="margin-top:8px; padding:8px 12px; background:rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.25); border-radius:6px; font-size:12px; display:flex; align-items:center; gap:10px;">
+              <a href="${escapeHtml(order.decorImage)}" target="_blank" rel="noopener noreferrer">
+                <img src="${escapeHtml(order.decorImage)}" alt="Mẫu Decor" style="width:48px; height:48px; object-fit:cover; border-radius:6px; border:1px solid var(--line); flex-shrink:0;" />
+              </a>
+              <div>
+                <strong>🎨 Ảnh mẫu Decor bạn yêu cầu mua:</strong>
+                <div style="margin-top:2px;">
+                  <a href="${escapeHtml(order.decorImage)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent); font-size:11px;">Xem ảnh kích thước đầy đủ ↗</a>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
         const itemsHtml = order.items
           .map(
             (item) =>
@@ -791,6 +837,7 @@ async function showOrders() {
             ${claimSection}
             ${logNotice}
             ${boostNotice}
+            ${decorSection}
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
               <span class="muted" style="font-size:11px;">Thanh toán: Ví VietNam Legacy</span>
               <strong class="order-total" style="color:var(--accent); font-size:15px;">${money(order.total)}</strong>
@@ -1505,11 +1552,22 @@ document
 
     const hasLog = itemsToOrder.some((item) => item.deliveryType === "log");
     const hasBoost = itemsToOrder.some((item) => item.productId === "boost");
+    const hasDecor = itemsToOrder.some((item) => isDecorProduct(item.productId));
 
     const discordAccount = String(data.get("discordAccount") || "").trim();
     const discordPassword = String(data.get("discordPassword") || "").trim();
     const backupCodes = String(data.get("backupCodes") || "").trim();
     const serverInvite = String(data.get("serverInvite") || "").trim();
+    const decorImage = String(data.get("decorImage") || "").trim();
+
+    if (hasDecor) {
+      if (!decorImage) {
+        alert("Vui lòng tải lên ảnh chụp màn hình hoặc nhập link ảnh mẫu Decor bạn cần mua để shop biết và giao đúng mẫu.");
+        const textInput = document.querySelector("#checkout-decor-image-input");
+        if (textInput) textInput.focus();
+        return;
+      }
+    }
 
     if (hasBoost) {
       if (!serverInvite) {
@@ -1603,6 +1661,7 @@ document
         discordPassword: hasLog ? discordPassword : undefined,
         backupCodes: hasLog ? backupCodes : undefined,
         serverInvite: hasBoost ? serverInvite : undefined,
+        decorImage: decorImage || undefined,
       };
 
       const orderRes = await fetch("/api/orders", {
@@ -1644,6 +1703,16 @@ document
         <p>Mã đơn hàng: <strong>${escapeHtml(resData.order.id)}</strong></p>
         <p>Đã thanh toán: <strong>${money(resData.order.total)}</strong> qua Ví VietNam Legacy.</p>
         ${
+          resData.order.decorImage
+            ? `<div class="decor-notice" style="margin:10px 0; padding:10px; border-radius:6px; display:flex; align-items:center; gap:10px;">
+                <img src="${escapeHtml(resData.order.decorImage)}" alt="Mẫu Decor" style="width:40px; height:40px; object-fit:cover; border-radius:4px; border:1px solid rgba(255,255,255,0.2);" />
+                <div>
+                  🎨 <strong>Mẫu Decor:</strong> Đã lưu ảnh mẫu Decor bạn yêu cầu gửi cho shop.
+                </div>
+              </div>`
+            : ""
+        }
+        ${
           resData.order.serverInvite
             ? '<div class="boost-notice" style="margin:12px 0; padding:10px; border-radius:6px; background:rgba(147, 51, 234, 0.1); border:1px solid rgba(147, 51, 234, 0.3);">🚀 <strong>Gói Boost Server:</strong> Shop sẽ tham gia server theo link mời bạn cung cấp để thực hiện Boost.</div>'
             : resData.order.hasLogItems
@@ -1665,6 +1734,80 @@ document
       paintIcons();
     }
   });
+
+function initDecorCheckout() {
+  const decorFileInput = document.querySelector("#checkout-decor-file");
+  const decorImageInput = document.querySelector("#checkout-decor-image-input");
+  const decorPreviewWrap = document.querySelector("#checkout-decor-preview-wrap");
+  const decorPreviewImg = document.querySelector("#checkout-decor-preview-img");
+  const decorRemoveBtn = document.querySelector("#checkout-decor-remove-img");
+
+  if (decorFileInput) {
+    decorFileInput.addEventListener("change", () => {
+      const file = decorFileInput.files && decorFileInput.files[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        alert("Vui lòng chọn tệp hình ảnh (JPG, PNG, WEBP...)");
+        decorFileInput.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const max = 600;
+          let { width, height } = img;
+          if (width > max || height > max) {
+            if (width > height) {
+              height = Math.round((height * max) / width);
+              width = max;
+            } else {
+              width = Math.round((width * max) / height);
+              height = max;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL("image/webp", 0.82);
+          if (decorImageInput) decorImageInput.value = dataUrl;
+          if (decorPreviewImg) decorPreviewImg.src = dataUrl;
+          if (decorPreviewWrap) decorPreviewWrap.style.display = "flex";
+        };
+        img.onerror = () => {
+          alert("Không thể đọc tệp ảnh. Vui lòng chọn ảnh khác.");
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if (decorImageInput) {
+    decorImageInput.addEventListener("input", () => {
+      const val = decorImageInput.value.trim();
+      if (val) {
+        if (decorPreviewImg) decorPreviewImg.src = val;
+        if (decorPreviewWrap) decorPreviewWrap.style.display = "flex";
+      } else {
+        if (decorPreviewWrap) decorPreviewWrap.style.display = "none";
+        if (decorPreviewImg) decorPreviewImg.src = "";
+      }
+    });
+  }
+
+  if (decorRemoveBtn) {
+    decorRemoveBtn.addEventListener("click", () => {
+      if (decorFileInput) decorFileInput.value = "";
+      if (decorImageInput) decorImageInput.value = "";
+      if (decorPreviewWrap) decorPreviewWrap.style.display = "none";
+      if (decorPreviewImg) decorPreviewImg.src = "";
+    });
+  }
+}
+initDecorCheckout();
 
 document
   .querySelector('#checkout-form [name="name"]')

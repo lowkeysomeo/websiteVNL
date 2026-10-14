@@ -374,3 +374,127 @@ test("order creation distinguishes gift vs log and protects discord credentials"
     await ctx.close();
   }
 });
+
+test("khi khách mua decor gift và log: yêu cầu gửi ảnh mẫu decor và lưu ảnh vào đơn hàng", async () => {
+  const ctx = await setupServer();
+  try {
+    const userId = randomUUID();
+    const email = "decorbuyer@example.com";
+    const passHash = await passwordHash("securepassword123");
+    await ctx.db
+      .prepare(
+        "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+      )
+      .run(userId, email, passHash, Date.now());
+
+    // Nạp 500,000 VND vào ví
+    const depositId = randomUUID();
+    await ctx.db
+      .prepare(
+        "INSERT INTO deposits (id, user_id, code, amount, status, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(depositId, userId, "VNLDECOR123456", 500000, "credited", Date.now(), Date.now() + 86400000);
+    await ctx.db
+      .prepare(
+        "INSERT INTO bank_events (transaction_id, deposit_id, amount, outcome, received_at) VALUES (?, ?, ?, ?, ?)",
+      )
+      .run("TXDECOR1", depositId, 500000, "credited", Date.now());
+    await ctx.db
+      .prepare(
+        "INSERT INTO wallet_ledger (id, user_id, deposit_id, transaction_id, amount, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      .run(randomUUID(), userId, depositId, "TXDECOR1", 500000, Date.now());
+
+    // Đăng nhập
+    const loginRes = await ctx.request("POST", "/api/auth/login", {
+      email,
+      password: "securepassword123",
+    });
+    assert.equal(loginRes.status, 200);
+    const authHeaders = {
+      Cookie: loginRes.headers["set-cookie"][0].split(";")[0],
+      "X-CSRF-Token": loginRes.data.csrfToken,
+    };
+
+    // 1. Mua Decor Gift nhưng KHÔNG gửi ảnh mẫu -> Thất bại 400
+    const failGiftRes = await ctx.request(
+      "POST",
+      "/api/orders",
+      {
+        name: "Khach Decor",
+        email: "decorbuyer@example.com",
+        items: [{ productId: "decor-gift", variantId: "decor_gift_basic", quantity: 1 }],
+      },
+      authHeaders,
+    );
+    assert.equal(failGiftRes.status, 400);
+    assert.match(failGiftRes.data.error, /Discord Decor/);
+
+    // 2. Mua Decor Gift CÓ gửi ảnh mẫu decor (link hoặc dataURL) -> Thành công 201
+    const testDecorImg = "data:image/webp;base64,UklGRkAAAABXRUJQVlA4IDQAAADwAQCdASoBAAEAAkA4JaQAA3AA/vsGAA==";
+    const okGiftRes = await ctx.request(
+      "POST",
+      "/api/orders",
+      {
+        name: "Khach Decor",
+        email: "decorbuyer@example.com",
+        decorImage: testDecorImg,
+        items: [{ productId: "decor-gift", variantId: "decor_gift_basic", quantity: 1 }],
+      },
+      authHeaders,
+    );
+    assert.equal(okGiftRes.status, 201);
+    assert.equal(okGiftRes.data.success, true);
+    assert.equal(okGiftRes.data.order.decorImage, testDecorImg);
+    const decorGiftOrderId = okGiftRes.data.order.id;
+
+    // 3. Mua Decor Log: Cần cả thông tin đăng nhập và ảnh mẫu Decor
+    const okLogRes = await ctx.request(
+      "POST",
+      "/api/orders",
+      {
+        name: "Khach Decor Log",
+        email: "decorbuyer@example.com",
+        decorImage: "https://example.com/my-decor-sample.png",
+        discordAccount: "decoruser@discord.com",
+        discordPassword: "decorpassword123",
+        backupCodes: "12345678, 87654321, 11223344",
+        items: [{ productId: "decor-log", variantId: "decor_log_basic", quantity: 1 }],
+      },
+      authHeaders,
+    );
+    assert.equal(okLogRes.status, 201);
+    assert.equal(okLogRes.data.success, true);
+    assert.equal(okLogRes.data.order.decorImage, "https://example.com/my-decor-sample.png");
+    const decorLogOrderId = okLogRes.data.order.id;
+
+    // 4. Khách kiểm tra lịch sử đơn hàng qua GET /api/orders
+    const userOrdersRes = await ctx.request("GET", "/api/orders", null, authHeaders);
+    assert.equal(userOrdersRes.status, 200);
+    const userOrders = userOrdersRes.data.orders;
+    const foundGift = userOrders.find((o) => o.id === decorGiftOrderId);
+    const foundLog = userOrders.find((o) => o.id === decorLogOrderId);
+    assert(foundGift);
+    assert.equal(foundGift.decorImage, testDecorImg);
+    assert(foundLog);
+    assert.equal(foundLog.decorImage, "https://example.com/my-decor-sample.png");
+
+    // 5. Admin kiểm tra đơn hàng qua GET /api/admin/orders
+    const adminOrdersRes = await ctx.request(
+      "GET",
+      "/api/admin/orders",
+      null,
+      { "X-Admin-Key": "testadminsecret" },
+    );
+    assert.equal(adminOrdersRes.status, 200);
+    const adminOrders = adminOrdersRes.data.orders;
+    const adminGiftOrder = adminOrders.find((o) => o.id === decorGiftOrderId);
+    const adminLogOrder = adminOrders.find((o) => o.id === decorLogOrderId);
+    assert(adminGiftOrder);
+    assert.equal(adminGiftOrder.decorImage, testDecorImg);
+    assert(adminLogOrder);
+    assert.equal(adminLogOrder.decorImage, "https://example.com/my-decor-sample.png");
+  } finally {
+    await ctx.close();
+  }
+});

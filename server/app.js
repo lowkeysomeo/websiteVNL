@@ -583,6 +583,26 @@ export function createApp(db, config) {
           let discordPassword = null;
           let backupCodes = null;
           let serverInvite = null;
+          let decorImage = null;
+
+          if (body.decorImage) {
+            decorImage = String(body.decorImage).trim().slice(0, 500000) || null;
+          }
+
+          const hasDecorItems = validatedItems.some(
+            (item) =>
+              item.productId === "decor" ||
+              item.productId === "decor-gift" ||
+              item.productId === "decor-log" ||
+              /decor/i.test(item.productId),
+          );
+
+          if (hasDecorItems && !decorImage) {
+            throw fail(
+              400,
+              "Đơn có mặt hàng Discord Decor. Vui lòng tải lên ảnh hoặc nhập link ảnh mẫu Decor bạn cần mua.",
+            );
+          }
 
           if (hasBoostItems) {
             serverInvite = String(body.serverInvite || "").trim();
@@ -649,6 +669,7 @@ export function createApp(db, config) {
             discordPassword,
             backupCodes,
             serverInvite,
+            decorImage,
           });
 
           return json(201, {
@@ -664,6 +685,7 @@ export function createApp(db, config) {
               paymentMethod: order.paymentMethod,
               hasLogItems: order.hasLogItems,
               serverInvite: order.serverInvite,
+              decorImage: order.decorImage,
               status: order.status,
               createdAt: order.createdAt,
             },

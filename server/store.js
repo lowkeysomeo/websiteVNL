@@ -144,6 +144,7 @@ export async function createOrder(db, orderData) {
     discordPassword = null,
     backupCodes = null,
     serverInvite = null,
+    decorImage = null,
     now = Date.now(),
   } = orderData;
 
@@ -195,9 +196,9 @@ export async function createOrder(db, orderData) {
         `INSERT INTO orders (
         id, user_id, customer_name, customer_email, customer_note,
         items_json, total, payment_method, has_log_items,
-        discord_account, discord_password, backup_codes, server_invite, claim_link,
+        discord_account, discord_password, backup_codes, server_invite, decor_image, claim_link,
         status, created_at, completed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL)`,
       )
       .run(
         orderId,
@@ -213,6 +214,7 @@ export async function createOrder(db, orderData) {
         discordPassword,
         backupCodes,
         serverInvite,
+        decorImage,
         initialStatus,
         now,
       );
@@ -237,6 +239,7 @@ export async function createOrder(db, orderData) {
       paymentMethod,
       hasLogItems: Boolean(hasLogItems),
       serverInvite,
+      decorImage,
       status: initialStatus,
       createdAt: now,
     };
@@ -254,7 +257,7 @@ async function orderPricing(db, orderId) {
 export async function getUserOrders(db, userId) {
   const rows = await db
     .prepare(
-      "SELECT o.id, o.customer_name, o.customer_email, o.customer_note, o.items_json, o.total, o.payment_method, o.has_log_items, o.server_invite, o.claim_link, o.status, o.created_at, o.completed_at, op.snapshot_json AS pricing_json FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id WHERE o.user_id = ? ORDER BY o.created_at DESC LIMIT 50",
+      "SELECT o.id, o.customer_name, o.customer_email, o.customer_note, o.items_json, o.total, o.payment_method, o.has_log_items, o.server_invite, o.decor_image, o.claim_link, o.status, o.created_at, o.completed_at, op.snapshot_json AS pricing_json FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id WHERE o.user_id = ? ORDER BY o.created_at DESC LIMIT 50",
     )
     .all(userId);
   return rows.map((row) => ({
@@ -268,6 +271,7 @@ export async function getUserOrders(db, userId) {
     paymentMethod: row.payment_method,
     hasLogItems: Boolean(row.has_log_items),
     serverInvite: row.server_invite,
+    decorImage: row.decor_image || null,
     claimLink: row.claim_link,
     status: row.status,
     createdAt: row.created_at,
@@ -318,6 +322,7 @@ export async function getAdminOrders(
     discordPassword: row.discord_password,
     backupCodes: row.backup_codes,
     serverInvite: row.server_invite,
+    decorImage: row.decor_image || null,
     claimLink: row.claim_link,
     status: row.status,
     createdAt: row.created_at,

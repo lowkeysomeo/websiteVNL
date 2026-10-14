@@ -508,6 +508,35 @@
           </label>
         </div>
 
+        <!-- Decor Notice: Appears when any item is Decor Gift or Decor Log -->
+        <div class="checkout-notice decor-notice" id="checkout-decor-notice" hidden>
+          <div class="notice-badge">🎨 MẪU DECOR CẦN MUA (AVATAR & PROFILE EFFECT)</div>
+          <p>
+            Vui lòng <strong>tải lên ảnh chụp màn hình</strong> hoặc nhập link ảnh mẫu Decor (Khung Avatar / Hiệu ứng hồ sơ) trong Shop Discord mà bạn muốn mua để shop biết và giao đúng mẫu.
+          </p>
+          <div class="decor-upload-container" style="margin-top:10px;">
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <label class="button secondary btn-xs" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:6px;">
+                📷 Tải ảnh từ máy / điện thoại
+                <input type="file" id="checkout-decor-file" accept="image/*" style="display:none;" />
+              </label>
+              <span class="muted" style="font-size:11px;">hoặc dán link ảnh mẫu bên dưới</span>
+            </div>
+            <input
+              id="checkout-decor-image-input"
+              name="decorImage"
+              placeholder="https://... hoặc tải ảnh trực tiếp ở nút trên"
+              maxlength="500000"
+              style="margin-top:8px;"
+            />
+            <div id="checkout-decor-preview-wrap" style="display:none; margin-top:10px; align-items:center; gap:12px; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:8px; border:1px solid var(--line);">
+              <span style="font-size:12px; color:var(--muted); font-weight:600;">Xem trước ảnh mẫu:</span>
+              <img id="checkout-decor-preview-img" src="" alt="Decor Preview" style="width:56px; height:56px; object-fit:cover; border-radius:6px; border:1px solid var(--line); box-shadow:0 2px 6px rgba(0,0,0,0.3);" />
+              <button type="button" class="button secondary btn-xs" id="checkout-decor-remove-img" style="padding:4px 8px; font-size:11px;">✕ Xóa ảnh</button>
+            </div>
+          </div>
+        </div>
+
         <label
           >Ghi chú đơn hàng <span class="muted">(tùy chọn)</span
           ><textarea

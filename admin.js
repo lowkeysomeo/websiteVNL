@@ -437,6 +437,31 @@
           `;
         }
 
+        // DECOR IMAGE BOX
+        let decorImageBox = "";
+        if (order.decorImage) {
+          const decorImg = escapeHtml(order.decorImage);
+          decorImageBox = `
+            <div class="admin-decor-box" style="margin-top:12px; padding:12px; background:rgba(59, 130, 246, 0.1); border:1px solid rgba(59, 130, 246, 0.35); border-radius:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                <strong style="color:#60a5fa; font-size:13px;">🎨 ẢNH MẪU DECOR KHÁCH YÊU CẦU MUA (AVATAR / PROFILE EFFECT)</strong>
+                <a href="${decorImg}" target="_blank" rel="noopener noreferrer" style="font-size:11px; color:#93c5fd; text-decoration:underline;">
+                  Mở ảnh gốc trong tab mới ↗
+                </a>
+              </div>
+              <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+                <a href="${decorImg}" target="_blank" rel="noopener noreferrer" title="Bấm để phóng to">
+                  <img src="${decorImg}" alt="Mẫu Decor" style="max-width:140px; max-height:140px; object-fit:contain; border-radius:6px; border:1px solid rgba(255,255,255,0.15); background:#111; cursor:zoom-in; box-shadow:0 2px 8px rgba(0,0,0,0.4);" />
+                </a>
+                <div style="font-size:12px; color:var(--muted); line-height:1.5;">
+                  <p style="margin:0 0 4px 0;">Khách hàng đã gửi ảnh mẫu trên. Vui lòng kiểm tra kỹ mẫu Decor để gửi đúng link Gift hoặc nạp đúng mẫu vào tài khoản.</p>
+                  <span style="font-size:11px; color:#94a3b8;">(Bấm vào ảnh để xem kích thước đầy đủ)</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
         // GIFT / CLAIM / DELIVERY CONTENT BOX
         let giftClaimBox = "";
         const hasGift = (order.items || []).some((i) => i.deliveryType !== "log");
@@ -479,6 +504,7 @@
 
             ${logCredentialsBox}
             ${serverInviteBox}
+            ${decorImageBox}
             ${giftClaimBox}
 
             <div class="admin-order-footer">

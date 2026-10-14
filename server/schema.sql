@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS orders (
   discord_password TEXT,
   backup_codes TEXT,
   server_invite TEXT,
+  decor_image TEXT,
   claim_link TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','processing','completed','cancelled')),
   created_at INTEGER NOT NULL,
