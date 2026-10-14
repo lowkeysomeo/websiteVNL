@@ -12,6 +12,7 @@
     available: false,
     mode: "login",
   };
+  window.vnlWallet = wallet;
   let timer;
   let currentDeposit = null;
   let busy = false;
@@ -69,7 +70,27 @@
     return data;
   }
   function updateLabel() {
-    label.textContent = wallet.user ? money(wallet.balance || 0) : "Đăng nhập";
+    const isLoggedIn = Boolean(wallet.user);
+    label.textContent = isLoggedIn ? money(wallet.balance || 0) : "Đăng nhập";
+    const topbarLogout = document.querySelector("#topbar-logout");
+    if (topbarLogout) {
+      topbarLogout.style.display = isLoggedIn ? "inline-flex" : "none";
+      if (isLoggedIn && !topbarLogout.querySelector("svg") && typeof paintIcons === "function") {
+        paintIcons(topbarLogout);
+      }
+    }
+    const sidebarLogout = document.querySelector("#sidebar-logout");
+    if (sidebarLogout) {
+      sidebarLogout.style.display = isLoggedIn ? "flex" : "none";
+      if (isLoggedIn && !sidebarLogout.querySelector("svg") && typeof paintIcons === "function") {
+        paintIcons(sidebarLogout);
+      }
+    }
+    document.dispatchEvent(
+      new CustomEvent("vnl:session", {
+        detail: { user: wallet.user, balance: wallet.balance },
+      }),
+    );
   }
   async function loadSession() {
     try {
@@ -247,10 +268,19 @@
         authView();
       }
       if (button.dataset.wallet === "logout") {
-        await api("/api/auth/logout", { method: "POST", body: "{}" });
+        if (!window.confirm("Bạn có chắc chắn muốn đăng xuất tài khoản?")) return;
+        try {
+          await api("/api/auth/logout", { method: "POST", body: "{}" });
+        } catch {
+          // Proceed with clearing local state even if network fails or session was already closed
+        }
         Object.assign(wallet, { user: null, csrfToken: null, balance: null });
         updateLabel();
-        authView();
+        if (dialog.open) {
+          authView();
+        }
+        if (typeof closeMenu === "function") closeMenu();
+        document.dispatchEvent(new CustomEvent("vnl:logout"));
       }
       if (button.dataset.wallet === "back") await showWallet();
       if (button.dataset.wallet === "refresh") await checkDeposit();

@@ -86,6 +86,9 @@
           <span data-icon="heart"></span> Sản phẩm yêu thích
           <span class="small-count" id="favorite-count">0</span>
         </button>
+        <button class="nav-item nav-logout" id="sidebar-logout" data-wallet="logout" style="display: none;">
+          <span data-icon="logout"></span> Đăng xuất
+        </button>
       </nav>
       <div class="sidebar-label">DANH MỤC</div>
       <nav class="category-nav" id="sidebar-category-nav">
@@ -171,6 +174,17 @@
           </button>
           <button class="avatar" data-action="orders" aria-label="Xem đơn hàng">
             <img src="assets/vnl-avatar.png" alt="" width="33" height="33" />
+          </button>
+          <button
+            class="logout-topbar"
+            id="topbar-logout"
+            data-wallet="logout"
+            aria-label="Đăng xuất tài khoản"
+            title="Đăng xuất tài khoản"
+            style="display: none;"
+          >
+            <span class="logout-icon" data-icon="logout"></span>
+            <span class="logout-text">Đăng xuất</span>
           </button>
         </div>
       </header>

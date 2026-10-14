@@ -31,6 +31,7 @@ const icons = {
   gift: '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
   key: '<path d="m21 2-2 2m-1.5 1.5L16 7l-1.5-1.5L13 7l-1.5-1.5L10 7 4 13a6 6 0 1 0 8.5 8.5L22 12V2h-1Z M7 18a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/>',
   globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
 };
 
 let revealObserver = null;
@@ -759,6 +760,22 @@ async function showOrders() {
     // Offline or not logged in
   }
 
+  const loggedInUser = window.vnlWallet?.user;
+  const userEmail = loggedInUser?.email || (serverOrders[0]?.customerEmail ?? "");
+  const accountBarHtml = userEmail
+    ? `
+    <div class="orders-account-bar">
+      <div class="orders-account-info">
+        <span class="orders-account-email">👤 ${escapeHtml(userEmail)}</span>
+        <span class="orders-account-sub">Tài khoản khách hàng</span>
+      </div>
+      <button class="orders-logout-btn" data-wallet="logout" type="button" title="Đăng xuất tài khoản">
+        <span data-icon="logout"></span> Đăng xuất
+      </button>
+    </div>
+  `
+    : "";
+
   if (serverOrders.length > 0) {
     const statusLabels = {
       pending: "Chờ xử lý",
@@ -852,7 +869,17 @@ async function showOrders() {
       })
       .join("");
 
-    showInfo("Đơn hàng của tôi", ordersHtml);
+    showInfo("Đơn hàng của tôi", accountBarHtml + ordersHtml);
+    paintIcons(document.querySelector("#info-content"));
+    return;
+  }
+
+  if (userEmail) {
+    showInfo(
+      "Đơn hàng của tôi",
+      `${accountBarHtml}<p class="muted">Tài khoản chưa có đơn hàng nào. Thêm sản phẩm vào giỏ và thanh toán để xem lịch sử đơn tại đây.</p><button class="button secondary" data-close>Tiếp tục khám phá</button>`,
+    );
+    paintIcons(document.querySelector("#info-content"));
     return;
   }
 
@@ -874,6 +901,16 @@ async function showOrders() {
       .join("")}`,
   );
 }
+
+document.addEventListener("vnl:logout", () => {
+  checkoutBalance = null;
+  const balanceEl = document.querySelector("#checkout-user-balance");
+  if (balanceEl) balanceEl.textContent = "Chưa đăng nhập";
+  if (infoDialog && infoDialog.open) {
+    infoDialog.close();
+  }
+  notify("Đã đăng xuất tài khoản thành công.");
+});
 
 
 let cachedGuide = null;

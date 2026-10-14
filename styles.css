@@ -187,6 +187,14 @@ a svg,
   background: #2a191c;
   color: var(--accent);
 }
+.nav-item.nav-logout {
+  color: #ff9b9b;
+  margin-top: 4px;
+}
+.nav-item.nav-logout:hover {
+  color: #ff6b6b;
+  background: rgba(239, 68, 68, 0.12);
+}
 .nav-dot {
   width: 5px;
   height: 5px;
@@ -370,6 +378,90 @@ a svg,
   border-radius: 50%;
   font-size: 11px;
   font-weight: 700;
+}
+.logout-topbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 7px;
+  color: #ff9b9b;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.logout-topbar:hover {
+  background: rgba(239, 68, 68, 0.24);
+  border-color: #ef4444;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+.logout-topbar:active {
+  transform: scale(0.96);
+}
+.logout-topbar .logout-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+}
+.logout-topbar .logout-icon svg {
+  width: 14px;
+  height: 14px;
+}
+.orders-account-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+.orders-account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.orders-account-email {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orders-account-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+.orders-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 6px;
+  color: #ff9b9b;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.orders-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: #ef4444;
+  color: #fff;
 }
 main {
   max-width: 1420px;
@@ -1741,6 +1833,17 @@ form textarea {
     min-width: 42px;
     border-radius: 10px;
     touch-action: manipulation;
+  }
+  .logout-topbar {
+    padding: 7px 10px;
+    min-height: 42px;
+    min-width: 42px;
+    border-radius: 10px;
+    justify-content: center;
+    touch-action: manipulation;
+  }
+  .logout-topbar .logout-text {
+    display: none;
   }
   .search-box {
     gap: 7px;
