@@ -2,6 +2,7 @@
 <html lang="vi">
   <head>
     <meta charset="utf-8" />
+    <script src="local-entry.js?v=20261013" ></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#140b0d" />
     <meta
@@ -9,19 +10,19 @@
       content="VietNam Legacy — Không gian mua sắm Nitro, Decor, Boost Server và các dịch vụ giải trí, sáng tạo. Bản mẫu tương tác."
     />
     <title>VietNam Legacy · Digital store, chất riêng của bạn</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20261013-pricing1" />
     <script src="assets/vendor/three.min.js" defer></script>
     <script src="assets/fonts/vnl-font.js" defer></script>
     <script src="hero3d.js" defer></script>
-    <script src="cursor.js" defer></script>
+    <script src="cursor.js?v=20261012-cursor11" defer></script>
     <script src="products.js" defer></script>
-    <script src="app.js" defer></script>
+    <script src="app.js?v=20261013-notice2" defer></script>
     <link rel="stylesheet" href="wallet.css" />
     <script src="wallet.js" defer></script>
+    <script src="intro.js?v=20261013-intro2" defer></script>
   </head>
   <body>
-    <!-- Interactive Mouse FX: Ambient Glow, Custom Dual Cursor & Stardust Canvas -->
-    <div class="cursor-glow" id="cursor-glow" aria-hidden="true"></div>
+    <!-- Con trỏ kép và bụi sao; tự trả lại con trỏ chuẩn khi nhập liệu. -->
     <div class="cursor-dot" id="cursor-dot" aria-hidden="true"></div>
     <div class="cursor-ring" id="cursor-ring" aria-hidden="true"></div>
     <canvas id="cursor-particles" class="cursor-particles" aria-hidden="true"></canvas>
@@ -170,11 +171,12 @@
               HERE</span
             >
             <h1 id="hero-title">
-              Nâng tầm trải nghiệm.<br /><span>Khẳng định chất riêng.</span>
+              <span class="intro-line"><span class="intro-line-content">Nâng tầm trải nghiệm.</span></span>
+              <span class="intro-line intro-line-accent"><span class="intro-line-content">Khẳng định chất riêng.</span></span>
             </h1>
             <p>
-              Nitro, Decor, Boost Server và những gói Premium.<br />Không gian
-              số của bạn, theo cách bạn muốn.
+              <span class="intro-line"><span class="intro-line-content">Nitro, Decor, Boost Server và những gói Premium.</span></span>
+              <span class="intro-line"><span class="intro-line-content">Không gian số của bạn, theo cách bạn muốn.</span></span>
             </p>
             <div class="hero-actions">
               <a class="button primary" href="#catalog"
@@ -234,7 +236,7 @@
               </h2>
             </div>
             <span class="catalog-note"
-              >Giá và gói đang ở chế độ mẫu <span data-icon="sparkles"></span
+              >Giá và ưu đãi cập nhật từ cửa hàng <span data-icon="sparkles"></span
             ></span>
           </div>
           <div class="catalog-controls">
@@ -291,7 +293,8 @@
               Xóa bộ lọc ×
             </button>
           </div>
-          <div class="product-grid" id="product-grid"></div>
+          <p id="catalog-price-status" class="pricing-load-error" role="status" hidden></p>
+        <div class="product-grid" id="product-grid"></div>
           <div class="empty-state" id="empty-state" hidden>
             <span data-icon="search"></span>
             <h3>Chưa tìm thấy sản phẩm phù hợp</h3>
@@ -472,6 +475,17 @@
           <p class="checkout-wallet-alert" id="checkout-wallet-alert" hidden></p>
         </div>
 
+        <section class="checkout-coupon-box" aria-label="Mã giảm giá">
+          <label for="checkout-coupon">Mã giảm giá</label>
+          <div class="coupon-input-row"><input id="checkout-coupon" type="text" maxlength="32" placeholder="Nhập mã ưu đãi" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="coupon-apply" type="button" class="button secondary">Áp dụng</button></div>
+          <p id="coupon-message" role="status">Mỗi đơn áp dụng một mã giảm giá.</p>
+          <button id="coupon-remove" type="button" class="button secondary btn-small" hidden>Bỏ mã</button>
+        </section>
+        <div class="checkout-price-breakdown" aria-live="polite">
+          <div><span>Giá niêm yết</span><span id="checkout-subtotal">—</span></div>
+          <div><span>Ưu đãi sản phẩm</span><span id="checkout-sale-discount">—</span></div>
+          <div><span>Mã giảm giá</span><span id="checkout-coupon-discount">—</span></div>
+        </div>
         <div class="checkout-total">
           <span>Tổng thanh toán</span><strong id="checkout-total"></strong>
         </div>

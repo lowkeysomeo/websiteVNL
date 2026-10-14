@@ -1,3 +1,4 @@
+import { quoteOrder } from "./pricing.js";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
@@ -134,8 +135,8 @@ export function createOrder(db, orderData) {
     customerName,
     customerEmail,
     customerNote = "",
-    items,
-    total,
+    items: inputItems,
+    total: inputTotal,
     paymentMethod = "wallet",
     hasLogItems = 0,
     discordAccount = null,
@@ -147,6 +148,12 @@ export function createOrder(db, orderData) {
 
   db.exec("BEGIN IMMEDIATE");
   try {
+    const pricing = orderData.requestItems ? quoteOrder(db, orderData.requestItems, orderData.couponCode, userId, now) : null;
+    if (orderData.quoteFingerprint !== undefined && orderData.quoteFingerprint !== pricing?.fingerprint) {
+      throw Object.assign(new Error("Giá hoặc ưu đãi đã thay đổi. Hãy kiểm tra lại tổng tiền trước khi xác nhận."), { status: 409 });
+    }
+    const items = pricing?.validatedItems ?? inputItems;
+    const total = pricing?.total ?? inputTotal;
     if (paymentMethod === "wallet") {
       if (!userId) {
         const error = new Error("Vui lòng đăng nhập tài khoản để thanh toán bằng ví.");
@@ -193,8 +200,11 @@ export function createOrder(db, orderData) {
       now,
     );
 
+    if (pricing) db.prepare("INSERT INTO order_pricing (order_id, coupon_id, snapshot_json) VALUES (?, ?, ?)")
+      .run(orderId, pricing.coupon?.id ?? null, JSON.stringify(pricing));
     db.exec("COMMIT");
     return {
+      pricing,
       id: orderId,
       userId,
       customerName,
@@ -215,6 +225,11 @@ export function createOrder(db, orderData) {
 }
 
 // User-facing order history: NEVER returns discord_password or backup_codes
+function orderPricing(db, orderId) {
+  const row = db.prepare("SELECT snapshot_json FROM order_pricing WHERE order_id = ?").get(orderId);
+  return row ? JSON.parse(row.snapshot_json) : null;
+}
+
 export function getUserOrders(db, userId) {
   return db
     .prepare(
@@ -223,6 +238,7 @@ export function getUserOrders(db, userId) {
     .all(userId)
     .map((row) => ({
       id: row.id,
+      pricing: orderPricing(db, row.id),
       customerName: row.customer_name,
       customerEmail: row.customer_email,
       customerNote: row.customer_note,
@@ -254,6 +270,7 @@ export function getAdminOrders(db, { status, limit = 50, offset = 0 } = {}) {
     .all(...params)
     .map((row) => ({
       id: row.id,
+      pricing: orderPricing(db, row.id),
       userId: row.user_id,
       customerName: row.customer_name,
       customerEmail: row.customer_email,
@@ -281,6 +298,10 @@ export function updateAdminOrder(db, orderId, { status, claimLink }) {
     throw error;
   }
   const nextStatus = status || order.status;
+  // Đơn đã hoàn tiền không mở lại để tránh trừ ví và dùng mã thêm lần nữa.
+  if (order.status === "cancelled" && nextStatus !== "cancelled") {
+    throw Object.assign(new Error("Đơn đã hủy không thể mở lại. Hãy tạo đơn mới."), { status: 409 });
+  }
   if (!["pending", "processing", "completed", "cancelled"].includes(nextStatus)) {
     const error = new Error("Trạng thái đơn hàng không hợp lệ.");
     error.status = 400;
@@ -295,6 +316,7 @@ export function updateAdminOrder(db, orderId, { status, claimLink }) {
 
   return {
     id: order.id,
+    pricing: orderPricing(db, order.id),
     userId: order.user_id,
     customerName: order.customer_name,
     customerEmail: order.customer_email,
@@ -315,38 +337,20 @@ export function updateAdminOrder(db, orderId, { status, claimLink }) {
 }
 
 export function getAnnouncement(db) {
-  try {
-    const row = db
-      .prepare(
-        "SELECT id, content, is_active, updated_at FROM site_announcements WHERE id = 'current'",
-      )
-      .get();
-    if (!row) {
-      return {
-        content:
-          "🔥 Chào mừng bạn đến với VietNam Legacy! Shop cung cấp Discord Nitro Boost, Nitro Trial, Decor Gift/Log và Setup Server uy tín số 1 Việt Nam.",
-        is_active: 1,
-        updated_at: Date.now(),
-      };
-    }
-    return {
-      content: row.content,
-      is_active: Boolean(row.is_active),
-      updated_at: row.updated_at,
-    };
-  } catch {
-    return {
-      content:
-        "🔥 Chào mừng bạn đến với VietNam Legacy! Shop cung cấp Discord Nitro Boost, Nitro Trial, Decor Gift/Log và Setup Server uy tín số 1 Việt Nam.",
-      is_active: 1,
-      updated_at: Date.now(),
-    };
-  }
+  const row = db.prepare("SELECT content, is_active, updated_at FROM site_announcements WHERE id = 'current'").get();
+  return row ? { content: row.content, is_active: Boolean(row.is_active), updated_at: row.updated_at } : {
+    content: "🔥 Chào mừng bạn đến với VietNam Legacy! Shop cung cấp Discord Nitro Boost, Nitro Trial, Decor Gift/Log và Setup Server uy tín số 1 Việt Nam.",
+    is_active: true,
+    updated_at: 0,
+  };
 }
 
 export function saveAnnouncement(db, content, is_active = 1, now = Date.now()) {
   const cleanContent = String(content ?? "").trim();
-  if (!cleanContent) {
+  if (cleanContent.length > 400) {
+    throw Object.assign(new Error("Nội dung thông báo tối đa 400 ký tự."), { status: 400 });
+  }
+  if (is_active && !cleanContent) {
     const error = new Error("Nội dung thông báo không được để trống.");
     error.status = 400;
     throw error;

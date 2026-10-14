@@ -13,7 +13,7 @@ import {
   getAnnouncement,
   saveAnnouncement,
 } from "./store.js";
-import { validateOrderItems } from "./catalog.js";
+import { getCatalog, quoteOrder, savePrices, listPromotions, savePromotion, setPromotionEnabled } from "./pricing.js";
 import {
   digest,
   token,
@@ -338,13 +338,45 @@ export function createApp(db, config) {
             balance: balance(db, current.user_id),
           });
         }
+        if (req.method === "GET" && route === "/api/catalog") {
+          return json(200, { products: getCatalog(db) });
+        }
+        if (req.method === "POST" && route === "/api/quote") {
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          return json(200, { quote: quoteOrder(db, body.items, body.couponCode, session(req)?.user_id) });
+        }
+        if (req.method === "GET" && route === "/api/admin/pricing") {
+          requireAdmin(req);
+          return json(200, { products: getCatalog(db), promotions: listPromotions(db) });
+        }
+        if (req.method === "PUT" && route === "/api/admin/prices") {
+          requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          savePrices(db, body.prices);
+          return json(200, { products: getCatalog(db) });
+        }
+        const promotionMatch = route.match(/^\/api\/admin\/promotions\/([a-f0-9-]{36})$/);
+        if ((req.method === "POST" && route === "/api/admin/promotions") || (req.method === "PUT" && promotionMatch)) {
+          requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          return json(promotionMatch ? 200 : 201, { promotion: savePromotion(db, body, promotionMatch?.[1]) });
+        }
+        if (req.method === "PATCH" && promotionMatch) {
+          requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          return json(200, { promotion: setPromotionEnabled(db, promotionMatch[1], body.enabled) });
+        }
         if (req.method === "POST" && route === "/api/orders") {
           const current = protect(req);
           if (!allow(`order:${current.user_id}`, 30, 60000))
             throw fail(429, "Quá nhiều đơn hàng. Vui lòng thử lại sau 1 phút.");
           const body = parse(await readBody(req));
           const { validatedItems, total, hasLogItems, hasBoostItems } =
-            validateOrderItems(body.items);
+            quoteOrder(db, body.items, body.couponCode, current.user_id);
 
           const customerName = String(body.name || "").trim();
           const customerEmail = String(body.email || "")
@@ -414,6 +446,9 @@ export function createApp(db, config) {
             customerName,
             customerEmail,
             customerNote,
+            requestItems: body.items,
+            couponCode: body.couponCode,
+            quoteFingerprint: body.quoteFingerprint,
             items: validatedItems,
             total,
             paymentMethod: "wallet",
@@ -433,6 +468,7 @@ export function createApp(db, config) {
               customerNote: order.customerNote,
               items: order.items,
               total: order.total,
+              pricing: order.pricing,
               paymentMethod: order.paymentMethod,
               hasLogItems: order.hasLogItems,
               serverInvite: order.serverInvite,
@@ -485,8 +521,10 @@ export function createApp(db, config) {
         }
         if (req.method === "POST" && route === "/api/admin/announcement") {
           requireAdmin(req);
+          sameOrigin(req);
           const body = parse(await readBody(req));
-          const ann = saveAnnouncement(db, body.content, body.is_active !== false);
+          if (typeof body.content !== "string" || typeof body.is_active !== "boolean") throw fail(400, "Nội dung hoặc trạng thái thông báo không hợp lệ.");
+          const ann = saveAnnouncement(db, body.content, body.is_active);
           return json(200, { success: true, announcement: ann });
         }
         throw fail(404, "Không tìm thấy chức năng.");
@@ -499,15 +537,18 @@ export function createApp(db, config) {
       if (
         ![
           "index.html",
+          "local-entry.js",
           "styles.css",
           "products.js",
           "app.js",
           "hero3d.js",
           "cursor.js",
+          "intro.js",
           "wallet.js",
           "wallet.css",
           "admin.html",
           "admin.js",
+          "admin-pricing.js",
           "admin.css",
         ].includes(relative) &&
         !/^assets\/(vendor\/|fonts\/)?[a-zA-Z0-9_.-]+\.(svg|png|js|json)$/.test(relative)
