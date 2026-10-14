@@ -799,6 +799,8 @@ body {
 .deposit-item-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .btn-credit { background: #166534 !important; border-color: #22c55e !important; color: #fff !important; }
 .btn-credit:hover { background: #15803d !important; }
+.btn-revoke { background: rgba(239, 68, 68, 0.12) !important; border-color: rgba(239, 68, 68, 0.45) !important; color: #fca5a5 !important; font-weight: 600 !important; }
+.btn-revoke:hover { background: rgba(239, 68, 68, 0.28) !important; border-color: #ef4444 !important; color: #fff !important; }
 .btn-simulate { background: rgba(255, 170, 91, 0.15) !important; border-color: rgba(255, 170, 91, 0.4) !important; color: #ffaa5b !important; }
 .btn-simulate:hover { background: rgba(255, 170, 91, 0.3) !important; }
 

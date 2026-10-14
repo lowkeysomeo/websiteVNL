@@ -16,6 +16,7 @@ import {
   saveBankSettings,
   getAdminDeposits,
   manualCreditDeposit,
+  revokeCreditDeposit,
   cancelDeposit,
   getShoppingGuide,
   listShoppingGuides,
@@ -865,6 +866,24 @@ export function createApp(db, config) {
           await requireAdmin(req);
           sameOrigin(req);
           const result = await manualCreditDeposit(db, adminDepositCreditMatch[1]);
+          return json(200, result);
+        }
+        const adminDepositRevokeMatch = route.match(
+          /^\/api\/admin\/deposits\/([a-f0-9-]{36})\/revoke$/,
+        );
+        if (req.method === "POST" && adminDepositRevokeMatch) {
+          await requireAdmin(req);
+          sameOrigin(req);
+          let targetStatus = "review";
+          try {
+            if (req.headers["content-type"]?.includes("application/json")) {
+              const body = parse(await readBody(req));
+              if (body?.targetStatus) targetStatus = body.targetStatus;
+            }
+          } catch {
+            // Optional body
+          }
+          const result = await revokeCreditDeposit(db, adminDepositRevokeMatch[1], targetStatus);
           return json(200, result);
         }
         const adminDepositCancelMatch = route.match(

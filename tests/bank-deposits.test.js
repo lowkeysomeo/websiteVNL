@@ -653,3 +653,105 @@ test("Tự động duyệt tiền nạp khi server chưa cài webhookSecret (kh�
     await close();
   }
 });
+
+test("Admin có thể thu hồi tiền nạp đã lỡ duyệt nhầm (trừ ví khách và chuyển trạng thái về Cần đối soát)", async () => {
+  const fixture = await createServerFixture();
+  const { base, close } = fixture;
+
+  try {
+    // 1. Cấu hình ngân hàng
+    await fetch(base + "/api/admin/bank", {
+      method: "PUT",
+      headers: {
+        Origin: origin,
+        "X-Admin-Key": adminPassword,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        bankCode: "MB",
+        bankGateway: "MB Bank",
+        accountNumber: "0999888777",
+        accountName: "SHOP TEST",
+        isActive: true,
+        autoCredit: true,
+      }),
+    });
+
+    // 2. Khách nạp 100.000₫
+    const regRes = await fetch(base + "/api/auth/register", {
+      method: "POST",
+      headers: { Origin: origin, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "revoke-user@example.com",
+        password: "secure-password-123",
+      }),
+    });
+    const regJson = await regRes.json();
+    const cookie = regRes.headers.get("set-cookie").split(";")[0];
+
+    const depRes = await fetch(base + "/api/deposits", {
+      method: "POST",
+      headers: {
+        Origin: origin,
+        Cookie: cookie,
+        "X-CSRF-Token": regJson.csrfToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount: 100000 }),
+    });
+    const depJson = await depRes.json();
+    const depositId = depJson.deposit.id;
+
+    // 3. Admin lỡ tay bấm duyệt cộng tiền khi tiền chưa về
+    const creditRes = await fetch(base + `/api/admin/deposits/${depositId}/credit`, {
+      method: "POST",
+      headers: {
+        Origin: origin,
+        "X-Admin-Key": adminPassword,
+      },
+    });
+    assert.equal(creditRes.status, 200);
+
+    // Kiểm tra ví khách hàng lúc này: đã được cộng 100.000₫
+    const walletBefore = await (await fetch(base + "/api/wallet", { headers: { Cookie: cookie } })).json();
+    assert.equal(walletBefore.balance, 100000);
+
+    // 4. Admin phát hiện duyệt nhầm -> Bấm THU HỒI TIỀN (POST /api/admin/deposits/:id/revoke)
+    const revokeRes = await fetch(base + `/api/admin/deposits/${depositId}/revoke`, {
+      method: "POST",
+      headers: {
+        Origin: origin,
+        "X-Admin-Key": adminPassword,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ targetStatus: "review" }),
+    });
+    assert.equal(revokeRes.status, 200);
+    const revokeData = await revokeRes.json();
+    assert.equal(revokeData.success, true);
+    assert.equal(revokeData.revokedAmount, 100000);
+    assert.equal(revokeData.status, "review");
+    assert.equal(revokeData.newBalance, 0);
+
+    // 5. Kiểm tra ví khách hàng -> Số dư đã bị trừ sạch 100.000₫, trở về 0₫!
+    const walletAfter = await (await fetch(base + "/api/wallet", { headers: { Cookie: cookie } })).json();
+    assert.equal(walletAfter.balance, 0);
+
+    // 6. Kiểm tra lại thông tin đơn nạp -> status = review, credited_at = null
+    const checkDep = await (await fetch(base + `/api/deposits/${depositId}`, { headers: { Cookie: cookie } })).json();
+    assert.equal(checkDep.deposit.status, "review");
+    assert.equal(checkDep.deposit.creditedAt, null);
+
+    // 7. Gọi thu hồi lần nữa khi đơn không còn ở trạng thái credited -> Chặn lỗi 400
+    const secondRevoke = await fetch(base + `/api/admin/deposits/${depositId}/revoke`, {
+      method: "POST",
+      headers: {
+        Origin: origin,
+        "X-Admin-Key": adminPassword,
+      },
+    });
+    assert.equal(secondRevoke.status, 400);
+  } finally {
+    await close();
+  }
+});

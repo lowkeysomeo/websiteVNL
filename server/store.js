@@ -815,6 +815,52 @@ export async function cancelDeposit(db, depositId, now = Date.now()) {
   return { success: true, depositId: deposit.id, status: "expired" };
 }
 
+export async function revokeCreditDeposit(db, depositId, targetStatus = "review", now = Date.now()) {
+  return db.transaction(async (tx) => {
+    const deposit = await tx
+      .prepare("SELECT * FROM deposits WHERE id = ?")
+      .get(depositId);
+    if (!deposit) {
+      const err = new Error("Không tìm thấy yêu cầu nạp.");
+      err.status = 404;
+      throw err;
+    }
+    if (deposit.status !== "credited") {
+      const err = new Error("Chỉ có thể thu hồi yêu cầu nạp đang ở trạng thái 'Đã cộng tiền'.");
+      err.status = 400;
+      throw err;
+    }
+
+    // 1. Remove ledger entry from wallet_ledger (this immediately drops user's balance)
+    await tx
+      .prepare("DELETE FROM wallet_ledger WHERE deposit_id = ?")
+      .run(deposit.id);
+
+    // 2. Mark any related bank events as revoked
+    await tx
+      .prepare("UPDATE bank_events SET outcome = 'revoked' WHERE deposit_id = ?")
+      .run(deposit.id);
+
+    // 3. Update deposit status back to target status (review, expired, or pending)
+    const validStatuses = ["review", "expired", "pending"];
+    const newStatus = validStatuses.includes(targetStatus) ? targetStatus : "review";
+    await tx
+      .prepare("UPDATE deposits SET status = ?, credited_at = NULL WHERE id = ?")
+      .run(newStatus, deposit.id);
+
+    const userBalance = await balance(tx, deposit.user_id);
+
+    return {
+      success: true,
+      depositId: deposit.id,
+      code: deposit.code,
+      revokedAmount: deposit.amount,
+      status: newStatus,
+      newBalance: userBalance,
+    };
+  });
+}
+
 export const DEFAULT_GUIDES = [
   {
     id: "main",

@@ -1378,6 +1378,11 @@ window.initAdminPricing = (() => {
                     ✕ Hủy
                   </button>
                 ` : ""}
+                ${d.status === "credited" ? `
+                  <button type="button" class="button secondary btn-small btn-danger btn-revoke" data-deposit-revoke="${esc(d.id)}" data-deposit-code="${esc(d.code)}" data-deposit-amount="${d.amount}" data-deposit-user="${esc(d.userEmail)}" title="Thu hồi tiền đã cộng nhầm cho khách hàng">
+                    ↩ Thu hồi tiền (Trừ ví)
+                  </button>
+                ` : ""}
                 ${qrUrl ? `
                   <button type="button" class="button secondary btn-small" data-deposit-qr="${esc(d.id)}" data-qr-url="${esc(qrUrl)}" data-qr-code="${esc(d.code)}" data-qr-amount="${d.amount}">
                     Xem QR ↗
@@ -2166,6 +2171,30 @@ window.initAdminPricing = (() => {
             await load();
           } catch (err) {
             notify(err.message);
+          } finally {
+            button.disabled = false;
+          }
+        }
+        if (button.dataset.depositRevoke) {
+          const dId = button.dataset.depositRevoke;
+          const dCode = button.dataset.depositCode;
+          const dAmount = Number(button.dataset.depositAmount) || 0;
+          const dUser = button.dataset.depositUser || "khách hàng";
+          if (!confirm(
+            `XÁC NHẬN THU HỒI TIỀN NẠP NHẦM:\n\n` +
+            `• Mã nạp: ${dCode}\n` +
+            `• Khách hàng: ${dUser}\n` +
+            `• Số tiền: ${money(dAmount)}\n\n` +
+            `Hành động này sẽ TRỪ LẠI ${money(dAmount)} khỏi ví của ${dUser} và chuyển trạng thái đơn nạp về "Cần đối soát".\n\n` +
+            `Bạn có chắc chắn muốn THU HỒI TIỀN không?`
+          )) return;
+          button.disabled = true;
+          try {
+            const res = await api(`/api/admin/deposits/${dId}/revoke`, { method: "POST" });
+            notify(`Đã thu hồi thành công ${money(dAmount)} từ ví của ${dUser}! Số dư ví mới: ${money(res.newBalance || 0)}.`);
+            await load();
+          } catch (err) {
+            notify("Lỗi thu hồi tiền: " + err.message);
           } finally {
             button.disabled = false;
           }
