@@ -697,10 +697,46 @@ async function startCheckout(directItem = null) {
   if (decorPreviewWrap) decorPreviewWrap.style.display = "none";
   if (decorPreviewImg) decorPreviewImg.src = "";
 
-  if (!hasLog && !hasBoost) {
-    if (giftNotice) giftNotice.hidden = false;
-  } else {
-    if (giftNotice) giftNotice.hidden = true;
+  const hasDecorGift = items.some((item) => {
+    const pid = directItem ? directItem.productId : item.productId;
+    const vid = directItem ? directItem.variantId : item.variantId;
+    if (pid === "decor-gift") return true;
+    if (pid === "decor" && String(vid).includes("gift")) return true;
+    const p = getProduct(pid);
+    if (p?.id === "decor-gift" || (p?.category === "decor" && /gift/i.test(p?.name || ""))) return true;
+    return false;
+  });
+
+  const decorGiftProduct = hasDecorGift
+    ? items.map(item => {
+        const pid = directItem ? directItem.productId : item.productId;
+        let p = getProduct(pid);
+        if (!p && pid === "decor") {
+          p = products.find(prod => prod.variants?.some(v => v.id === (directItem ? directItem.variantId : item.variantId)));
+        }
+        return p;
+      }).find(p => p?.id === "decor-gift" || (p?.category === "decor" && /gift/i.test(p?.name || "")))
+    : null;
+
+  const productNotices = document.querySelector('#checkout-product-notices');
+  if (productNotices) {
+    if (hasDecorGift && decorGiftProduct?.checkoutNotice && (decorGiftProduct.checkoutNotice.title || decorGiftProduct.checkoutNotice.content)) {
+      const title = decorGiftProduct.checkoutNotice.title || decorGiftProduct.name;
+      const rawContent = decorGiftProduct.checkoutNotice.content || "";
+      const contentHtml = escapeHtml(rawContent).replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+      productNotices.hidden = false;
+      productNotices.innerHTML = `<div class="checkout-notice gift-notice">
+        <div class="notice-badge">${escapeHtml(title)}</div>
+        <p style="white-space:pre-wrap; margin: 4px 0 0;">${contentHtml}</p>
+      </div>`;
+      if (giftNotice) giftNotice.hidden = true;
+    } else {
+      productNotices.hidden = true;
+      productNotices.innerHTML = "";
+      if (giftNotice) giftNotice.hidden = !hasDecorGift;
+    }
+  } else if (giftNotice) {
+    giftNotice.hidden = !hasDecorGift;
   }
 
   if (balanceEl) balanceEl.textContent = "Đang kiểm tra...";

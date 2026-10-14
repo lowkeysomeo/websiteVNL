@@ -249,7 +249,9 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
     };
   });
 
-  const allProducts = [...defaultList, ...customList];
+  const allProducts = [...defaultList, ...customList].map(p => ({
+    ...p, checkoutNotice: overridesMap.get('notice:' + p.id) || null,
+  }));
 
   let orderList = overridesMap.get("system:catalog_product_order");
   if (Array.isArray(orderList) && orderList.length) {
@@ -389,6 +391,18 @@ async function assertProductOwner(db, productId, caller) {
   }
 }
 
+function parseCheckoutNotice(bodyNotice) {
+  if (bodyNotice === undefined) return undefined;
+  if (bodyNotice === null) return { title: "", content: "" };
+  if (!bodyNotice || typeof bodyNotice !== "object" || typeof bodyNotice.title !== "string" || typeof bodyNotice.content !== "string") {
+    throw fail("Hướng dẫn thanh toán cần có tiêu đề và nội dung dạng văn bản.");
+  }
+  if (bodyNotice.title.length > 120 || bodyNotice.content.length > 2000) {
+    throw fail("Hướng dẫn thanh toán vượt quá độ dài cho phép.");
+  }
+  return { title: bodyNotice.title.trim(), content: bodyNotice.content.trim() };
+}
+
 export async function createCustomProduct(db, body, now = Date.now(), partnerEmail = null, caller = null) {
   let effectiveCaller = caller;
   let effectiveNow = typeof now === "number" ? now : Date.now();
@@ -400,6 +414,7 @@ export async function createCustomProduct(db, body, now = Date.now(), partnerEma
     effectiveCaller = partnerEmail;
     effectivePartner = null;
   }
+  const checkoutNotice = parseCheckoutNotice(body.checkoutNotice);
   const name = String(body.name || "").trim();
   if (!name || name.length > 100) throw fail("Tên mặt hàng cần từ 1 đến 100 ký tự.");
   const category = String(body.category || "entertainment").trim();
@@ -440,6 +455,12 @@ export async function createCustomProduct(db, body, now = Date.now(), partnerEma
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`).run(
     id, name, category, badge, description, image, JSON.stringify(features), detail, service, assignedPartnerEmail, effectiveNow, effectiveNow
   );
+
+  if (checkoutNotice !== undefined) {
+    await db.prepare(`INSERT INTO catalog_item_overrides (item_key, data_json, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`)
+      .run("notice:" + id, JSON.stringify(checkoutNotice), effectiveNow);
+  }
 
   if (Array.isArray(body.variants)) {
     for (const v of body.variants) {
@@ -500,6 +521,7 @@ export async function toggleProductStatus(db, productId, isActive, now = Date.no
 export async function updateProduct(db, productId, body, now = Date.now(), caller = null) {
   const { now: effectiveNow, caller: effectiveCaller } = normalizeNowCaller(now, caller);
   await assertProductOwner(db, productId, effectiveCaller);
+  const checkoutNotice = parseCheckoutNotice(body.checkoutNotice);
   const name = String(body.name || "").trim();
   if (!name || name.length > 100) throw fail("Tên mặt hàng cần từ 1 đến 100 ký tự.");
   const category = String(body.category || "entertainment").trim();
@@ -538,6 +560,11 @@ export async function updateProduct(db, productId, body, now = Date.now(), calle
       ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`)
       .run("product:" + productId, JSON.stringify(overrideData), effectiveNow);
   }
+  if (checkoutNotice !== undefined) {
+    await db.prepare(`INSERT INTO catalog_item_overrides (item_key, data_json, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`)
+      .run('notice:' + productId, JSON.stringify(checkoutNotice), effectiveNow);
+  }
   return (await getCatalog(db, effectiveNow, true)).find(p => p.id === productId);
 }
 
@@ -551,6 +578,7 @@ export async function deleteProduct(db, productId, now = Date.now(), caller = nu
       await tx.prepare("DELETE FROM custom_variants WHERE product_id = ?").run(productId);
       await tx.prepare("DELETE FROM product_prices WHERE product_id = ?").run(productId);
       await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("product:" + productId);
+      await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("notice:" + productId);
     });
     return { productId, deleted: true };
   } else {
@@ -562,6 +590,7 @@ export async function deleteProduct(db, productId, now = Date.now(), caller = nu
         ON CONFLICT(item_key) DO UPDATE SET is_active = excluded.is_active, updated_at = excluded.updated_at`)
         .run("product:" + productId, -1, effectiveNow);
       await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("product:" + productId);
+      await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("notice:" + productId);
       await tx.prepare("DELETE FROM product_prices WHERE product_id = ?").run(productId);
     });
     return { productId, deleted: true };

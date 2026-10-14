@@ -1094,6 +1094,22 @@ window.initAdminPricing = (() => {
             </div>
             <input name="description" required maxlength="300" value="${esc(p.description || "")}">
           </label>
+          <div style="grid-column: 1 / -1; background: rgba(46, 125, 50, 0.08); border: 1px solid rgba(76, 175, 80, 0.3); border-radius: 8px; padding: 12px; margin-top: 4px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span style="font-weight: 600; font-size: 13px; color: #81c784; display:flex; align-items:center; gap:6px;">
+                <span>🎁</span> Hướng dẫn nhận hàng khi thanh toán (Khung thông báo xanh)
+              </span>
+              <span style="font-size:11px; color:var(--muted);">Tùy chỉnh riêng cho mặt hàng này</span>
+            </div>
+            <label style="display:block; margin-bottom:8px;">
+              <span style="font-size:12px; color:var(--text); margin-bottom:4px; display:block;">Tiêu đề khung hướng dẫn</span>
+              <input name="checkoutNoticeTitle" maxlength="120" placeholder="Ví dụ: 🎁 GÓI GIFT (LINK QUÀ TẶNG)" value="${esc(p.checkoutNotice?.title || '')}">
+            </label>
+            <label style="display:block; margin:0;">
+              <span style="font-size:12px; color:var(--text); margin-bottom:4px; display:block;">Nội dung hướng dẫn chi tiết</span>
+              <textarea name="checkoutNoticeContent" rows="3" maxlength="2000" style="width:100%; padding:8px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px; resize:vertical; font-family:inherit;" placeholder="Nội dung xuất hiện trong khung hướng dẫn khi khách mua mặt hàng này. Để trống cả hai ô để dùng mặc định.">${esc(p.checkoutNotice?.content || '')}</textarea>
+            </label>
+          </div>
           <label style="grid-column: 1 / -1;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
               <span>Đoạn giới thiệu chi tiết (Mục văn bản đầu popup khi khách bấm xem)</span>
@@ -1221,6 +1237,22 @@ window.initAdminPricing = (() => {
           </div>
           <input name="description" required maxlength="300" placeholder="Mô tả quyền lợi và tính năng của mặt hàng...">
         </label>
+        <div style="grid-column: 1 / -1; background: rgba(46, 125, 50, 0.08); border: 1px solid rgba(76, 175, 80, 0.3); border-radius: 8px; padding: 12px; margin-top: 4px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-weight: 600; font-size: 13px; color: #81c784; display:flex; align-items:center; gap:6px;">
+              <span>🎁</span> Hướng dẫn nhận hàng khi thanh toán (Khung thông báo xanh)
+            </span>
+            <span style="font-size:11px; color:var(--muted);">Tùy chỉnh riêng cho mặt hàng này</span>
+          </div>
+          <label style="display:block; margin-bottom:8px;">
+            <span style="font-size:12px; color:var(--text); margin-bottom:4px; display:block;">Tiêu đề khung hướng dẫn</span>
+            <input name="checkoutNoticeTitle" maxlength="120" placeholder="Ví dụ: 🎁 GÓI GIFT (LINK QUÀ TẶNG)">
+          </label>
+          <label style="display:block; margin:0;">
+            <span style="font-size:12px; color:var(--text); margin-bottom:4px; display:block;">Nội dung hướng dẫn chi tiết</span>
+            <textarea name="checkoutNoticeContent" rows="3" maxlength="2000" style="width:100%; padding:8px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px; resize:vertical; font-family:inherit;" placeholder="Nội dung xuất hiện trong khung hướng dẫn khi khách mua mặt hàng này. Để trống cả hai ô để dùng mặc định."></textarea>
+          </label>
+        </div>
         <label style="grid-column: 1 / -1;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
             <span>Đoạn giới thiệu chi tiết (Mục văn bản đầu popup khi khách bấm xem)</span>
@@ -1758,7 +1790,13 @@ window.initAdminPricing = (() => {
         }
         const variantNote = (data.get("variantNote") || "").trim();
         const variants = variantName && variantPrice !== null ? [{ name: variantName, price: variantPrice, deliveryType, note: variantNote }] : [];
-        await api("/api/admin/products", { method: "POST", body: JSON.stringify({ name, category, badge, description, image, partnerEmail, variants, detail, features }) });
+        const checkoutNoticeTitle = String(data.get("checkoutNoticeTitle") || "").trim();
+        const checkoutNoticeContent = String(data.get("checkoutNoticeContent") || "").trim();
+        const checkoutNotice = checkoutNoticeTitle || checkoutNoticeContent ? {
+          title: checkoutNoticeTitle,
+          content: checkoutNoticeContent
+        } : null;
+        await api("/api/admin/products", { method: "POST", body: JSON.stringify({ name, category, badge, description, image, partnerEmail, variants, detail, features, checkoutNotice }) });
         notify(currentUser.role === "partner" ? "Đã đăng dịch vụ mới thành công!" : "Đã thêm mặt hàng mới.");
         $("#catalog-editor").replaceChildren();
       } else if (form.id === "product-edit-form") {
@@ -1805,7 +1843,10 @@ window.initAdminPricing = (() => {
           : ((data.get("partnerEmail") || "").trim() || null);
         await api("/api/admin/products/" + productId, {
           method: "PUT",
-          body: JSON.stringify({ name, category, badge, description, image: editImage, partnerEmail, detail, features }),
+          body: JSON.stringify({ name, category, badge, description, image: editImage, partnerEmail, detail, features, checkoutNotice: {
+            title: String(data.get('checkoutNoticeTitle') || ''),
+            content: String(data.get('checkoutNoticeContent') || '')
+          } }),
         });
         notify("Đã cập nhật thông tin mặt hàng.");
         $("#catalog-editor").replaceChildren();
