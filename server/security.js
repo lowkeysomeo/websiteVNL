@@ -28,22 +28,52 @@ export async function checkPassword(password, encoded) {
   const hash = await derive(password, salt, 64, passwordOptions);
   return equal(hash.toString("hex"), expected);
 }
-export function verifyWebhook(headers, raw, secret, now = Date.now()) {
-  if (!secret || secret.length < 32) return false;
+export function verifyWebhook(headers = {}, raw = Buffer.alloc(0), secret = "", now = Date.now(), queryToken = null) {
+  if (!secret) return false;
+  const cleanSecret = String(secret).trim();
+  if (!cleanSecret) return false;
+
+  // 1. Check API Key in Authorization header (SePay default: "Authorization: Apikey <KEY>")
+  const authHeader = String(headers["authorization"] || headers["Authorization"] || "").trim();
+  if (authHeader) {
+    if (authHeader.startsWith("Apikey ")) {
+      const apiKey = authHeader.slice(7).trim();
+      if (equal(apiKey, cleanSecret)) return true;
+    }
+    if (authHeader.startsWith("Bearer ")) {
+      const token = authHeader.slice(7).trim();
+      if (equal(token, cleanSecret)) return true;
+    }
+  }
+
+  // 2. Check X-API-Key or X-Sepay-Api-Key headers
+  const xApiKey = String(headers["x-api-key"] || headers["x-sepay-api-key"] || headers["X-API-KEY"] || "").trim();
+  if (xApiKey && equal(xApiKey, cleanSecret)) return true;
+
+  // 3. Check Query token (URL: /api/payments/webhook?token=... or ?apiKey=...)
+  if (queryToken && typeof queryToken === "string") {
+    if (equal(queryToken.trim(), cleanSecret)) return true;
+  }
+
+  // 4. Check HMAC SHA-256 signature (SePay webhook with HMAC signature enabled)
   const timestamp = headers["x-sepay-timestamp"];
   if (
-    typeof timestamp !== "string" ||
-    !/^\d{10,11}$/.test(timestamp) ||
-    Math.abs(now / 1000 - Number(timestamp)) > 300
-  )
-    return false;
-  const expected =
-    "sha256=" +
-    createHmac("sha256", secret)
-      .update(timestamp + ".")
-      .update(raw)
-      .digest("hex");
-  return equal(expected, headers["x-sepay-signature"] || "");
+    typeof timestamp === "string" &&
+    /^\d{10,11}$/.test(timestamp) &&
+    Math.abs(now / 1000 - Number(timestamp)) <= 300
+  ) {
+    const expected =
+      "sha256=" +
+      createHmac("sha256", cleanSecret)
+        .update(timestamp + ".")
+        .update(raw)
+        .digest("hex");
+    if (equal(expected, headers["x-sepay-signature"] || "")) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function createLimiter() {

@@ -88,6 +88,11 @@ export async function openStore(filename, remote = {}) {
         await tx.exec("ALTER TABLE shopping_guides ADD COLUMN views INTEGER DEFAULT 0;");
       if (guideCols.length && !guideCols.some((c) => c.name === "created_at"))
         await tx.exec("ALTER TABLE shopping_guides ADD COLUMN created_at INTEGER DEFAULT 0;");
+      const payCols = await tx.prepare("PRAGMA table_info(payment_settings)").all();
+      if (payCols.length && !payCols.some((c) => c.name === "webhook_secret"))
+        await tx.exec("ALTER TABLE payment_settings ADD COLUMN webhook_secret TEXT DEFAULT '';");
+      if (payCols.length && !payCols.some((c) => c.name === "auto_credit"))
+        await tx.exec("ALTER TABLE payment_settings ADD COLUMN auto_credit INTEGER DEFAULT 1;");
     });
     return db;
   } catch (error) {

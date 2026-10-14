@@ -212,15 +212,35 @@ export function createApp(db, config) {
             },
           });
         }
-        if (req.method === "POST" && route === "/api/webhooks/sepay") {
+        if (
+          req.method === "POST" &&
+          (route === "/api/webhooks/sepay" || route === "/api/payments/webhook")
+        ) {
           const bankSettings = await getBankSettings(db, config);
           if (!bankSettings.enabled && config.paymentsMode !== "live")
             throw fail(503, "Nạp tiền chưa được kích hoạt.");
           const raw = await readBody(req);
-          if (!verifyWebhook(req.headers, raw, config.webhookSecret))
-            throw fail(401, "Chữ ký webhook không hợp lệ.");
-          const result = await processTransfer(db, parse(raw), bankSettings.bank);
-          return json(200, { success: true, outcome: result.outcome });
+          const activeSecret = bankSettings.webhookSecret || config.webhookSecret;
+          const queryToken =
+            url.searchParams.get("token") ||
+            url.searchParams.get("apiKey") ||
+            url.searchParams.get("key");
+          if (!verifyWebhook(req.headers, raw, activeSecret, Date.now(), queryToken))
+            throw fail(401, "Chữ ký hoặc API Key webhook không hợp lệ.");
+          const payload = parse(raw);
+          const result = await processTransfer(
+            db,
+            payload,
+            bankSettings.bank,
+            Date.now(),
+            bankSettings.autoCredit,
+          );
+          return json(200, {
+            success: true,
+            outcome: result.outcome,
+            depositCode: result.depositCode,
+            amount: result.amount,
+          });
         }
         if (
           req.method === "POST" &&
@@ -708,6 +728,32 @@ export function createApp(db, config) {
           sameOrigin(req);
           const result = await cancelDeposit(db, adminDepositCancelMatch[1]);
           return json(200, result);
+        }
+        if (req.method === "POST" && route === "/api/admin/deposits/simulate") {
+          requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const code = String(body.code || "").trim().toUpperCase();
+          const depositId = String(body.depositId || "").trim();
+          let deposit = null;
+          if (code) {
+            deposit = await db.prepare("SELECT * FROM deposits WHERE code = ?").get(code);
+          } else if (depositId) {
+            deposit = await db.prepare("SELECT * FROM deposits WHERE id = ?").get(depositId);
+          }
+          if (!deposit) throw fail(404, "Không tìm thấy yêu cầu nạp tiền.");
+          const bankSettings = await getBankSettings(db, config);
+          const simEvent = {
+            id: String(Date.now()),
+            transferAmount: deposit.amount,
+            code: deposit.code,
+            content: `VNL TEST AUTO CREDIT ${deposit.code}`,
+            gateway: bankSettings.bank.gateway || "MB",
+            accountNumber: bankSettings.bank.accountNumber || "",
+            transferType: "in",
+          };
+          const result = await processTransfer(db, simEvent, bankSettings.bank, Date.now(), true);
+          return json(200, { success: true, result, depositId: deposit.id, code: deposit.code });
         }
         if (req.method === "GET" && route === "/api/guide") {
           const id = url.searchParams.get("id");

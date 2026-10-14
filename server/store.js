@@ -21,34 +21,40 @@ export async function balance(db, userId) {
 }
 
 // The event, ledger entry and deposit status commit together. A retry cannot add money twice.
-export async function processTransfer(db, event, bank, now = Date.now()) {
-  const id = String(event.id ?? "");
+export async function processTransfer(db, event, bank, now = Date.now(), autoCredit = true) {
+  const id = String(event.id ?? event.transaction_id ?? "");
+  const rawAmount = event.transferAmount !== undefined ? event.transferAmount : event.amount;
   if (
     !/^\d{1,30}$/.test(id) ||
-    !Number.isSafeInteger(event.transferAmount) ||
-    event.transferAmount <= 0 ||
-    event.transferAmount > 1000000000
+    typeof rawAmount !== "number" ||
+    !Number.isSafeInteger(rawAmount) ||
+    rawAmount <= 0 ||
+    rawAmount > 1000000000
   ) {
     const error = new Error("Dữ liệu giao dịch không hợp lệ.");
     error.status = 400;
     throw error;
   }
+  const transferAmount = rawAmount;
   const reference =
     typeof event.referenceCode === "string" && event.referenceCode.trim()
       ? event.referenceCode.trim().slice(0, 160)
-      : null;
+      : (typeof event.reference === "string" && event.reference.trim() ? event.reference.trim().slice(0, 160) : null);
   const codes = new Set();
   const explicit = String(event.code || "").toUpperCase();
   if (/^VNL[A-F0-9]{12}$/.test(explicit)) codes.add(explicit);
-  for (const match of String(event.content || "")
-    .toUpperCase()
-    .matchAll(/(?:^|[^A-Z0-9])(VNL[A-F0-9]{12})(?=$|[^A-Z0-9])/g))
+  const contentStr = String(event.content || event.description || "").toUpperCase();
+  for (const match of contentStr.matchAll(/(?:^|[^A-Z0-9])(VNL[A-F0-9]{12})(?=$|[^A-Z0-9])/g))
     codes.add(match[1]);
+  if (codes.size === 0) {
+    for (const match of contentStr.matchAll(/VNL[A-F0-9]{12}/g))
+      codes.add(match[0]);
+  }
   const code = codes.size === 1 ? [...codes][0] : null;
   const gateway = (value) =>
     String(value || "")
       .normalize("NFKC")
-      .replace(/\s/g, "")
+      .replace(/[\s\-_]/g, "")
       .toLowerCase();
   return db.transaction(async (db) => {
     const duplicate = await db
@@ -63,18 +69,26 @@ export async function processTransfer(db, event, bank, now = Date.now()) {
       ? await db.prepare("SELECT * FROM deposits WHERE code = ?").get(code)
       : null;
     let outcome = "unmatched";
-    if (event.transferType !== "in") outcome = "outgoing";
-    else if (
-      String(event.accountNumber || "") !== bank.accountNumber ||
-      gateway(event.gateway) !== gateway(bank.gateway)
-    )
+    const transferType = String(event.transferType || "in").toLowerCase();
+
+    const gatewayMatch = !bank.gateway || !event.gateway ||
+      gateway(event.gateway) === gateway(bank.gateway) ||
+      gateway(event.gateway).includes(gateway(bank.gateway)) ||
+      gateway(bank.gateway).includes(gateway(event.gateway)) ||
+      (bank.code && (gateway(event.gateway).includes(gateway(bank.code)) || gateway(bank.code).includes(gateway(event.gateway))));
+
+    const accMatch = !bank.accountNumber || !event.accountNumber ||
+      String(event.accountNumber).trim() === String(bank.accountNumber).trim();
+
+    if (transferType !== "in" && transferType !== "incoming") outcome = "outgoing";
+    else if (!accMatch || !gatewayMatch)
       outcome = "wrong_account";
     else if (deposit) {
       if (deposit.status === "credited") outcome = "already_paid";
       else if (deposit.status !== "pending" || deposit.expires_at < now)
         outcome = "review";
-      else if (deposit.amount !== event.transferAmount) outcome = "review";
-      else outcome = "credited";
+      else if (deposit.amount !== transferAmount) outcome = "review";
+      else outcome = autoCredit ? "credited" : "review";
     }
     await db
       .prepare(
@@ -84,7 +98,7 @@ export async function processTransfer(db, event, bank, now = Date.now()) {
         id,
         reference,
         deposit?.id ?? null,
-        event.transferAmount,
+        transferAmount,
         outcome,
         now,
       );
@@ -98,7 +112,7 @@ export async function processTransfer(db, event, bank, now = Date.now()) {
           deposit.user_id,
           deposit.id,
           id,
-          event.transferAmount,
+          transferAmount,
           now,
         );
       await db
@@ -111,7 +125,7 @@ export async function processTransfer(db, event, bank, now = Date.now()) {
         .prepare("UPDATE deposits SET status = 'review' WHERE id = ?")
         .run(deposit.id);
     }
-    return { outcome };
+    return { outcome, depositCode: code, amount: transferAmount };
   });
 }
 
@@ -426,12 +440,16 @@ export async function getBankSettings(db, config = {}) {
     const bankGateway = (row.bank_gateway || fallback.gateway || "").trim();
     const accountNumber = (row.account_number || fallback.accountNumber || "").trim();
     const accountName = (row.account_name || fallback.accountName || "").trim();
+    const webhookSecret = (row.webhook_secret || config.webhookSecret || "").trim();
+    const autoCredit = row.auto_credit !== 0;
     const isActive = Boolean(row.is_active);
     const enabled = isActive && Boolean(bankCode && accountNumber && accountName && bankGateway);
 
     return {
       enabled,
       isActive,
+      webhookSecret,
+      autoCredit,
       bank: {
         code: bankCode,
         gateway: bankGateway,
@@ -448,6 +466,8 @@ export async function getBankSettings(db, config = {}) {
   return {
     enabled: isFallbackLive && hasFallbackBank,
     isActive: isFallbackLive && hasFallbackBank,
+    webhookSecret: config.webhookSecret || "",
+    autoCredit: true,
     bank: {
       code: fallback.code || "",
       gateway: fallback.gateway || "",
@@ -464,6 +484,8 @@ export async function saveBankSettings(db, data = {}, now = Date.now()) {
   const accountNumber = String(data.accountNumber || "").trim().replace(/\s+/g, "");
   const accountName = String(data.accountName || "").trim().toUpperCase();
   const isActive = data.isActive ? 1 : 0;
+  const webhookSecret = data.webhookSecret != null ? String(data.webhookSecret).trim() : null;
+  const autoCredit = data.autoCredit !== false ? 1 : 0;
 
   if (isActive) {
     if (!bankCode || !/^[A-Za-z0-9]{2,20}$/.test(bankCode)) {
@@ -498,31 +520,22 @@ export async function saveBankSettings(db, data = {}, now = Date.now()) {
 
   await db
     .prepare(
-      `INSERT INTO payment_settings (id, bank_code, bank_gateway, account_number, account_name, is_active, updated_at)
-       VALUES ('primary', ?, ?, ?, ?, ?, ?)
+      `INSERT INTO payment_settings (id, bank_code, bank_gateway, account_number, account_name, webhook_secret, auto_credit, is_active, updated_at)
+       VALUES ('primary', ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          bank_code = excluded.bank_code,
          bank_gateway = excluded.bank_gateway,
          account_number = excluded.account_number,
          account_name = excluded.account_name,
+         webhook_secret = COALESCE(excluded.webhook_secret, payment_settings.webhook_secret),
+         auto_credit = excluded.auto_credit,
          is_active = excluded.is_active,
          updated_at = excluded.updated_at`,
     )
-    .run(bankCode, bankGateway, accountNumber, accountName, isActive, now);
+    .run(bankCode, bankGateway, accountNumber, accountName, webhookSecret ?? "", autoCredit, isActive, now);
 
-  return {
-    enabled: Boolean(
-      isActive && bankCode && accountNumber && accountName && bankGateway,
-    ),
-    isActive: Boolean(isActive),
-    bank: {
-      code: bankCode,
-      gateway: bankGateway,
-      accountNumber,
-      accountName,
-    },
-    updatedAt: now,
-  };
+  const currentSettings = await getBankSettings(db);
+  return currentSettings;
 }
 
 export async function getAdminDeposits(

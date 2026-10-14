@@ -382,13 +382,15 @@ window.initAdminPricing = (() => {
       const previewQrUrl = (bank.code && bank.accountNumber)
         ? `https://img.vietqr.io/image/${encodeURIComponent(bank.code)}-${encodeURIComponent(bank.accountNumber)}-compact2.png?amount=50000&addInfo=VNLTEST&accountName=${encodeURIComponent(bank.accountName || "")}`
         : "";
+      const webhookUrl = typeof window !== "undefined" && window.location ? `${window.location.origin}/api/payments/webhook` : "/api/payments/webhook";
+      const autoCredit = bankSettings.autoCredit !== false;
 
       panel.innerHTML = `
         <header class="pricing-heading">
           <div>
             <span class="pricing-eyebrow">THANH TOÁN & VÍ TIỀN</span>
-            <h2>Nạp tiền bằng QR Ngân hàng (VietQR)</h2>
-            <p>Cài đặt tài khoản ngân hàng nhận tiền, cấp mã VietQR tự động và quản lý duyệt cộng tiền vào ví cho khách hàng.</p>
+            <h2>Nạp tiền bằng QR Ngân hàng & Tự động cộng tiền</h2>
+            <p>Cài đặt tài khoản ngân hàng nhận tiền, cấp mã VietQR tự động và kết nối Webhook SePay để tự động cộng tiền ngay khi nhận được thanh toán.</p>
           </div>
           <div class="pricing-actions">
             <button type="button" class="button secondary" data-deposits-reload>Làm mới ↻</button>
@@ -397,82 +399,159 @@ window.initAdminPricing = (() => {
 
         <div id="catalog-editor"></div>
 
-        <section class="pricing-card bank-config-card">
-          <div class="card-header-row">
-            <div>
-              <h3>🏦 Thông tin Tài khoản Nhận & Bật/Tắt QR</h3>
-              <p>Khách hàng quét mã VietQR trên ứng dụng ngân hàng sẽ tự động điền đúng Số tài khoản, Ngân hàng, Số tiền và Nội dung nạp tiền.</p>
-            </div>
-            <div class="announcement-toggle-group">
-              <label class="switch-label">
-                <input type="checkbox" id="bank-active-toggle" ${bankSettings.isActive ? "checked" : ""} aria-label="Bật nạp tiền QR" />
-                <span class="switch-slider"></span>
-              </label>
-              <span id="bank-status-text" class="${bankSettings.isActive ? "status-active" : "status-inactive"}">
-                ${bankSettings.isActive ? "Đang bật nạp QR" : "Đang tắt nạp QR"}
-              </span>
-            </div>
-          </div>
-
-          <form id="admin-bank-form" class="bank-form-layout">
-            <div class="bank-form-fields">
-              <label>
-                Chọn nhanh ngân hàng phổ biến
-                <select id="bank-preset-select">
-                  <option value="">-- Chọn ngân hàng để tự điền mã và tên --</option>
-                  ${VIETNAM_BANKS.map(b => `<option value="${b.code}" ${b.code === bank.code ? "selected" : ""}>${esc(b.name)}</option>`).join("")}
-                </select>
-              </label>
-
-              <div class="pricing-form-grid">
-                <label>
-                  Mã ngân hàng VietQR (BIN hoặc Code)
-                  <input name="bankCode" required placeholder="VD: MB, VCB, TCB, ICB, ACB, 970422..." value="${esc(bank.code || "")}" />
-                  <small>Mã chuẩn VietQR của ngân hàng (VD: MB, VCB, TCB, ICB) hoặc mã 6 số BIN.</small>
+        <form id="admin-bank-form">
+          <section class="pricing-card bank-config-card">
+            <div class="card-header-row">
+              <div>
+                <h3>🏦 Thông tin Tài khoản Nhận & Bật/Tắt QR</h3>
+                <p>Khách hàng quét mã VietQR trên ứng dụng ngân hàng sẽ tự động điền đúng Số tài khoản, Ngân hàng, Số tiền và Nội dung nạp tiền.</p>
+              </div>
+              <div class="announcement-toggle-group">
+                <label class="switch-label">
+                  <input type="checkbox" id="bank-active-toggle" ${bankSettings.isActive ? "checked" : ""} aria-label="Bật nạp tiền QR" />
+                  <span class="switch-slider"></span>
                 </label>
+                <span id="bank-status-text" class="${bankSettings.isActive ? "status-active" : "status-inactive"}">
+                  ${bankSettings.isActive ? "Đang bật nạp QR" : "Đang tắt nạp QR"}
+                </span>
+              </div>
+            </div>
+
+            <div class="bank-form-layout">
+              <div class="bank-form-fields">
                 <label>
-                  Tên hiển thị ngân hàng
-                  <input name="bankGateway" required placeholder="VD: MB Bank, Vietcombank..." value="${esc(bank.gateway || "")}" />
-                  <small>Tên ngân hàng hiển thị cho khách hàng xem khi chọn nạp tiền.</small>
+                  Chọn nhanh ngân hàng phổ biến
+                  <select id="bank-preset-select">
+                    <option value="">-- Chọn ngân hàng để tự điền mã và tên --</option>
+                    ${VIETNAM_BANKS.map(b => `<option value="${b.code}" ${b.code === bank.code ? "selected" : ""}>${esc(b.name)}</option>`).join("")}
+                  </select>
                 </label>
+
+                <div class="pricing-form-grid">
+                  <label>
+                    Mã ngân hàng VietQR (BIN hoặc Code)
+                    <input name="bankCode" required placeholder="VD: MB, VCB, TCB, ICB, ACB, 970422..." value="${esc(bank.code || "")}" />
+                    <small>Mã chuẩn VietQR của ngân hàng (VD: MB, VCB, TCB, ICB) hoặc mã 6 số BIN.</small>
+                  </label>
+                  <label>
+                    Tên hiển thị ngân hàng
+                    <input name="bankGateway" required placeholder="VD: MB Bank, Vietcombank..." value="${esc(bank.gateway || "")}" />
+                    <small>Tên ngân hàng hiển thị cho khách hàng xem khi chọn nạp tiền.</small>
+                  </label>
+                </div>
+
+                <div class="pricing-form-grid">
+                  <label>
+                    Số tài khoản nhận tiền
+                    <input name="accountNumber" required pattern="\\d+" placeholder="VD: 0123456789" value="${esc(bank.accountNumber || "")}" />
+                    <small>Số tài khoản ngân hàng nhận tiền chuyển khoản (chỉ nhập số).</small>
+                  </label>
+                  <label>
+                    Tên chủ tài khoản (In hoa không dấu)
+                    <input name="accountName" required placeholder="VD: NGUYEN VAN A" value="${esc(bank.accountName || "")}" />
+                    <small>Tên người thụ hưởng như trên ứng dụng ngân hàng.</small>
+                  </label>
+                </div>
+
+                <div class="bank-form-footer">
+                  <p id="bank-form-message" class="pricing-form-message"></p>
+                  <button type="submit" class="button primary">Lưu cấu hình ngân hàng & Webhook 💾</button>
+                </div>
               </div>
 
-              <div class="pricing-form-grid">
-                <label>
-                  Số tài khoản nhận tiền
-                  <input name="accountNumber" required pattern="\\d+" placeholder="VD: 0123456789" value="${esc(bank.accountNumber || "")}" />
-                  <small>Số tài khoản ngân hàng nhận tiền chuyển khoản (chỉ nhập số).</small>
+              <div class="bank-qr-preview-box">
+                <h4>Xem trước mã QR của shop</h4>
+                <p>Mã QR quét thử (50.000₫ · VNLTEST)</p>
+                ${previewQrUrl ? `
+                  <div class="preview-qr-wrap">
+                    <img src="${esc(previewQrUrl)}" alt="VietQR Preview" width="180" height="230" />
+                  </div>
+                  <small class="preview-qr-note">Dùng app ngân hàng quét thử mã này để kiểm tra đúng tên và tài khoản!</small>
+                ` : `
+                  <div class="preview-qr-placeholder">
+                    <span>📱</span>
+                    <p>Nhập thông tin ngân hàng và bấm "Lưu cấu hình" để hiển thị mã QR tại đây.</p>
+                  </div>
+                `}
+              </div>
+            </div>
+          </section>
+
+          <section class="pricing-card webhook-config-card">
+            <div class="card-header-row">
+              <div>
+                <div class="card-title-with-badge">
+                  <h3>⚡ Tự động cộng tiền qua Webhook Ngân hàng (SePay / VietQR)</h3>
+                  <span id="auto-credit-badge" class="${autoCredit ? "auto-credit-live-badge" : "auto-credit-live-badge disabled"}">
+                    ${autoCredit ? "Đang bật Tự động" : "Đang tắt (Duyệt tay)"}
+                  </span>
+                </div>
+                <p>Khi khách hàng quét QR chuyển khoản, SePay sẽ gửi thông báo Webhook về webVNL. Hệ thống tự động nhận diện mã nạp <strong>VNL...</strong> và <strong>cộng tiền ngay lập tức vào ví</strong> mà không cần duyệt tay.</p>
+              </div>
+              <div class="announcement-toggle-group">
+                <label class="switch-label">
+                  <input type="checkbox" id="bank-auto-credit-toggle" ${autoCredit ? "checked" : ""} aria-label="Bật tự động cộng tiền" />
+                  <span class="switch-slider"></span>
                 </label>
-                <label>
-                  Tên chủ tài khoản (In hoa không dấu)
-                  <input name="accountName" required placeholder="VD: NGUYEN VAN A" value="${esc(bank.accountName || "")}" />
-                  <small>Tên người thụ hưởng như trên ứng dụng ngân hàng.</small>
-                </label>
+                <span id="auto-credit-status-text" class="${autoCredit ? "status-active" : "status-inactive"}">
+                  ${autoCredit ? "Tự động cộng tiền: BẬT" : "Tự động cộng tiền: TẮT (Duyệt tay)"}
+                </span>
+              </div>
+            </div>
+
+            <div class="webhook-settings-body">
+              <div class="webhook-fields-grid">
+                <div class="webhook-field-item">
+                  <label>
+                    <strong>URL Webhook nhận biến động số dư:</strong>
+                    <small>Dán URL này vào phần cấu hình Webhook trên SePay (my.sepay.vn) hoặc Casso.</small>
+                  </label>
+                  <div class="input-with-action">
+                    <input type="text" id="webhook-url-display" readonly value="${esc(webhookUrl)}" />
+                    <button type="button" class="button secondary" id="btn-copy-webhook-url" title="Sao chép URL Webhook">📋 Sao chép</button>
+                  </div>
+                </div>
+
+                <div class="webhook-field-item">
+                  <label>
+                    <strong>Khóa xác thực bảo mật Webhook (API Key / Secret):</strong>
+                    <small>Điền API Key này vào SePay để hệ thống xác thực tính hợp lệ của thông báo.</small>
+                  </label>
+                  <div class="input-with-action">
+                    <input type="text" id="webhook-secret-input" name="webhookSecret" placeholder="VD: vnl_sec_... hoặc API Key SePay cấp" value="${esc(bankSettings.webhookSecret || "")}" />
+                    <button type="button" class="button secondary" id="btn-gen-webhook-secret" title="Tạo ngẫu nhiên một mã bảo mật mạnh">🎲 Tạo ngẫu nhiên</button>
+                    <button type="button" class="button secondary" id="btn-copy-webhook-secret" title="Sao chép API Key">📋 Sao chép</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sepay-guide-box">
+                <div class="sepay-guide-header">
+                  <span class="sepay-badge">HƯỚNG DẪN KẾT NỐI SEPAY</span>
+                  <h4>3 bước để tiền vào tài khoản ngân hàng tự động nhảy vào ví khách hàng:</h4>
+                </div>
+                <ol class="sepay-steps-list">
+                  <li>
+                    <strong>Bước 1:</strong> Đăng ký tài khoản tại <a href="https://my.sepay.vn" target="_blank" rel="noopener noreferrer">my.sepay.vn</a> và liên kết tài khoản ngân hàng nhận tiền (${esc(bank.gateway || "ngân hàng")} - ${esc(bank.accountNumber || "STK")}).
+                  </li>
+                  <li>
+                    <strong>Bước 2:</strong> Vào menu <strong>Tích hợp Webhook</strong> ➔ bấm <strong>Thêm Webhook</strong>.
+                  </li>
+                  <li>
+                    <strong>Bước 3:</strong> Dán <strong>URL Webhook</strong> và <strong>API Key</strong> ở trên vào SePay ➔ Chọn kiểu xác thực là <strong>API Key</strong> (hoặc Header <code>Authorization: Apikey &lt;key&gt;</code>) ➔ Bấm <strong>Lưu</strong>.
+                  </li>
+                </ol>
+                <div class="sepay-guide-footer">
+                  <p>💡 <em>Khi khách chuyển khoản theo đúng mã <code>VNL...</code> được sinh tự động trên VietQR, SePay sẽ bắn thông báo về và số dư ví khách hàng sẽ tự động tăng ngay lập tức!</em></p>
+                </div>
               </div>
 
               <div class="bank-form-footer">
-                <p id="bank-form-message" class="pricing-form-message"></p>
-                <button type="submit" class="button primary">Lưu cấu hình ngân hàng 💾</button>
+                <button type="submit" class="button primary">Lưu cấu hình Ngân hàng & Webhook 💾</button>
               </div>
             </div>
-
-            <div class="bank-qr-preview-box">
-              <h4>Xem trước mã QR của shop</h4>
-              <p>Mã QR quét thử (50.000₫ · VNLTEST)</p>
-              ${previewQrUrl ? `
-                <div class="preview-qr-wrap">
-                  <img src="${esc(previewQrUrl)}" alt="VietQR Preview" width="180" height="230" />
-                </div>
-                <small class="preview-qr-note">Dùng app ngân hàng quét thử mã này để kiểm tra đúng tên và tài khoản!</small>
-              ` : `
-                <div class="preview-qr-placeholder">
-                  <span>📱</span>
-                  <p>Nhập thông tin ngân hàng và bấm "Lưu cấu hình" để hiển thị mã QR tại đây.</p>
-                </div>
-              `}
-            </div>
-          </form>
-        </section>
+          </section>
+        </form>
 
         <section class="pricing-card deposit-history-card">
           <div class="deposit-history-top">
@@ -755,6 +834,9 @@ window.initAdminPricing = (() => {
                   <button type="button" class="button primary btn-small btn-credit" data-deposit-credit="${esc(d.id)}" data-deposit-code="${esc(d.code)}" data-deposit-amount="${d.amount}">
                     ✓ Duyệt cộng tiền
                   </button>
+                  <button type="button" class="button secondary btn-small btn-simulate" data-deposit-simulate="${esc(d.code)}" title="Giả lập ngân hàng chuyển tiền đúng mã này để kiểm tra tự động cộng tiền">
+                    ⚡ Test Tự động cộng
+                  </button>
                   <button type="button" class="button secondary btn-small btn-danger" data-deposit-cancel="${esc(d.id)}">
                     ✕ Hủy
                   </button>
@@ -1026,17 +1108,19 @@ window.initAdminPricing = (() => {
       } else if (form.id === "admin-bank-form") {
         const data = new FormData(form);
         const isActive = $("#bank-active-toggle") ? $("#bank-active-toggle").checked : true;
+        const autoCredit = $("#bank-auto-credit-toggle") ? $("#bank-auto-credit-toggle").checked : true;
         const bankCode = (data.get("bankCode") || "").trim().toUpperCase();
         const bankGateway = (data.get("bankGateway") || "").trim();
         const accountNumber = (data.get("accountNumber") || "").trim().replace(/\s+/g, "");
         const accountName = (data.get("accountName") || "").trim().toUpperCase();
+        const webhookSecret = (data.get("webhookSecret") || "").trim();
 
         const res = await api("/api/admin/bank", {
           method: "PUT",
-          body: JSON.stringify({ bankCode, bankGateway, accountNumber, accountName, isActive }),
+          body: JSON.stringify({ bankCode, bankGateway, accountNumber, accountName, isActive, autoCredit, webhookSecret }),
         });
         bankSettings = res.settings;
-        notify(isActive ? "Đã lưu thông tin ngân hàng và bật nạp QR." : "Đã lưu thông tin ngân hàng (đang tắt nạp QR).");
+        notify(isActive ? "Đã lưu cấu hình ngân hàng & Webhook tự động cộng tiền!" : "Đã lưu thông tin ngân hàng (đang tắt nạp QR).");
       } else if (form.id === "category-add-form") {
         const data = new FormData(form);
         const catName = (data.get("catName") || "").trim();
@@ -1160,6 +1244,18 @@ window.initAdminPricing = (() => {
           if (statusText) {
             statusText.textContent = event.target.checked ? "Đang bật nạp QR" : "Đang tắt nạp QR";
             statusText.className = event.target.checked ? "status-active" : "status-inactive";
+          }
+        }
+        if (event.target.id === "bank-auto-credit-toggle") {
+          const statusText = document.querySelector("#auto-credit-status-text");
+          const badge = document.querySelector("#auto-credit-badge");
+          if (statusText) {
+            statusText.textContent = event.target.checked ? "Tự động cộng tiền: BẬT" : "Tự động cộng tiền: TẮT (Duyệt tay)";
+            statusText.className = event.target.checked ? "status-active" : "status-inactive";
+          }
+          if (badge) {
+            badge.textContent = event.target.checked ? "Đang bật Tự động" : "Đang tắt (Duyệt tay)";
+            badge.className = event.target.checked ? "auto-credit-live-badge" : "auto-credit-live-badge disabled";
           }
         }
         if (event.target.id === "admin-guide-active") {
@@ -1336,6 +1432,59 @@ window.initAdminPricing = (() => {
             notify(err.message);
           } finally {
             button.disabled = false;
+          }
+        }
+        if (button.dataset.depositSimulate) {
+          const code = button.dataset.depositSimulate;
+          if (!confirm(`Thử nghiệm tự động cộng tiền cho yêu cầu ${code}?\nHệ thống sẽ giả lập webhook từ ngân hàng và tự động cộng tiền vào ví khách hàng.`)) return;
+          button.disabled = true;
+          try {
+            await api("/api/admin/deposits/simulate", {
+              method: "POST",
+              body: JSON.stringify({ code }),
+            });
+            notify(`⚡ Đã giả lập nạp tiền thành công cho mã ${code}! Số dư đã được tự động cộng vào ví.`);
+            await load();
+          } catch (err) {
+            notify(err.message);
+          } finally {
+            button.disabled = false;
+          }
+        }
+        if (button.id === "btn-copy-webhook-url") {
+          const urlInput = document.querySelector("#webhook-url-display");
+          if (urlInput) {
+            navigator.clipboard.writeText(urlInput.value).then(() => {
+              notify("Đã sao chép URL Webhook vào khay nhớ tạm!");
+            }).catch(() => {
+              urlInput.select();
+              document.execCommand("copy");
+              notify("Đã sao chép URL Webhook!");
+            });
+          }
+        }
+        if (button.id === "btn-gen-webhook-secret") {
+          const secretInput = document.querySelector("#webhook-secret-input");
+          if (secretInput) {
+            const rand = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+              .map(b => b.toString(16).padStart(2, "0"))
+              .join("");
+            secretInput.value = "vnl_sec_" + rand;
+            notify("Đã tạo API Key ngẫu nhiên! Hãy bấm 'Lưu cấu hình' để áp dụng.");
+          }
+        }
+        if (button.id === "btn-copy-webhook-secret") {
+          const secretInput = document.querySelector("#webhook-secret-input");
+          if (secretInput && secretInput.value) {
+            navigator.clipboard.writeText(secretInput.value).then(() => {
+              notify("Đã sao chép API Key vào khay nhớ tạm!");
+            }).catch(() => {
+              secretInput.select();
+              document.execCommand("copy");
+              notify("Đã sao chép API Key!");
+            });
+          } else {
+            notify("Chưa có API Key để sao chép. Hãy nhập hoặc tạo ngẫu nhiên!");
           }
         }
         if (button.dataset.depositQr) {

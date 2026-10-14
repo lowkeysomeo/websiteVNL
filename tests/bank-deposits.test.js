@@ -298,3 +298,190 @@ test("Admin có thể hủy yêu cầu nạp tiền chưa chuyển khoản", asy
     await close();
   }
 });
+
+test("Hệ thống tự động cộng tiền qua Webhook SePay (Apikey header, trích xuất mã VNL, cộng tiền vào ví tức thì)", async () => {
+  const fixture = await createServerFixture();
+  const { base, close } = fixture;
+
+  try {
+    const testSecret = "sepay_secret_key_999";
+    // 1. Admin cấu hình ngân hàng MB và bật Webhook Secret + AutoCredit
+    const saveBankRes = await fetch(base + "/api/admin/bank", {
+      method: "PUT",
+      headers: {
+        Origin: origin,
+        "X-Admin-Key": adminPassword,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        bankCode: "MB",
+        bankGateway: "MB Bank",
+        accountNumber: "0345678999",
+        accountName: "VIETNAM LEGACY",
+        isActive: true,
+        autoCredit: true,
+        webhookSecret: testSecret,
+      }),
+    });
+    assert.equal(saveBankRes.status, 200);
+    const bankJson = await saveBankRes.json();
+    assert.equal(bankJson.settings.autoCredit, true);
+    assert.equal(bankJson.settings.webhookSecret, testSecret);
+
+    // 2. Khách hàng đăng ký & tạo yêu cầu nạp 200.000₫
+    const regRes = await fetch(base + "/api/auth/register", {
+      method: "POST",
+      headers: { Origin: origin, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "auto-credit-user@example.com",
+        password: "secure-password-123",
+      }),
+    });
+    const regJson = await regRes.json();
+    const cookie = regRes.headers.get("set-cookie").split(";")[0];
+
+    const depRes = await fetch(base + "/api/deposits", {
+      method: "POST",
+      headers: {
+        Origin: origin,
+        Cookie: cookie,
+        "X-CSRF-Token": regJson.csrfToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount: 200000 }),
+    });
+    const depJson = await depRes.json();
+    const depositCode = depJson.deposit.code;
+    const depositId = depJson.deposit.id;
+
+    // 3. Giả lập SePay gửi webhook POST /api/payments/webhook với sai API Key -> 401
+    const unauthWebhook = await fetch(base + "/api/payments/webhook", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Apikey wrong_key",
+      },
+      body: JSON.stringify({
+        id: "12345678",
+        gateway: "MBBank",
+        accountNumber: "0345678999",
+        amount: 200000,
+        content: `NAP TIEN ${depositCode}`,
+        transferType: "in",
+      }),
+    });
+    assert.equal(unauthWebhook.status, 401);
+
+    // 4. SePay gửi webhook hợp lệ với Authorization: Apikey <KEY>
+    const validWebhook = await fetch(base + "/api/payments/webhook", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Apikey ${testSecret}`,
+      },
+      body: JSON.stringify({
+        id: "12345678",
+        gateway: "MB",
+        accountNumber: "0345678999",
+        amount: 200000,
+        description: `MBVCB.THONG BAO SO DU.${depositCode}.NAP TIEN VI VNL`,
+        transferType: "in",
+      }),
+    });
+    assert.equal(validWebhook.status, 200);
+    const hookJson = await validWebhook.json();
+    assert.equal(hookJson.success, true);
+    assert.equal(hookJson.outcome, "credited");
+
+    // 5. Kiểm tra ví khách hàng -> đã được tự động cộng 200.000₫
+    const checkWalletRes = await fetch(base + "/api/wallet", {
+      headers: { Cookie: cookie },
+    });
+    const walletJson = await checkWalletRes.json();
+    assert.equal(walletJson.balance, 200000);
+
+    // 6. Kiểm tra trạng thái nạp tiền -> credited
+    const checkDepositRes = await fetch(base + `/api/deposits/${depositId}`, {
+      headers: { Cookie: cookie },
+    });
+    const depositStatusJson = await checkDepositRes.json();
+    assert.equal(depositStatusJson.deposit.status, "credited");
+    assert.equal(depositStatusJson.balance, 200000);
+  } finally {
+    await close();
+  }
+});
+
+test("Admin thử nghiệm tự động cộng tiền qua endpoint simulate", async () => {
+  const fixture = await createServerFixture();
+  const { base, close } = fixture;
+
+  try {
+    // 1. Cấu hình ngân hàng
+    await fetch(base + "/api/admin/bank", {
+      method: "PUT",
+      headers: {
+        Origin: origin,
+        "X-Admin-Key": adminPassword,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        bankCode: "TCB",
+        bankGateway: "Techcombank",
+        accountNumber: "190333444555",
+        accountName: "VIETNAM LEGACY ADMIN",
+        isActive: true,
+        autoCredit: true,
+      }),
+    });
+
+    // 2. Khách hàng nạp 50.000₫
+    const regRes = await fetch(base + "/api/auth/register", {
+      method: "POST",
+      headers: { Origin: origin, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "sim-test@example.com",
+        password: "secure-password-123",
+      }),
+    });
+    const regJson = await regRes.json();
+    const cookie = regRes.headers.get("set-cookie").split(";")[0];
+
+    const depRes = await fetch(base + "/api/deposits", {
+      method: "POST",
+      headers: {
+        Origin: origin,
+        Cookie: cookie,
+        "X-CSRF-Token": regJson.csrfToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount: 50000 }),
+    });
+    const depJson = await depRes.json();
+    const depositCode = depJson.deposit.code;
+
+    // 3. Admin gọi simulate
+    const simRes = await fetch(base + "/api/admin/deposits/simulate", {
+      method: "POST",
+      headers: {
+        Origin: origin,
+        "X-Admin-Key": adminPassword,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ code: depositCode }),
+    });
+    assert.equal(simRes.status, 200);
+    const simJson = await simRes.json();
+    assert.equal(simJson.success, true);
+    assert.equal(simJson.result.outcome, "credited");
+
+    // 4. Kiểm tra ví khách hàng -> số dư đã có 50.000₫
+    const walletRes = await fetch(base + "/api/wallet", {
+      headers: { Cookie: cookie },
+    });
+    const walletJson = await walletRes.json();
+    assert.equal(walletJson.balance, 50000);
+  } finally {
+    await close();
+  }
+});

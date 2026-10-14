@@ -129,6 +129,8 @@ CREATE TABLE IF NOT EXISTS payment_settings (
   bank_gateway TEXT NOT NULL DEFAULT '',
   account_number TEXT NOT NULL DEFAULT '',
   account_name TEXT NOT NULL DEFAULT '',
+  webhook_secret TEXT NOT NULL DEFAULT '',
+  auto_credit INTEGER NOT NULL DEFAULT 1,
   is_active INTEGER NOT NULL DEFAULT 1,
   updated_at INTEGER NOT NULL
 );

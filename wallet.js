@@ -187,14 +187,14 @@
       <button class="button wallet-blue full-width" data-wallet="refresh">Kiểm tra giao dịch</button>
       <p class="wallet-muted">Nếu số tiền hoặc nội dung không khớp, vui lòng liên hệ shop để đối soát.</p>
       <a class="button secondary" href="https://discord.gg/F3J7hWNRc4" target="_blank" rel="noopener noreferrer">Hỗ trợ trên Discord ↗</a>`;
-    if (pending) timer = setInterval(checkDeposit, 8000);
+    if (pending) timer = setInterval(checkDeposit, 4000);
   }
   function statusText(deposit) {
     return (
       {
         pending:
-          "Đang chờ xác nhận từ ngân hàng. Trang tự kiểm tra mỗi 8 giây.",
-        credited: "Đã xác nhận chuyển khoản và cộng tiền vào ví.",
+          "Đang chờ hệ thống tự động cộng tiền (tự cập nhật mỗi 4 giây)...",
+        credited: "🎉 Nạp tiền thành công! Đã tự động cộng tiền vào ví.",
         review: "Giao dịch cần shop đối soát. Số dư chưa được cộng.",
         expired:
           "Yêu cầu đã hết hạn. Nếu đã chuyển khoản, liên hệ shop để đối soát.",
@@ -209,12 +209,14 @@
       wallet.balance = result.balance;
       updateLabel();
       say();
-      content.querySelector("#wallet-transfer-status").textContent = statusText(
-        result.deposit,
-      );
+      const statusEl = content.querySelector("#wallet-transfer-status");
+      if (statusEl) statusEl.textContent = statusText(result.deposit);
       if (result.deposit.status !== "pending") {
         stopPolling();
         transferView(result);
+        if (result.deposit.status === "credited") {
+          say(`🎉 Nạp tiền thành công! Đã cộng ${money(result.deposit.amount)} vào ví.`);
+        }
       }
     } catch (error) {
       say(error.message);
