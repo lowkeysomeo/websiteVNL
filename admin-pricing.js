@@ -832,7 +832,7 @@ window.initAdminPricing = (() => {
                   </li>
                 </ol>
                 <div class="sepay-guide-footer">
-                  <p>💡 <em>Khi khách chuyển khoản theo đúng mã <code>VNL...</code> được sinh tự động trên VietQR, SePay sẽ bắn thông báo về và số dư ví khách hàng sẽ tự động tăng ngay lập tức!</em></p>
+                  <p>💡 <em>Khi khách chuyển khoản theo đúng nội dung <code>SEVQR VNL...</code> được sinh tự động trên VietQR, SePay sẽ bắn thông báo về và số dư ví khách hàng sẽ tự động tăng ngay lập tức!</em></p>
                 </div>
               </div>
 
