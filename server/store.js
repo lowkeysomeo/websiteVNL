@@ -344,12 +344,12 @@ async function orderPricing(db, orderId) {
 }
 
 // User-facing order history: NEVER returns discord_password or backup_codes
-export async function getUserOrders(db, userId) {
+export async function getUserOrders(db, userId, { limit = 50, offset = 0 } = {}) {
   const rows = await db
     .prepare(
-      "SELECT o.id, o.customer_name, o.customer_email, o.customer_note, o.items_json, o.total, o.payment_method, o.has_log_items, o.server_invite, o.decor_image, o.claim_link, o.status, o.created_at, o.completed_at, op.snapshot_json AS pricing_json FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id WHERE o.user_id = ? ORDER BY o.created_at DESC LIMIT 50",
+      "SELECT o.id, o.customer_name, o.customer_email, o.customer_note, o.items_json, o.total, o.payment_method, o.has_log_items, o.server_invite, o.decor_image, o.claim_link, o.status, o.created_at, o.completed_at, op.snapshot_json AS pricing_json FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id WHERE o.user_id = ? ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?",
     )
-    .all(userId);
+    .all(userId, limit, offset);
   return rows.map((row) => ({
     id: row.id,
     pricing: row.pricing_json ? JSON.parse(row.pricing_json) : null,
@@ -367,6 +367,16 @@ export async function getUserOrders(db, userId) {
     createdAt: row.created_at,
     completedAt: row.completed_at,
   }));
+}
+
+// Tổng đơn đã mua và tiền đã chi của đúng tài khoản đang đăng nhập.
+export async function getUserPurchaseStats(db, userId) {
+  const row = await db.prepare(`SELECT COUNT(*) AS totalOrders,
+    COALESCE(SUM(CASE WHEN status IN ('processing','completed') THEN 1 ELSE 0 END),0) AS purchasedOrders,
+    COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END),0) AS completedOrders,
+    COALESCE(SUM(CASE WHEN status IN ('processing','completed') THEN total ELSE 0 END),0) AS totalSpent
+    FROM orders WHERE user_id = ?`).get(userId);
+  return Object.fromEntries(Object.entries(row).map(([key,value]) => [key,Number(value)]));
 }
 
 // Admin order view: Full credentials only visible to admin or item partner

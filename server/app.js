@@ -8,6 +8,7 @@ import {
   processTransfer,
   createOrder,
   getUserOrders,
+  getUserPurchaseStats,
   getAdminOrders,
   getAdminStats,
   updateAdminOrder,
@@ -395,6 +396,7 @@ export function createApp(db, config) {
           return json(200, {
             balance: await balance(db, current.user_id),
             deposits,
+            purchaseStats: await getUserPurchaseStats(db, current.user_id),
           });
         }
         if (req.method === "POST" && route === "/api/deposits") {
@@ -716,8 +718,17 @@ export function createApp(db, config) {
         }
         if (req.method === "GET" && route === "/api/orders") {
           const current = await requireSession(req);
-          const orders = await getUserOrders(db, current.user_id);
-          return json(200, { orders });
+          const limit = Number(url.searchParams.get("limit") || 20);
+          const offset = Number(url.searchParams.get("offset") || 0);
+          if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50 ||
+              !Number.isSafeInteger(offset) || offset < 0 || offset > 1000000)
+            throw fail(400, "Trang lịch sử mua hàng không hợp lệ.");
+          const orders = await getUserOrders(db, current.user_id, { limit, offset });
+          const stats = await getUserPurchaseStats(db, current.user_id);
+          return json(200, {
+            orders, stats, account: { email: current.email },
+            pagination: { limit, offset, total: stats.totalOrders, hasMore: offset + orders.length < stats.totalOrders },
+          });
         }
         if (req.method === "POST" && route === "/api/admin/auth") {
           if (!config.adminPassword)

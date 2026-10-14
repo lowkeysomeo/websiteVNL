@@ -743,25 +743,46 @@ function showInfo(title, body) {
   if (!infoDialog.open) infoDialog.showModal();
 }
 
-async function showOrders() {
+let ordersRequest = 0;
+async function showOrders(offset = 0) {
+  const request = ++ordersRequest;
   showInfo(
     "Đơn hàng của tôi",
     '<p class="muted">Đang tải danh sách đơn hàng từ tài khoản của bạn...</p>',
   );
 
-  let serverOrders = [];
+  let data;
   try {
-    const res = await fetch("/api/orders", { credentials: "same-origin" });
-    if (res.ok) {
-      const data = await res.json();
-      serverOrders = data.orders || [];
+    const res = await fetch("/api/orders?limit=20&offset=" + offset, { credentials: "same-origin", signal: AbortSignal.timeout(15000) });
+    data = await res.json();
+    if (!res.ok) {
+      const error = new Error(data.error || "Không thể tải lịch sử mua hàng.");
+      error.status = res.status;
+      throw error;
     }
-  } catch {
-    // Offline or not logged in
+  } catch (error) {
+    if (request !== ordersRequest || !infoDialog.open) return;
+    showInfo("Lịch sử mua hàng", error.status === 401
+      ? '<p class="muted">Đăng nhập để xem số đơn đã mua và lịch sử của tài khoản.</p><button class="button primary" data-wallet="open" data-close>Đăng nhập tài khoản</button>'
+      : '<p class="muted">Chưa tải được lịch sử mua hàng. Vui lòng kiểm tra kết nối và thử lại.</p><button class="button secondary" data-action="orders">Thử lại</button>');
+    return;
   }
+  if (request !== ordersRequest || !infoDialog.open) return;
+  const serverOrders = data.orders;
+  const userEmail = data.account.email;
+  const stats = data.stats;
+  const purchaseSummary = `<section class="purchase-summary" aria-label="Thống kê mua hàng">
+    <div><span>Đơn đã mua</span><strong>${stats.purchasedOrders}</strong></div>
+    <div><span>Đã hoàn tất</span><strong>${stats.completedOrders}</strong></div>
+    <div><span>Tổng tiền mua</span><strong>${money(stats.totalSpent)}</strong></div>
+  </section><p class="muted purchase-note">Không tính đơn đã hủy hoặc đang chờ thanh toán.</p>`;
+  const paging = data.pagination;
+  const pager = `<nav class="purchase-pagination" aria-label="Trang lịch sử mua hàng">
+    <button class="button secondary" data-orders-offset="${Math.max(0,offset-paging.limit)}" ${offset===0 ? "disabled" : ""}>← Trang trước</button>
+    <span>${paging.total ? offset+1 : 0}–${offset+serverOrders.length} / ${paging.total} đơn</span>
+    <button class="button secondary" data-orders-offset="${offset+paging.limit}" ${paging.hasMore ? "" : "disabled"}>Trang sau →</button>
+  </nav>`;
 
-  const loggedInUser = window.vnlWallet?.user;
-  const userEmail = loggedInUser?.email || (serverOrders[0]?.customerEmail ?? "");
   const accountBarHtml = userEmail
     ? `
     <div class="orders-account-bar">
@@ -869,40 +890,17 @@ async function showOrders() {
       })
       .join("");
 
-    showInfo("Đơn hàng của tôi", accountBarHtml + ordersHtml);
+    showInfo("Lịch sử mua hàng", accountBarHtml + purchaseSummary + ordersHtml + pager);
     paintIcons(document.querySelector("#info-content"));
     return;
   }
 
-  if (userEmail) {
-    showInfo(
-      "Đơn hàng của tôi",
-      `${accountBarHtml}<p class="muted">Tài khoản chưa có đơn hàng nào. Thêm sản phẩm vào giỏ và thanh toán để xem lịch sử đơn tại đây.</p><button class="button secondary" data-close>Tiếp tục khám phá</button>`,
-    );
-    paintIcons(document.querySelector("#info-content"));
-    return;
-  }
-
-  if (!state.orders.length) {
-    showInfo(
-      "Đơn hàng của tôi",
-      '<p>Bạn chưa có đơn hàng nào. Thêm sản phẩm vào giỏ và thanh toán để xem lịch sử đơn tại đây.</p><button class="button secondary" data-close>Tiếp tục khám phá</button>',
-    );
-    return;
-  }
-  showInfo(
-    "Đơn hàng của tôi",
-    `<p class="muted">Đơn hàng đã lưu trên thiết bị:</p>${state.orders
-      .map(
-        (order) => `
-    <article class="order-card"><div class="order-top"><strong>${escapeHtml(order.id)}</strong><span class="order-status-badge status-completed">Đã lưu</span></div><p style="font-size:11px;">${new Date(order.createdAt).toLocaleString("vi-VN")} · ${escapeHtml(order.name)}</p><ul>${order.items.map((item) => `<li>${escapeHtml(item.name)} — ${escapeHtml(item.variant)} × ${item.quantity}</li>`).join("")}</ul><strong class="order-total" style="color:var(--accent); font-size:15px;">${money(order.total)}</strong></article>
-  `,
-      )
-      .join("")}`,
-  );
+  showInfo("Lịch sử mua hàng", accountBarHtml + purchaseSummary + '<p class="muted">Chưa có đơn mua hàng nào trong tài khoản này.</p><button class="button secondary" data-close>Khám phá sản phẩm</button>');
+  paintIcons(document.querySelector("#info-content"));
 }
 
 document.addEventListener("vnl:logout", () => {
+  ordersRequest += 1;
   checkoutBalance = null;
   const balanceEl = document.querySelector("#checkout-user-balance");
   if (balanceEl) balanceEl.textContent = "Chưa đăng nhập";
@@ -1354,6 +1352,9 @@ window.openMenu = openMenu;
 document.addEventListener("click", (event) => {
   const button = event.target.closest("button, a");
   if (!button) return;
+  if (button.dataset.ordersOffset !== undefined) {
+    void showOrders(Number(button.dataset.ordersOffset));
+  }
   if (button.hasAttribute("data-close")) button.closest("dialog")?.close();
   if (button.hasAttribute("data-guide-explore")) {
     document.querySelector("#guide-dialog")?.close();

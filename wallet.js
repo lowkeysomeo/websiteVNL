@@ -158,6 +158,12 @@
     updateLabel();
     content.innerHTML = `<div class="wallet-account"><p>${safe(wallet.user.email)}</p><button data-wallet="logout">Đăng xuất</button></div>
       <div class="wallet-summary"><span>SỐ DƯ KHẢ DỤNG</span><strong>${money(result.balance)}</strong></div>
+      <section class="purchase-summary" aria-label="Thống kê mua hàng">
+        <div><span>Đơn đã mua</span><strong>${result.purchaseStats.purchasedOrders}</strong></div>
+        <div><span>Đã hoàn tất</span><strong>${result.purchaseStats.completedOrders}</strong></div>
+        <div><span>Tổng tiền mua</span><strong>${money(result.purchaseStats.totalSpent)}</strong></div>
+      </section>
+      <button type="button" class="button secondary full-width" data-wallet="purchase-history">Xem lịch sử mua hàng →</button>
       ${wallet.paymentsEnabled ? '<p class="wallet-muted">Tạo yêu cầu nạp rồi chuyển khoản đúng số tiền và nội dung. Số dư tự cập nhật khi ngân hàng xác nhận.</p>' : '<div class="wallet-notice">Shop chưa mở nạp tiền. Đừng chuyển khoản trước khi yêu cầu nạp và mã QR được cấp tại đây.</div>'}
       <form id="wallet-deposit-form"><label>Số tiền nạp (VND)<input name="amount" type="number" min="10000" max="10000000" step="1" required value="50000" ${wallet.paymentsEnabled ? "" : "disabled"}></label>
       <div class="wallet-presets">${[50000, 100000, 200000, 500000].map((amount) => `<button type="button" data-amount="${amount}" ${wallet.paymentsEnabled ? "" : "disabled"}>${money(amount)}</button>`).join("")}</div>
@@ -262,6 +268,10 @@
         say();
         await loadSession();
         await showWallet();
+      }
+      if (button.dataset.wallet === "purchase-history") {
+        dialog.close();
+        if (typeof showOrders === "function") await showOrders();
       }
       if (button.dataset.authMode) {
         wallet.mode = button.dataset.authMode;

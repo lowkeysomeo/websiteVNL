@@ -3161,3 +3161,13 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   }
 }
 
+
+/* Thống kê và lịch sử mua hàng trong tài khoản khách. */
+.purchase-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:18px 0; }
+.purchase-summary > div { background:rgba(255,209,92,.05); border:1px solid var(--line); border-radius:10px; padding:14px 10px; min-width:0; }
+.purchase-summary span { display:block; font-size:11px; color:var(--muted); }
+.purchase-summary strong { display:block; margin-top:6px; font-size:18px; color:var(--accent); overflow-wrap:anywhere; }
+.purchase-pagination { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:18px; }
+.purchase-pagination span,.purchase-note { font-size:12px; color:var(--muted); }
+.purchase-pagination button { font-size:12px; padding:9px 12px; }
+@media(max-width:480px) { .purchase-summary { gap:6px; } .purchase-summary strong { font-size:15px; } .purchase-pagination { flex-wrap:wrap; } }
