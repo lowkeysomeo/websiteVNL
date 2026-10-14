@@ -484,9 +484,13 @@ function showProduct(id, isDirectBuy = false) {
   if (!product.service && !catalogReady) return notify("Đang tải giá sản phẩm, vui lòng thử lại.");
   const first = product.variants[0];
   const catUpper = (categoryNames[product.category] || product.category || "CHUNG").toUpperCase();
+  const bgStyle = product.image ? `background-image: url('${String(product.image).replace(/'/g, "\\'")}');` : "";
   document.querySelector("#product-detail").innerHTML = `
     <div class="detail-layout">
-      <img class="detail-image" src="${product.image}" alt="Minh họa ${product.name}">
+      <div class="detail-media">
+        <div class="detail-media-backdrop" style="${bgStyle}"></div>
+        <img class="detail-image" src="${product.image}" alt="Minh họa ${product.name}">
+      </div>
       <div class="detail-copy" data-product="${product.id}">
         <div class="eyebrow">${catUpper}</div>
         <h2 id="product-title">${product.name}</h2>
