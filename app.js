@@ -706,6 +706,17 @@ async function showOrders() {
 
 
 let cachedGuide = null;
+let cachedGuides = [];
+let guideStoreFilter = "all";
+let guideStoreSearch = "";
+let currentGuideDetailId = null;
+
+const guideCategoryLabels = {
+  guide: "Hướng dẫn",
+  tips: "Mẹo & Thủ thuật",
+  news: "Tin tức",
+  other: "Khác",
+};
 
 function parseGuideVideo(url) {
   if (!url) return null;
@@ -735,60 +746,84 @@ function parseGuideVideo(url) {
   return null;
 }
 
-async function showGuideModal() {
-  const guideDialog = document.querySelector("#guide-dialog");
-  const guideBody = document.querySelector("#guide-dialog-body");
-  const guideTitle = document.querySelector("#guide-dialog-title");
+function renderGuideCardItem(g) {
+  const cover = g.coverImage || (g.images && g.images[0]) || "assets/vnl-banner.png";
+  const catLabel = guideCategoryLabels[g.category] || g.category || "Hướng dẫn";
+  const dateStr = new Date(g.createdAt || g.updatedAt || Date.now()).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  return `
+    <article class="guide-store-card" data-guide-open="${escapeHtml(g.id)}" tabindex="0" role="button" aria-label="Xem chi tiết: ${escapeHtml(g.title)}">
+      <div class="guide-store-card-media">
+        <img src="${escapeHtml(cover)}" alt="${escapeHtml(g.title)}" loading="lazy" onerror="this.src='assets/vnl-banner.png'" />
+        <span class="guide-card-badge badge-${escapeHtml(g.category)}">${escapeHtml(catLabel)}</span>
+      </div>
+      <div class="guide-store-card-body">
+        <div class="guide-store-card-meta">
+          <span>📅 ${dateStr}</span>
+          <span>👁 ${(g.views || 0).toLocaleString()} lượt xem</span>
+        </div>
+        <h3 class="guide-store-card-title">${escapeHtml(g.title)}</h3>
+        <p class="guide-store-card-excerpt">${escapeHtml(g.subtitle || g.content || "")}</p>
+        <div class="guide-store-card-footer">
+          <span class="guide-read-more">Đọc tiếp →</span>
+        </div>
+      </div>
+    </article>
+  `;
+}
 
-  if (!guideDialog || !guideBody) {
-    showInfo("Hướng dẫn mua hàng", "<p>Đang tải hướng dẫn...</p>");
-    return;
-  }
-
-  if (!guideDialog.open) guideDialog.showModal();
-
-  if (!cachedGuide) {
-    guideBody.innerHTML = `<p class="muted" style="text-align:center; padding: 28px 0;">Đang tải hướng dẫn mua hàng...</p>`;
-    try {
-      const res = await fetch("/api/guide");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.guide) cachedGuide = data.guide;
-      }
-    } catch {
-      // Offline fallback
+function renderGuideGridView() {
+  const filtered = cachedGuides.filter(g => {
+    if (guideStoreFilter !== "all" && g.category !== guideStoreFilter) return false;
+    if (guideStoreSearch) {
+      const s = guideStoreSearch.toLowerCase();
+      const matchTitle = (g.title || "").toLowerCase().includes(s);
+      const matchSubtitle = (g.subtitle || "").toLowerCase().includes(s);
+      const matchCategory = (guideCategoryLabels[g.category] || g.category || "").toLowerCase().includes(s);
+      const matchContent = (g.content || "").toLowerCase().includes(s);
+      if (!matchTitle && !matchSubtitle && !matchCategory && !matchContent) return false;
     }
-  }
+    return true;
+  });
 
-  const guide = cachedGuide || {
-    title: "Hướng dẫn mua hàng tại VietNam Legacy",
-    subtitle: "Đơn giản · Nhanh chóng · Nhận hàng tự động & Hỗ trợ 24/7",
-    videoUrl: "",
-    images: ["assets/vnl-banner.png"],
-    steps: [
-      {
-        title: "Bước 1: Chọn sản phẩm & Gói cần mua",
-        description:
-          "Duyệt qua danh mục Discord Nitro, Decor hoặc dịch vụ bạn cần. Chọn gói thời hạn phù hợp và hình thức nhận (Link quà tặng Gift hoặc Nạp qua tài khoản Log).",
-      },
-      {
-        title: "Bước 2: Nạp tiền ví qua mã QR ngân hàng",
-        description:
-          "Mở Ví cá nhân tại góc trên trang web, nhập số tiền cần nạp và dùng app ngân hàng quét mã VietQR tự động. Tiền sẽ được cộng vào ví ngay sau khi chuyển khoản.",
-      },
-      {
-        title: "Bước 3: Đặt đơn & Nhận hàng tức thì",
-        description:
-          "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng. Link quà tặng Discord sẽ hiển thị ngay trong mục 'Đơn hàng của tôi'. Đội ngũ hỗ trợ luôn sẵn sàng đồng hành 24/7.",
-      },
-    ],
-    content:
-      "Cần tư vấn thêm về gói dịch vụ Setup Server Discord chuyên nghiệp hoặc lập trình Custom Bot riêng? Đừng ngần ngại liên hệ với shop qua Discord chính thức.",
-    isActive: true,
-  };
+  const cardsHtml = filtered.length
+    ? filtered.map(renderGuideCardItem).join("")
+    : `
+      <div class="guide-empty-grid">
+        <span style="font-size: 28px;">🔍</span>
+        <p>Không tìm thấy bài viết hoặc hướng dẫn nào phù hợp.</p>
+      </div>
+    `;
 
-  if (guideTitle) guideTitle.textContent = guide.title || "Hướng dẫn mua hàng";
+  return `
+    <div class="guide-store-top-controls">
+      <div class="guide-store-filter-tabs" role="tablist">
+        <button type="button" class="guide-store-tab ${guideStoreFilter === 'all' ? 'active' : ''}" data-guide-tab="all">Tất cả (${cachedGuides.length})</button>
+        <button type="button" class="guide-store-tab ${guideStoreFilter === 'guide' ? 'active' : ''}" data-guide-tab="guide">Hướng dẫn (${cachedGuides.filter(g => g.category === 'guide').length})</button>
+        <button type="button" class="guide-store-tab ${guideStoreFilter === 'tips' ? 'active' : ''}" data-guide-tab="tips">Mẹo & Thủ thuật (${cachedGuides.filter(g => g.category === 'tips').length})</button>
+        <button type="button" class="guide-store-tab ${guideStoreFilter === 'news' ? 'active' : ''}" data-guide-tab="news">Tin tức (${cachedGuides.filter(g => g.category === 'news').length})</button>
+      </div>
+      <div class="guide-store-search-box">
+        <span class="search-icon">🔍</span>
+        <input type="search" id="guide-store-search-input" placeholder="Tìm kiếm bài viết..." value="${escapeHtml(guideStoreSearch)}" />
+      </div>
+    </div>
+    <div class="guide-cards-grid" id="guide-cards-grid">
+      ${cardsHtml}
+    </div>
+  `;
+}
 
+function renderGuideReaderView(guide) {
+  const catLabel = guideCategoryLabels[guide.category] || guide.category || "Hướng dẫn";
+  const dateStr = new Date(guide.createdAt || guide.updatedAt || Date.now()).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
   const videoEmbed = parseGuideVideo(guide.videoUrl);
   const images = Array.isArray(guide.images) ? guide.images.filter(Boolean) : [];
   const steps = Array.isArray(guide.steps) ? guide.steps : [];
@@ -826,7 +861,7 @@ async function showGuideModal() {
             .map(
               (img) => `
             <a class="guide-gallery-item" href="${escapeHtml(img)}" target="_blank" rel="noopener noreferrer" title="Bấm để xem ảnh phóng to">
-              <img src="${escapeHtml(img)}" alt="Hình ảnh hướng dẫn" loading="lazy" />
+              <img src="${escapeHtml(img)}" alt="Hình ảnh hướng dẫn" loading="lazy" onerror="this.parentElement.style.display='none'" />
               <span class="guide-gallery-zoom">🔍 Phóng to</span>
             </a>
           `,
@@ -841,7 +876,7 @@ async function showGuideModal() {
   if (steps.length) {
     stepsHtml = `
       <div class="guide-steps-section">
-        <h4 class="guide-section-heading"><span data-icon="book"></span> Các bước mua hàng</h4>
+        <h4 class="guide-section-heading"><span data-icon="book"></span> Các bước thực hiện</h4>
         <div class="guide-steps-list">
           ${steps
             .map(
@@ -870,23 +905,174 @@ async function showGuideModal() {
     `;
   }
 
-  guideBody.innerHTML = `
-    ${guide.subtitle ? `<p class="guide-dialog-subtitle">${escapeHtml(guide.subtitle)}</p>` : ""}
-    ${videoHtml}
-    ${stepsHtml}
-    ${imagesHtml}
-    ${contentHtml}
-    <div class="guide-dialog-actions">
-      <a class="button primary" href="${storeConfig.discordUrl}" target="_blank" rel="noopener noreferrer">
-        Hỏi shop trên Discord ${icon("arrow")}
-      </a>
-      <button class="button secondary" type="button" data-guide-explore>
-        Khám phá sản phẩm ngay
+  return `
+    <div class="guide-reader-view">
+      <button type="button" class="guide-back-button" data-guide-back>
+        ← Quay lại danh sách bài viết
       </button>
+
+      <div class="guide-reader-header">
+        <div class="guide-reader-meta">
+          <span class="guide-card-badge badge-${escapeHtml(guide.category)}">${escapeHtml(catLabel)}</span>
+          <span>📅 ${dateStr}</span>
+          <span>👁 ${(guide.views || 0).toLocaleString()} lượt xem</span>
+        </div>
+        <h2 class="guide-reader-title">${escapeHtml(guide.title)}</h2>
+        ${guide.subtitle ? `<p class="guide-reader-subtitle">${escapeHtml(guide.subtitle)}</p>` : ""}
+      </div>
+
+      ${videoHtml}
+      ${stepsHtml}
+      ${imagesHtml}
+      ${contentHtml}
+
+      <div class="guide-dialog-actions">
+        <button class="button secondary" type="button" data-guide-back>
+          ← Xem bài viết khác
+        </button>
+        <a class="button primary" href="${storeConfig.discordUrl}" target="_blank" rel="noopener noreferrer">
+          Hỏi shop trên Discord ${icon("arrow")}
+        </a>
+      </div>
     </div>
   `;
 }
+
+async function showGuideModal(targetId = null) {
+  const guideDialog = document.querySelector("#guide-dialog");
+  const guideBody = document.querySelector("#guide-dialog-body");
+  const guideTitle = document.querySelector("#guide-dialog-title");
+
+  if (!guideDialog || !guideBody) {
+    showInfo("Hướng dẫn & Tin tức", "<p>Đang tải hướng dẫn...</p>");
+    return;
+  }
+
+  if (!guideDialog.open) guideDialog.showModal();
+
+  if (!cachedGuides.length) {
+    guideBody.innerHTML = `<p class="muted" style="text-align:center; padding: 28px 0;">Đang tải danh sách bài viết & hướng dẫn...</p>`;
+    try {
+      const res = await fetch("/api/guide");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.guide) cachedGuide = data.guide;
+        if (Array.isArray(data.guides) && data.guides.length) cachedGuides = data.guides;
+        else if (data.guide) cachedGuides = [data.guide];
+      }
+    } catch {
+      // Offline fallback
+    }
+  }
+
+  if (!cachedGuides.length) {
+    const fallback = cachedGuide || {
+      id: "main",
+      title: "Hướng dẫn mua hàng tại VietNam Legacy",
+      subtitle: "Đơn giản · Nhanh chóng · Nhận hàng tự động & Hỗ trợ 24/7",
+      category: "guide",
+      coverImage: "assets/vnl-banner.png",
+      videoUrl: "",
+      images: ["assets/vnl-banner.png"],
+      steps: [
+        { title: "Bước 1: Chọn sản phẩm & Gói cần mua", description: "Duyệt qua danh mục Discord Nitro, Decor hoặc dịch vụ bạn cần." },
+        { title: "Bước 2: Nạp tiền ví qua mã QR ngân hàng", description: "Mở Ví cá nhân tại góc trên trang web, quét mã VietQR tự động." },
+        { title: "Bước 3: Đặt đơn & Nhận hàng tức thì", description: "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng." },
+      ],
+      content: "Cần tư vấn thêm về gói dịch vụ Setup Server Discord chuyên nghiệp hoặc lập trình Custom Bot riêng? Đừng ngần ngại liên hệ với shop qua Discord chính thức.",
+      isActive: true,
+      views: 1250,
+    };
+    cachedGuides = [fallback];
+    cachedGuide = fallback;
+  }
+
+  if (targetId) {
+    currentGuideDetailId = targetId;
+    const targetGuide = cachedGuides.find(g => g.id === targetId) || cachedGuides[0];
+    if (guideTitle) guideTitle.textContent = targetGuide.title || "Hướng dẫn & Tin tức";
+    guideBody.innerHTML = renderGuideReaderView(targetGuide);
+    fetch(`/api/guide/${encodeURIComponent(targetId)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.guide) {
+          const idx = cachedGuides.findIndex(g => g.id === targetId);
+          if (idx !== -1) cachedGuides[idx] = d.guide;
+        }
+      })
+      .catch(() => {});
+  } else {
+    currentGuideDetailId = null;
+    if (guideTitle) guideTitle.textContent = "Tin Tức & Hướng Dẫn";
+    guideBody.innerHTML = renderGuideGridView();
+  }
+}
 window.showGuideModal = showGuideModal;
+
+// Guide Dialog Event Listeners
+const guideDialogEl = document.querySelector("#guide-dialog");
+if (guideDialogEl) {
+  guideDialogEl.addEventListener("click", (e) => {
+    const card = e.target.closest("[data-guide-open]");
+    if (card) {
+      const id = card.dataset.guideOpen;
+      if (id) showGuideModal(id);
+      return;
+    }
+    const backBtn = e.target.closest("[data-guide-back]");
+    if (backBtn) {
+      showGuideModal(null);
+      return;
+    }
+    const tab = e.target.closest("[data-guide-tab]");
+    if (tab) {
+      guideStoreFilter = tab.dataset.guideTab;
+      const body = document.querySelector("#guide-dialog-body");
+      if (body) body.innerHTML = renderGuideGridView();
+      return;
+    }
+    const exploreBtn = e.target.closest("[data-guide-explore]");
+    if (exploreBtn) {
+      guideDialogEl.close();
+      smoothScrollTo("#catalog");
+    }
+  });
+
+  guideDialogEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      const card = e.target.closest("[data-guide-open]");
+      if (card) {
+        e.preventDefault();
+        const id = card.dataset.guideOpen;
+        if (id) showGuideModal(id);
+      }
+    }
+  });
+
+  guideDialogEl.addEventListener("input", (e) => {
+    if (e.target.id === "guide-store-search-input") {
+      guideStoreSearch = e.target.value.trim().toLowerCase();
+      const grid = document.querySelector("#guide-cards-grid");
+      if (grid) {
+        const filtered = cachedGuides.filter(g => {
+          if (guideStoreFilter !== "all" && g.category !== guideStoreFilter) return false;
+          if (guideStoreSearch) {
+            const s = guideStoreSearch;
+            const matchTitle = (g.title || "").toLowerCase().includes(s);
+            const matchSubtitle = (g.subtitle || "").toLowerCase().includes(s);
+            const matchCategory = (guideCategoryLabels[g.category] || g.category || "").toLowerCase().includes(s);
+            const matchContent = (g.content || "").toLowerCase().includes(s);
+            if (!matchTitle && !matchSubtitle && !matchCategory && !matchContent) return false;
+          }
+          return true;
+        });
+        grid.innerHTML = filtered.length
+          ? filtered.map(renderGuideCardItem).join("")
+          : `<div class="guide-empty-grid"><span style="font-size: 28px;">🔍</span><p>Không tìm thấy bài viết nào phù hợp.</p></div>`;
+      }
+    }
+  });
+}
 
 function showSupport() {
   showInfo(

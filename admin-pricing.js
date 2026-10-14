@@ -1,6 +1,7 @@
 // Giao diện giá, ưu đãi và nạp tiền QR dùng chung phiên đăng nhập của trang quản trị.
 window.initAdminPricing = (() => {
-  let api, notify, products = [], promotions = [], bankSettings = { bank: {}, isActive: false }, depositsList = [], depositFilter = "all", depositSearch = "", guideData = null, currentView = "orders", initialized = false, loaded = false;
+  let api, notify, products = [], promotions = [], bankSettings = { bank: {}, isActive: false }, depositsList = [], depositFilter = "all", depositSearch = "", guideData = null, guidesList = [], guideFilter = "all", guideSearch = "", currentView = "orders", initialized = false, loaded = false;
+  const guideCategoryLabels = { guide: "Hướng dẫn", tips: "Mẹo & Thủ thuật", news: "Tin tức", other: "Khác" };
   const $ = (selector) => document.querySelector(selector);
   const money = n => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -107,7 +108,7 @@ window.initAdminPricing = (() => {
         api("/api/admin/pricing"),
         api("/api/admin/bank").catch(() => ({ settings: { bank: {}, isActive: false } })),
         api("/api/admin/deposits?limit=100").catch(() => ({ deposits: [] })),
-        api("/api/admin/guide").catch(() => ({ guide: null })),
+        api("/api/admin/guide").catch(() => ({ guide: null, guides: [] })),
       ]);
       loaded = true;
       products = pricingData.products;
@@ -115,6 +116,7 @@ window.initAdminPricing = (() => {
       bankSettings = bankData.settings || { bank: {}, isActive: false };
       depositsList = depositsData.deposits || [];
       guideData = guideRes.guide || null;
+      guidesList = Array.isArray(guideRes.guides) ? guideRes.guides : (guideData ? [guideData] : []);
       render();
     } catch (error) {
       panel.innerHTML = `<p class="admin-error-msg" role="alert">${esc(error.message)}</p><button type="button" class="button secondary" data-pricing-reload>Tải lại dữ liệu</button>`;
@@ -339,134 +341,48 @@ window.initAdminPricing = (() => {
       return;
     }
     if (currentView === "guide") {
-      const guide = guideData || {
-        title: "Hướng dẫn mua hàng tại VietNam Legacy",
-        subtitle: "Đơn giản · Nhanh chóng · Nhận hàng tự động & Hỗ trợ 24/7",
-        videoUrl: "",
-        images: ["assets/vnl-banner.png"],
-        steps: [
-          { title: "Bước 1: Chọn sản phẩm & Gói cần mua", description: "Duyệt qua danh mục Discord Nitro, Decor hoặc dịch vụ bạn cần." },
-          { title: "Bước 2: Nạp tiền ví qua mã QR ngân hàng", description: "Mở Ví cá nhân tại góc trên trang web, quét mã VietQR tự động." },
-          { title: "Bước 3: Đặt đơn & Nhận hàng tức thì", description: "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng." },
-        ],
-        content: "Cần tư vấn thêm về gói dịch vụ Setup Server Discord chuyên nghiệp hoặc lập trình Custom Bot riêng? Đừng ngần ngại liên hệ với shop qua Discord chính thức.",
-        isActive: true,
-      };
-
-      const videoEmbed = parseVideoEmbed(guide.videoUrl);
-      const imagesList = Array.isArray(guide.images) ? guide.images : [];
-      const stepsList = Array.isArray(guide.steps) && guide.steps.length ? guide.steps : [
-        { title: "Bước 1: Chọn sản phẩm & Gói cần mua", description: "Duyệt qua danh mục Discord Nitro, Decor hoặc dịch vụ bạn cần." },
-        { title: "Bước 2: Nạp tiền ví qua mã QR ngân hàng", description: "Mở Ví cá nhân tại góc trên trang web, quét mã VietQR tự động." },
-        { title: "Bước 3: Đặt đơn & Nhận hàng tức thì", description: "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng." },
-      ];
+      const filtered = guidesList.filter(g => {
+        if (guideFilter !== "all" && g.category !== guideFilter) return false;
+        if (guideSearch) {
+          const s = guideSearch.toLowerCase();
+          const matchTitle = (g.title || "").toLowerCase().includes(s);
+          const matchSubtitle = (g.subtitle || "").toLowerCase().includes(s);
+          const matchCategory = (guideCategoryLabels[g.category] || g.category || "").toLowerCase().includes(s);
+          if (!matchTitle && !matchSubtitle && !matchCategory) return false;
+        }
+        return true;
+      });
 
       panel.innerHTML = `
         <header class="pricing-heading">
           <div>
-            <span class="pricing-eyebrow">HƯỚNG DẪN MUA HÀNG</span>
-            <h2>Quản lý Hướng dẫn Khách hàng</h2>
-            <p>Đăng video hướng dẫn (YouTube / MP4), hình ảnh minh họa và các bước đặt đơn hiển thị cho khách hàng.</p>
+            <span class="pricing-eyebrow">HƯỚNG DẪN & TIN TỨC</span>
+            <h2>Quản lý Bài viết & Hướng dẫn</h2>
+            <p>Đăng nhiều bài viết hướng dẫn, mẹo sử dụng và tin tức kèm video YouTube/MP4 và các bước chi tiết cho khách hàng.</p>
           </div>
           <div class="pricing-actions">
+            <button type="button" class="button primary" data-guide-new>+ Thêm bài viết mới</button>
             <a href="/" target="_blank" class="button secondary" rel="noopener noreferrer">Mở cửa hàng kiểm tra ↗</a>
           </div>
         </header>
 
-        <section class="pricing-card guide-manager-card">
-          <form id="admin-guide-form">
-            <div class="card-header-row">
-              <div>
-                <h3>📝 Thiết lập nội dung hướng dẫn</h3>
-                <p>Nội dung này xuất hiện khi khách nhấn vào nút "Hướng dẫn mua hàng" trên menu hoặc trang chủ.</p>
-              </div>
-              <div class="announcement-toggle-group">
-                <label class="switch-label">
-                  <input type="checkbox" id="admin-guide-active" ${guide.isActive ? "checked" : ""} />
-                  <span class="switch-slider"></span>
-                </label>
-                <span id="admin-guide-active-label" class="${guide.isActive ? "status-active" : "status-inactive"}">
-                  ${guide.isActive ? "Đang bật hiển thị" : "Tạm ẩn"}
-                </span>
-              </div>
-            </div>
+        <div id="catalog-editor"></div>
 
-            <div class="guide-form-grid">
-              <label>
-                Tiêu đề hướng dẫn chính *
-                <input name="title" required maxlength="200" value="${esc(guide.title)}" placeholder="VD: Hướng dẫn mua hàng tại VietNam Legacy" />
-                <small>Tiêu đề lớn hiển thị đầu cửa sổ hướng dẫn.</small>
-              </label>
+        <div class="admin-controls guide-controls">
+          <div class="admin-tabs guide-filter-tabs" role="tablist">
+            <button class="admin-tab ${guideFilter === 'all' ? 'active' : ''}" data-guide-filter="all">Tất cả (${guidesList.length})</button>
+            <button class="admin-tab ${guideFilter === 'guide' ? 'active' : ''}" data-guide-filter="guide">Hướng dẫn (${guidesList.filter(g => g.category === 'guide').length})</button>
+            <button class="admin-tab ${guideFilter === 'tips' ? 'active' : ''}" data-guide-filter="tips">Mẹo & Thủ thuật (${guidesList.filter(g => g.category === 'tips').length})</button>
+            <button class="admin-tab ${guideFilter === 'news' ? 'active' : ''}" data-guide-filter="news">Tin tức (${guidesList.filter(g => g.category === 'news').length})</button>
+          </div>
+          <div class="admin-search-group">
+            <input type="search" id="guide-search-input" placeholder="Tìm theo tiêu đề, danh mục..." value="${esc(guideSearch)}" />
+          </div>
+        </div>
 
-              <label>
-                Lời dẫn phụ (Subtitle)
-                <input name="subtitle" maxlength="300" value="${esc(guide.subtitle || "")}" placeholder="VD: Đơn giản · Nhanh chóng · Nhận hàng tự động & Hỗ trợ 24/7" />
-                <small>Dòng tóm tắt ngắn bên dưới tiêu đề.</small>
-              </label>
-            </div>
-
-            <div class="guide-media-section">
-              <div class="guide-media-col">
-                <label>
-                  🎬 Link Video hướng dẫn (YouTube / MP4)
-                  <input id="guide-video-input" name="videoUrl" value="${esc(guide.videoUrl || "")}" placeholder="VD: https://www.youtube.com/watch?v=... hoặc https://youtu.be/... hoặc file .mp4" />
-                  <small>Dán link video YouTube (hoặc link MP4). Hệ thống sẽ tự động phát video chuẩn 16:9 cho khách xem trực tiếp.</small>
-                </label>
-
-                <div class="guide-preview-video-box" id="guide-preview-video-box">
-                  ${renderVideoPreviewHtml(videoEmbed)}
-                </div>
-              </div>
-
-              <div class="guide-media-col">
-                <label>
-                  🖼️ Link Hình ảnh hướng dẫn (Mỗi dòng 1 link)
-                  <textarea id="guide-images-input" name="images" rows="4" placeholder="VD:&#10;assets/vnl-banner.png&#10;https://i.imgur.com/example.png">${esc(imagesList.join("\n"))}</textarea>
-                  <small>Nhập link các ảnh chụp màn hình hoặc banner hướng dẫn từng bước. Mỗi ảnh trên một dòng riêng.</small>
-                </label>
-
-                <div class="guide-preview-images-box" id="guide-preview-images-box">
-                  ${renderImagesPreviewHtml(imagesList)}
-                </div>
-              </div>
-            </div>
-
-            <fieldset class="guide-steps-fieldset">
-              <legend>📋 Các bước mua hàng chi tiết</legend>
-              <p class="fieldset-desc">Tạo các bước rõ ràng giúp khách dễ dàng làm quen với quy trình mua hàng.</p>
-              
-              <div id="guide-steps-container" class="guide-steps-container">
-                ${stepsList.map((step, idx) => `
-                  <div class="guide-step-editor-row" data-step-index="${idx}">
-                    <span class="step-num-badge">${idx + 1}</span>
-                    <div class="step-fields">
-                      <input name="stepTitle[]" required placeholder="Tên bước (VD: Bước ${idx + 1}: Chọn gói sản phẩm)" value="${esc(step.title)}" />
-                      <textarea name="stepDesc[]" rows="2" placeholder="Chi tiết bước này...">${esc(step.description)}</textarea>
-                    </div>
-                    <button type="button" class="button secondary btn-small btn-danger" data-remove-step title="Xóa bước này">✕</button>
-                  </div>
-                `).join("")}
-              </div>
-
-              <div class="guide-steps-actions">
-                <button type="button" class="button secondary btn-small" id="btn-add-guide-step">+ Thêm bước tiếp theo</button>
-              </div>
-            </fieldset>
-
-            <div class="guide-notes-section">
-              <label>
-                💬 Lời dặn hoặc Hướng dẫn liên hệ hỗ trợ
-                <textarea name="content" rows="3" placeholder="Ghi chú thêm về điều kiện bảo hành, link Discord hoặc tư vấn riêng...">${esc(guide.content || "")}</textarea>
-                <small>Đoạn văn này xuất hiện cuối cùng trước nút liên hệ Discord của shop.</small>
-              </label>
-            </div>
-
-            <div class="guide-form-footer">
-              <p id="guide-form-message" class="pricing-form-message"></p>
-              <button type="submit" class="button primary" id="btn-save-guide">Lưu & Đăng hướng dẫn 💾</button>
-            </div>
-          </form>
-        </section>
+        <div class="guide-admin-cards-list" id="guide-admin-cards-container">
+          ${renderAdminGuideCardsHtml(filtered)}
+        </div>
       `;
       return;
     }
@@ -716,6 +632,179 @@ window.initAdminPricing = (() => {
     `;
   }
 
+  function renderAdminGuideCardsHtml(list) {
+    if (!list.length) {
+      return `
+        <div class="pricing-empty">
+          <span>📚</span>
+          <h3>Không tìm thấy bài viết nào</h3>
+          <p>Bấm "+ Thêm bài viết mới" để tạo bài viết đầu tiên cho cửa hàng.</p>
+          <button type="button" class="button primary btn-small" data-guide-new>+ Thêm bài viết mới</button>
+        </div>
+      `;
+    }
+    return `
+      <div class="guide-admin-grid">
+        ${list.map(g => {
+          const cover = g.coverImage || (g.images && g.images[0]) || "assets/vnl-banner.png";
+          const catLabel = guideCategoryLabels[g.category] || g.category || "Hướng dẫn";
+          return `
+            <article class="pricing-card guide-admin-card ${g.isActive ? '' : 'is-inactive'}">
+              <div class="guide-admin-thumb-wrap">
+                <img src="${esc(cover)}" alt="" onerror="this.src='assets/vnl-banner.png'" />
+                <span class="guide-badge-category category-${esc(g.category)}">${esc(catLabel)}</span>
+                <span class="guide-badge-status ${g.isActive ? 'status-active' : 'status-inactive'}">
+                  ${g.isActive ? '● Hiển thị' : '○ Tạm ẩn'}
+                </span>
+              </div>
+              <div class="guide-admin-body">
+                <div class="guide-admin-meta">
+                  <span>📅 ${new Date(g.createdAt || g.updatedAt).toLocaleDateString("vi-VN")}</span>
+                  <span>👁 ${g.views || 0} lượt xem</span>
+                </div>
+                <h3 class="guide-admin-title" title="${esc(g.title)}">${esc(g.title)}</h3>
+                <p class="guide-admin-subtitle">${esc(g.subtitle || '')}</p>
+                <div class="guide-admin-extras">
+                  ${g.videoUrl ? '<span class="extra-badge">🎬 Video</span>' : ''}
+                  ${(g.steps && g.steps.length) ? `<span class="extra-badge">📋 ${g.steps.length} bước</span>` : ''}
+                  ${(g.images && g.images.length) ? `<span class="extra-badge">🖼️ ${g.images.length} ảnh</span>` : ''}
+                </div>
+              </div>
+              <div class="guide-admin-actions">
+                <button type="button" class="button secondary btn-small" data-guide-edit="${esc(g.id)}">✏️ Sửa</button>
+                <button type="button" class="button secondary btn-small" data-guide-toggle="${esc(g.id)}">${g.isActive ? 'Ẩn' : 'Hiện'}</button>
+                <button type="button" class="button secondary btn-small btn-danger" data-guide-delete="${esc(g.id)}" title="Xóa bài viết">✕ Xóa</button>
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function openGuideEditor(guideId = null) {
+    const editor = $("#catalog-editor");
+    if (!editor) return;
+    const g = guideId ? (guidesList.find(x => x.id === guideId) || guideData) : null;
+    const isNew = !g;
+
+    const title = g ? g.title : "";
+    const subtitle = g ? (g.subtitle || "") : "";
+    const category = g ? (g.category || "guide") : "guide";
+    const coverImage = g ? (g.coverImage || "") : "";
+    const videoUrl = g ? (g.videoUrl || "") : "";
+    const imagesList = g && Array.isArray(g.images) ? g.images : [];
+    const stepsList = g && Array.isArray(g.steps) && g.steps.length ? g.steps : [
+      { title: "Bước 1: ", description: "" },
+    ];
+    const content = g ? (g.content || "") : "";
+    const isActive = g ? Boolean(g.isActive) : true;
+    const videoEmbed = parseVideoEmbed(videoUrl);
+
+    editor.innerHTML = `
+      <form id="admin-guide-form" class="pricing-card promotion-form guide-modal-form" data-guide-id="${isNew ? 'new' : esc(g.id)}">
+        <div class="promotion-title">
+          <h3>${isNew ? '+ Thêm bài viết hướng dẫn / tin tức mới' : '✏️ Chỉnh sửa bài viết: ' + esc(title)}</h3>
+          <button type="button" class="button secondary btn-small" data-catalog-close>Đóng ✕</button>
+        </div>
+
+        <div class="pricing-form-grid">
+          <label style="grid-column: 1 / -1;">
+            Tiêu đề bài viết *
+            <input name="title" required maxlength="200" value="${esc(title)}" placeholder="VD: Hướng dẫn mua hàng tại VietNam Legacy..." />
+          </label>
+
+          <label>
+            Danh mục bài viết *
+            <select name="category" required>
+              <option value="guide" ${category === "guide" ? "selected" : ""}>📘 Hướng dẫn</option>
+              <option value="tips" ${category === "tips" ? "selected" : ""}>💡 Mẹo & Thủ thuật</option>
+              <option value="news" ${category === "news" ? "selected" : ""}>📢 Tin tức</option>
+              <option value="other" ${category === "other" ? "selected" : ""}>✨ Khác</option>
+            </select>
+          </label>
+
+          <label>
+            Ảnh bìa (Cover Image URL)
+            <input name="coverImage" value="${esc(coverImage)}" placeholder="VD: assets/vnl-banner.png hoặc link ảnh..." />
+          </label>
+
+          <label style="grid-column: 1 / -1;">
+            Tóm tắt ngắn (Subtitle / Excerpt)
+            <input name="subtitle" maxlength="300" value="${esc(subtitle)}" placeholder="VD: Đơn giản · Nhanh chóng · Nhận hàng tự động & Hỗ trợ 24/7..." />
+          </label>
+        </div>
+
+        <div class="guide-media-section" style="margin-top: 14px;">
+          <div class="guide-media-col">
+            <label>
+              🎬 Link Video (YouTube / MP4)
+              <input id="guide-video-input" name="videoUrl" value="${esc(videoUrl)}" placeholder="VD: https://www.youtube.com/watch?v=... hoặc .mp4" />
+              <small>Dán link YouTube (hoặc MP4). Hệ thống tự nhận diện phát video.</small>
+            </label>
+            <div class="guide-preview-video-box" id="guide-preview-video-box">
+              ${renderVideoPreviewHtml(videoEmbed)}
+            </div>
+          </div>
+
+          <div class="guide-media-col">
+            <label>
+              🖼️ Link Hình ảnh minh họa (Mỗi dòng 1 link)
+              <textarea id="guide-images-input" name="images" rows="4" placeholder="VD:&#10;assets/vnl-banner.png&#10;https://i.imgur.com/example.png">${esc(imagesList.join("\n"))}</textarea>
+              <small>Hình ảnh minh họa từng bước hoặc banner.</small>
+            </label>
+            <div class="guide-preview-images-box" id="guide-preview-images-box">
+              ${renderImagesPreviewHtml(imagesList)}
+            </div>
+          </div>
+        </div>
+
+        <fieldset class="guide-steps-fieldset" style="margin-top: 14px;">
+          <legend>📋 Các bước thực hiện</legend>
+          <p class="fieldset-desc">Tạo các bước rõ ràng giúp khách dễ dàng làm theo.</p>
+          <div id="guide-steps-container" class="guide-steps-container">
+            ${stepsList.map((step, idx) => `
+              <div class="guide-step-editor-row" data-step-index="${idx}">
+                <span class="step-num-badge">${idx + 1}</span>
+                <div class="step-fields">
+                  <input name="stepTitle[]" required placeholder="Tên bước (VD: Bước ${idx + 1}: Chọn gói sản phẩm)" value="${esc(step.title)}" />
+                  <textarea name="stepDesc[]" rows="2" placeholder="Chi tiết bước này...">${esc(step.description)}</textarea>
+                </div>
+                <button type="button" class="button secondary btn-small btn-danger" data-remove-step title="Xóa bước này">✕</button>
+              </div>
+            `).join("")}
+          </div>
+          <div class="guide-steps-actions">
+            <button type="button" class="button secondary btn-small" id="btn-add-guide-step">+ Thêm bước tiếp theo</button>
+          </div>
+        </fieldset>
+
+        <div class="guide-notes-section" style="margin-top: 14px;">
+          <label>
+            💬 Nội dung chi tiết hoặc Lời dặn hỗ trợ
+            <textarea name="content" rows="4" placeholder="Nội dung chi tiết bài viết, lưu ý bảo hành hoặc thông tin liên hệ...">${esc(content)}</textarea>
+          </label>
+        </div>
+
+        <div style="display:flex; align-items:center; gap: 12px; margin: 16px 0;">
+          <label class="switch-label">
+            <input type="checkbox" name="isActive" id="admin-guide-active" ${isActive ? "checked" : ""} />
+            <span class="switch-slider"></span>
+          </label>
+          <span id="admin-guide-active-label" class="${isActive ? "status-active" : "status-inactive"}">
+            ${isActive ? "Đang bật hiển thị trên cửa hàng" : "Tạm ẩn (Khách không thấy)"}
+          </span>
+        </div>
+
+        <div class="guide-form-footer">
+          <p class="pricing-form-message" role="status"></p>
+          <button type="submit" class="button primary">${isNew ? 'Đăng bài viết mới 💾' : 'Lưu thay đổi bài viết 💾'}</button>
+        </div>
+      </form>
+    `;
+    $("#admin-guide-form [name=title]").focus();
+  }
+
   async function submit(event) {
     const form = event.target;
     if (!["admin-prices-form", "promotion-form", "product-create-form", "product-edit-form", "variant-create-form", "variant-edit-form", "admin-bank-form", "admin-guide-form"].includes(form.id)) return;
@@ -731,11 +820,14 @@ window.initAdminPricing = (() => {
         notify("Đã lưu bảng giá sản phẩm.");
       } else if (form.id === "admin-guide-form") {
         const data = new FormData(form);
+        const guideId = form.dataset.guideId || "new";
         const title = (data.get("title") || "").trim();
+        const category = data.get("category") || "guide";
+        const coverImage = (data.get("coverImage") || "").trim();
         const subtitle = (data.get("subtitle") || "").trim();
         const videoUrl = (data.get("videoUrl") || "").trim();
         const content = (data.get("content") || "").trim();
-        const isActive = $("#admin-guide-active") ? $("#admin-guide-active").checked : true;
+        const isActive = form.querySelector("[name='isActive']") ? form.querySelector("[name='isActive']").checked : true;
         const imagesRaw = data.get("images") || "";
         const images = imagesRaw.split("\n").map(s => s.trim()).filter(Boolean);
         const stepTitleEls = form.querySelectorAll("[name='stepTitle[]']");
@@ -746,12 +838,27 @@ window.initAdminPricing = (() => {
           const sd = (stepDescEls[i].value || "").trim();
           if (st || sd) steps.push({ title: st, description: sd });
         }
-        const res = await api("/api/admin/guide", {
-          method: "POST",
-          body: JSON.stringify({ title, subtitle, videoUrl, images, steps, content, isActive }),
+        const payload = {
+          id: guideId,
+          title,
+          category,
+          coverImage,
+          subtitle,
+          videoUrl,
+          images,
+          steps,
+          content,
+          isActive,
+        };
+        const url = (guideId && guideId !== "new") ? `/api/admin/guide/${guideId}` : "/api/admin/guide";
+        const method = (guideId && guideId !== "new") ? "PUT" : "POST";
+        const res = await api(url, {
+          method,
+          body: JSON.stringify(payload),
         });
         guideData = res.guide;
-        notify("Đã lưu và cập nhật hướng dẫn mua hàng!");
+        notify(guideId === "new" ? "Đã đăng bài viết mới thành công!" : "Đã lưu cập nhật bài viết!");
+        $("#catalog-editor").replaceChildren();
       } else if (form.id === "admin-bank-form") {
         const data = new FormData(form);
         const isActive = $("#bank-active-toggle") ? $("#bank-active-toggle").checked : true;
@@ -898,10 +1005,66 @@ window.initAdminPricing = (() => {
             container.innerHTML = renderDepositCardsHtml(filtered, bankSettings.bank || {});
           }
         }
+        if (event.target.id === "guide-search-input") {
+          guideSearch = event.target.value.trim().toLowerCase();
+          const container = document.querySelector("#guide-admin-cards-container");
+          if (container) {
+            const filtered = guidesList.filter(g => {
+              if (guideFilter !== "all" && g.category !== guideFilter) return false;
+              if (guideSearch) {
+                const s = guideSearch;
+                const matchTitle = (g.title || "").toLowerCase().includes(s);
+                const matchSubtitle = (g.subtitle || "").toLowerCase().includes(s);
+                const matchCategory = (guideCategoryLabels[g.category] || g.category || "").toLowerCase().includes(s);
+                if (!matchTitle && !matchSubtitle && !matchCategory) return false;
+              }
+              return true;
+            });
+            container.innerHTML = renderAdminGuideCardsHtml(filtered);
+          }
+        }
       });
       document.addEventListener("click", async event => {
         const button = event.target.closest("button");
         if (!button) return;
+        if (button.hasAttribute("data-guide-new")) openGuideEditor(null);
+        if (button.dataset.guideEdit) openGuideEditor(button.dataset.guideEdit);
+        if (button.dataset.guideFilter) {
+          guideFilter = button.dataset.guideFilter;
+          render();
+        }
+        if (button.dataset.guideToggle) {
+          const gId = button.dataset.guideToggle;
+          const target = guidesList.find(x => x.id === gId);
+          if (!target) return;
+          button.disabled = true;
+          try {
+            await api(`/api/admin/guide/${gId}/toggle`, {
+              method: "PATCH",
+              body: JSON.stringify({ isActive: !target.isActive }),
+            });
+            notify(target.isActive ? "Đã ẩn bài viết khỏi cửa hàng." : "Đã bật hiển thị bài viết.");
+            await load();
+          } catch (err) {
+            notify(err.message);
+          } finally {
+            button.disabled = false;
+          }
+        }
+        if (button.dataset.guideDelete) {
+          const gId = button.dataset.guideDelete;
+          if (!confirm("Bạn có chắc chắn muốn xóa bài viết này?")) return;
+          button.disabled = true;
+          try {
+            await api(`/api/admin/guide/${gId}`, { method: "DELETE" });
+            notify("Đã xóa bài viết.");
+            await load();
+          } catch (err) {
+            notify(err.message);
+          } finally {
+            button.disabled = false;
+          }
+        }
         if (button.id === "btn-add-guide-step") {
           const container = document.querySelector("#guide-steps-container");
           if (container) {

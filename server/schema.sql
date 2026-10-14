@@ -137,11 +137,15 @@ CREATE TABLE IF NOT EXISTS shopping_guides (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   subtitle TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT 'guide',
+  cover_image TEXT NOT NULL DEFAULT '',
   video_url TEXT NOT NULL DEFAULT '',
   image_urls_json TEXT NOT NULL DEFAULT '[]',
   steps_json TEXT NOT NULL DEFAULT '[]',
   content TEXT NOT NULL DEFAULT '',
+  views INTEGER NOT NULL DEFAULT 0,
   is_active INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL DEFAULT 0,
   updated_at INTEGER NOT NULL
 );
 

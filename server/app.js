@@ -18,7 +18,10 @@ import {
   manualCreditDeposit,
   cancelDeposit,
   getShoppingGuide,
+  listShoppingGuides,
   saveShoppingGuide,
+  deleteShoppingGuide,
+  toggleShoppingGuideStatus,
 } from "./store.js";
 import {
   getCatalog,
@@ -687,19 +690,47 @@ export function createApp(db, config) {
           return json(200, result);
         }
         if (req.method === "GET" && route === "/api/guide") {
+          const id = url.searchParams.get("id");
+          if (id) {
+            const guide = await getShoppingGuide(db, id);
+            return json(200, { success: true, guide });
+          }
           const guide = await getShoppingGuide(db);
+          const guides = await listShoppingGuides(db, false);
+          return json(200, { success: true, guide, guides });
+        }
+        const publicGuideMatch = route.match(/^\/api\/guide\/([a-z0-9_-]+)$/);
+        if (req.method === "GET" && publicGuideMatch) {
+          const guide = await getShoppingGuide(db, publicGuideMatch[1]);
           return json(200, { success: true, guide });
         }
         if (req.method === "GET" && route === "/api/admin/guide") {
           requireAdmin(req);
           const guide = await getShoppingGuide(db);
-          return json(200, { success: true, guide });
+          const guides = await listShoppingGuides(db, true);
+          return json(200, { success: true, guide, guides });
         }
-        if (["POST", "PUT"].includes(req.method) && route === "/api/admin/guide") {
+        const adminGuideToggleMatch = route.match(/^\/api\/admin\/guide\/([a-z0-9_-]+)\/toggle$/);
+        if (req.method === "PATCH" && adminGuideToggleMatch) {
           requireAdmin(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
-          const guide = await saveShoppingGuide(db, body);
+          const result = await toggleShoppingGuideStatus(db, adminGuideToggleMatch[1], body.isActive);
+          return json(200, result);
+        }
+        const adminGuideItemMatch = route.match(/^\/api\/admin\/guide\/([a-z0-9_-]+)$/);
+        if (req.method === "DELETE" && adminGuideItemMatch) {
+          requireAdmin(req);
+          sameOrigin(req);
+          const result = await deleteShoppingGuide(db, adminGuideItemMatch[1]);
+          return json(200, result);
+        }
+        if (["POST", "PUT"].includes(req.method) && (route === "/api/admin/guide" || adminGuideItemMatch)) {
+          requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const guideId = adminGuideItemMatch ? adminGuideItemMatch[1] : body.id;
+          const guide = await saveShoppingGuide(db, { ...body, ...(guideId ? { id: guideId } : {}) });
           return json(200, { success: true, guide });
         }
         throw fail(404, "Không tìm thấy chức năng.");

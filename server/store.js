@@ -658,48 +658,136 @@ export async function cancelDeposit(db, depositId, now = Date.now()) {
   return { success: true, depositId: deposit.id, status: "expired" };
 }
 
-export const DEFAULT_SHOPPING_GUIDE = {
-  title: "Hướng dẫn mua hàng tại VietNam Legacy",
-  subtitle: "Đơn giản · Nhanh chóng · Nhận hàng tự động & Hỗ trợ 24/7",
-  videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-  images: ["assets/vnl-banner.png"],
-  steps: [
-    {
-      title: "Bước 1: Chọn sản phẩm & Gói cần mua",
-      description:
-        "Duyệt qua danh mục Discord Nitro, Decor hoặc dịch vụ bạn cần. Chọn gói thời hạn phù hợp và hình thức nhận (Link quà tặng Gift hoặc Nạp qua tài khoản Log).",
-    },
-    {
-      title: "Bước 2: Nạp tiền ví qua mã QR ngân hàng",
-      description:
-        "Mở Ví cá nhân tại góc trên trang web, nhập số tiền cần nạp và dùng app ngân hàng quét mã VietQR tự động. Tiền sẽ được cộng vào ví ngay sau khi chuyển khoản.",
-    },
-    {
-      title: "Bước 3: Đặt đơn & Nhận hàng tức thì",
-      description:
-        "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng. Link quà tặng Discord sẽ hiển thị ngay trong mục 'Đơn hàng của tôi'. Đội ngũ hỗ trợ luôn sẵn sàng đồng hành 24/7.",
-    },
-  ],
-  content:
-    "Cần tư vấn thêm về gói dịch vụ Setup Server Discord chuyên nghiệp hoặc lập trình Custom Bot riêng? Đừng ngần ngại liên hệ với shop qua Discord chính thức.",
-  isActive: true,
-  updatedAt: 0,
-};
+export const DEFAULT_GUIDES = [
+  {
+    id: "main",
+    title: "Hướng dẫn mua hàng tại VietNam Legacy",
+    subtitle: "Đơn giản · Nhanh chóng · Nhận hàng tự động & Hỗ trợ 24/7",
+    category: "guide",
+    coverImage: "assets/vnl-banner.png",
+    videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    images: ["assets/vnl-banner.png"],
+    steps: [
+      {
+        title: "Bước 1: Chọn sản phẩm & Gói cần mua",
+        description:
+          "Duyệt qua danh mục Discord Nitro, Decor hoặc dịch vụ bạn cần. Chọn gói thời hạn phù hợp và hình thức nhận (Link quà tặng Gift hoặc Nạp qua tài khoản Log).",
+      },
+      {
+        title: "Bước 2: Nạp tiền ví qua mã QR ngân hàng",
+        description:
+          "Mở Ví cá nhân tại góc trên trang web, nhập số tiền cần nạp và dùng app ngân hàng quét mã VietQR tự động. Tiền sẽ được cộng vào ví ngay sau khi chuyển khoản.",
+      },
+      {
+        title: "Bước 3: Đặt đơn & Nhận hàng tức thì",
+        description:
+          "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng. Link quà tặng Discord sẽ hiển thị ngay trong mục 'Đơn hàng của tôi'. Đội ngũ hỗ trợ luôn sẵn sàng đồng hành 24/7.",
+      },
+    ],
+    content:
+      "Cần tư vấn thêm về gói dịch vụ Setup Server Discord chuyên nghiệp hoặc lập trình Custom Bot riêng? Đừng ngần ngại liên hệ với shop qua Discord chính thức.",
+    views: 1250,
+    isActive: true,
+    createdAt: 1710000000000,
+    updatedAt: 1710000000000,
+  },
+  {
+    id: "huong-dan-nap-tien-vietqr",
+    title: "Hướng dẫn nạp tiền ví tự động bằng VietQR & Ngân hàng",
+    subtitle: "Chỉ 10 giây nạp tiền tự động, bảo mật và chuẩn xác 100%",
+    category: "guide",
+    coverImage: "assets/vnl-banner.png",
+    videoUrl: "",
+    images: ["assets/vnl-banner.png"],
+    steps: [
+      {
+        title: "Bước 1: Mở ví cá nhân",
+        description:
+          "Bấm vào biểu tượng Ví cá nhân ở góc trên bên phải website VietNam Legacy.",
+      },
+      {
+        title: "Bước 2: Nhập số tiền & Quét mã QR",
+        description:
+          "Nhập số tiền cần nạp (tối thiểu 10.000đ). Hệ thống sẽ tạo mã VietQR chuẩn với nội dung chuyển khoản tự động.",
+      },
+      {
+        title: "Bước 3: Nhận tiền vào ví tức thì",
+        description:
+          "Dùng ứng dụng ngân hàng quét mã và xác nhận chuyển tiền. Số dư sẽ tự động cập nhật vào tài khoản sau 5 - 15 giây.",
+      },
+    ],
+    content:
+      "Lưu ý giữ nguyên nội dung chuyển khoản do hệ thống tạo sẵn để việc cộng tiền diễn ra hoàn toàn tự động.",
+    views: 890,
+    isActive: true,
+    createdAt: 1710005000000,
+    updatedAt: 1710005000000,
+  },
+  {
+    id: "phan-biet-gift-va-log",
+    title: "Phân biệt nhận hàng qua Gift và Nạp trực tiếp qua Log",
+    subtitle: "Nên chọn nhận link quà tặng Discord hay nạp trực tiếp qua tài khoản?",
+    category: "tips",
+    coverImage: "assets/vnl-banner.png",
+    videoUrl: "",
+    images: ["assets/vnl-banner.png"],
+    steps: [
+      {
+        title: "1. Hình thức Gift (Link quà tặng)",
+        description:
+          "Shop gửi link claim quà tặng chính thức từ Discord. Bạn chỉ cần bấm 'Accept' để nhận gói vào nick. Hoàn toàn không cần cung cấp mật khẩu.",
+      },
+      {
+        title: "2. Hình thức Log (Nạp Acc)",
+        description:
+          "Bạn cung cấp tài khoản, mật khẩu và 3 mã dự phòng 2FA. Đội ngũ kỹ thuật viên của shop sẽ đăng nhập nạp trực tiếp, giá thành tiết kiệm hơn đáng kể.",
+      },
+    ],
+    content:
+      "Tất cả các gói nạp tại VietNam Legacy dù là Gift hay Log đều được cam kết bảo hành full thời hạn và hỗ trợ tận tình.",
+    views: 640,
+    isActive: true,
+    createdAt: 1710010000000,
+    updatedAt: 1710010000000,
+  },
+  {
+    id: "cach-lay-ma-du-phong-discord",
+    title: "Cách lấy 8 mã dự phòng (Backup Codes) bảo mật Discord",
+    subtitle: "Bảo vệ tài khoản và lấy mã xác thực 2 bước cho gói nạp Log",
+    category: "tips",
+    coverImage: "assets/vnl-banner.png",
+    videoUrl: "",
+    images: ["assets/vnl-banner.png"],
+    steps: [
+      {
+        title: "Bước 1: Mở Cài đặt người dùng",
+        description:
+          "Mở ứng dụng Discord trên máy tính hoặc điện thoại -> Bấm vào biểu tượng bánh răng Cài đặt (User Settings).",
+      },
+      {
+        title: "Bước 2: Tìm mục Xác thực hai yếu tố",
+        description:
+          "Chọn 'Tài khoản của tôi' (My Account) -> Kéo xuống phần Xác thực hai yếu tố (2FA) -> Bấm nút 'Xem mã dự phòng' (View Backup Codes).",
+      },
+      {
+        title: "Bước 3: Sao chép mã",
+        description:
+          "Nhập mật khẩu Discord khi được yêu cầu, sau đó sao chép ít nhất 3 mã dự phòng và dán vào form đặt đơn của shop.",
+      },
+    ],
+    content:
+      "Mỗi mã dự phòng gồm 8 ký tự số và chỉ có thể sử dụng 1 lần duy nhất, đảm bảo tài khoản của bạn luôn được an toàn.",
+    views: 420,
+    isActive: true,
+    createdAt: 1710015000000,
+    updatedAt: 1710015000000,
+  },
+];
 
-export async function getShoppingGuide(db) {
-  let row = null;
-  try {
-    row = await db
-      .prepare(
-        "SELECT id, title, subtitle, video_url, image_urls_json, steps_json, content, is_active, updated_at FROM shopping_guides WHERE id = 'main'",
-      )
-      .get();
-  } catch {
-    // If table doesn't exist yet
-  }
-  if (!row) {
-    return { ...DEFAULT_SHOPPING_GUIDE };
-  }
+export const DEFAULT_SHOPPING_GUIDE = DEFAULT_GUIDES[0];
+
+function formatGuideRow(row) {
+  if (!row) return null;
   let images = [];
   try {
     images = JSON.parse(row.image_urls_json || "[]");
@@ -715,15 +803,104 @@ export async function getShoppingGuide(db) {
     steps = [];
   }
   return {
+    id: row.id,
     title: row.title || DEFAULT_SHOPPING_GUIDE.title,
     subtitle: row.subtitle ?? "",
+    category: row.category || "guide",
+    coverImage: row.cover_image ?? "",
     videoUrl: row.video_url ?? "",
     images,
     steps,
     content: row.content ?? "",
+    views: Number(row.views || 0),
     isActive: Boolean(row.is_active),
+    createdAt: Number(row.created_at || row.updated_at || 0),
     updatedAt: Number(row.updated_at || 0),
   };
+}
+
+async function ensureDefaultGuides(db) {
+  try {
+    const row = await db.prepare("SELECT COUNT(*) as count FROM shopping_guides").get();
+    if (row && Number(row.count) > 0) return;
+    for (const guide of DEFAULT_GUIDES) {
+      await db.prepare(
+        `INSERT OR IGNORE INTO shopping_guides (id, title, subtitle, category, cover_image, video_url, image_urls_json, steps_json, content, views, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        guide.id,
+        guide.title,
+        guide.subtitle,
+        guide.category,
+        guide.coverImage,
+        guide.videoUrl,
+        JSON.stringify(guide.images),
+        JSON.stringify(guide.steps),
+        guide.content,
+        guide.views,
+        guide.isActive ? 1 : 0,
+        guide.createdAt,
+        guide.updatedAt,
+      );
+    }
+  } catch {
+    // If table doesn't exist
+  }
+}
+
+export async function getShoppingGuide(db, id = null) {
+  await ensureDefaultGuides(db);
+  let row = null;
+  const targetId = id ? String(id).trim() : null;
+  try {
+    if (targetId) {
+      row = await db
+        .prepare(
+          "SELECT id, title, subtitle, category, cover_image, video_url, image_urls_json, steps_json, content, views, is_active, created_at, updated_at FROM shopping_guides WHERE id = ?",
+        )
+        .get(targetId);
+      if (row) {
+        await db.prepare("UPDATE shopping_guides SET views = views + 1 WHERE id = ?").run(targetId).catch(() => {});
+        row.views = (row.views || 0) + 1;
+      }
+    } else {
+      row = await db
+        .prepare(
+          "SELECT id, title, subtitle, category, cover_image, video_url, image_urls_json, steps_json, content, views, is_active, created_at, updated_at FROM shopping_guides WHERE id = 'main'",
+        )
+        .get();
+      if (!row) {
+        row = await db
+          .prepare(
+            "SELECT id, title, subtitle, category, cover_image, video_url, image_urls_json, steps_json, content, views, is_active, created_at, updated_at FROM shopping_guides WHERE is_active = 1 LIMIT 1",
+          )
+          .get();
+      }
+    }
+  } catch {
+    // If error querying
+  }
+  if (!row) {
+    return { ...DEFAULT_SHOPPING_GUIDE };
+  }
+  return formatGuideRow(row);
+}
+
+export async function listShoppingGuides(db, includeInactive = false) {
+  await ensureDefaultGuides(db);
+  try {
+    const rows = await db
+      .prepare(
+        `SELECT id, title, subtitle, category, cover_image, video_url, image_urls_json, steps_json, content, views, is_active, created_at, updated_at
+         FROM shopping_guides
+         ${includeInactive ? "" : "WHERE is_active = 1"}
+         ORDER BY updated_at DESC, created_at DESC`,
+      )
+      .all();
+    return (rows || []).map(formatGuideRow);
+  } catch {
+    return DEFAULT_GUIDES;
+  }
 }
 
 export async function saveShoppingGuide(db, data, now = Date.now()) {
@@ -739,9 +916,22 @@ export async function saveShoppingGuide(db, data, now = Date.now()) {
     throw err;
   }
 
+  let id = data.id ? String(data.id).trim().toLowerCase() : "main";
+  if (id === "new") {
+    const slug = title
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+    id = slug ? `${slug}-${Date.now().toString(36)}` : `guide-${Date.now().toString(36)}`;
+  }
+
   const subtitle = String(data.subtitle || "").trim().slice(0, 300);
+  const category = ["guide", "tips", "news", "other"].includes(data.category) ? data.category : "guide";
+  const coverImage = String(data.coverImage || data.cover_image || "").trim().slice(0, 1000);
   const videoUrl = String(data.videoUrl || data.video_url || "").trim().slice(0, 1000);
-  const content = String(data.content || "").trim().slice(0, 3000);
+  const content = String(data.content || "").trim().slice(0, 10000);
   const isActive =
     data.isActive !== false && data.is_active !== false && data.isActive !== 0;
 
@@ -750,13 +940,13 @@ export async function saveShoppingGuide(db, data, now = Date.now()) {
     images = data.images
       .map((url) => String(url || "").trim())
       .filter((url) => url.length > 0 && url.length <= 1000)
-      .slice(0, 20);
+      .slice(0, 30);
   } else if (typeof data.images === "string") {
     images = data.images
       .split("\n")
       .map((url) => url.trim())
       .filter((url) => url.length > 0 && url.length <= 1000)
-      .slice(0, 20);
+      .slice(0, 30);
   }
 
   let steps = [];
@@ -767,16 +957,20 @@ export async function saveShoppingGuide(db, data, now = Date.now()) {
         description: String(s.description || "").trim().slice(0, 1000),
       }))
       .filter((s) => s.title.length > 0 || s.description.length > 0)
-      .slice(0, 20);
+      .slice(0, 30);
   }
+
+  const createdAt = Number(data.createdAt || data.created_at || now);
 
   await db
     .prepare(
-      `INSERT INTO shopping_guides (id, title, subtitle, video_url, image_urls_json, steps_json, content, is_active, updated_at)
-       VALUES ('main', ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO shopping_guides (id, title, subtitle, category, cover_image, video_url, image_urls_json, steps_json, content, views, is_active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          title = excluded.title,
          subtitle = excluded.subtitle,
+         category = excluded.category,
+         cover_image = excluded.cover_image,
          video_url = excluded.video_url,
          image_urls_json = excluded.image_urls_json,
          steps_json = excluded.steps_json,
@@ -785,25 +979,51 @@ export async function saveShoppingGuide(db, data, now = Date.now()) {
          updated_at = excluded.updated_at`,
     )
     .run(
+      id,
       title,
       subtitle,
+      category,
+      coverImage,
       videoUrl,
       JSON.stringify(images),
       JSON.stringify(steps),
       content,
       isActive ? 1 : 0,
+      createdAt,
       now,
     );
 
   return {
+    id,
     title,
     subtitle,
+    category,
+    coverImage,
     videoUrl,
     images,
     steps,
     content,
+    views: Number(data.views || 0),
     isActive,
+    createdAt,
     updatedAt: now,
   };
 }
+
+export async function deleteShoppingGuide(db, id) {
+  const guideId = String(id || "").trim();
+  if (!guideId) throw new Error("ID bài viết không hợp lệ.");
+  await db.prepare("DELETE FROM shopping_guides WHERE id = ?").run(guideId);
+  return { success: true, id: guideId };
+}
+
+export async function toggleShoppingGuideStatus(db, id, isActive, now = Date.now()) {
+  const guideId = String(id || "").trim();
+  if (!guideId) throw new Error("ID bài viết không hợp lệ.");
+  await db
+    .prepare("UPDATE shopping_guides SET is_active = ?, updated_at = ? WHERE id = ?")
+    .run(isActive ? 1 : 0, now, guideId);
+  return { success: true, id: guideId, isActive: Boolean(isActive) };
+}
+
 

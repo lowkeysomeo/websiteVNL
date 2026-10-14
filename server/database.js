@@ -79,6 +79,15 @@ export async function openStore(filename, remote = {}) {
       const columns = await tx.prepare("PRAGMA table_info(orders)").all();
       if (!columns.some((column) => column.name === "server_invite"))
         await tx.exec("ALTER TABLE orders ADD COLUMN server_invite TEXT;");
+      const guideCols = await tx.prepare("PRAGMA table_info(shopping_guides)").all();
+      if (guideCols.length && !guideCols.some((c) => c.name === "category"))
+        await tx.exec("ALTER TABLE shopping_guides ADD COLUMN category TEXT DEFAULT 'guide';");
+      if (guideCols.length && !guideCols.some((c) => c.name === "cover_image"))
+        await tx.exec("ALTER TABLE shopping_guides ADD COLUMN cover_image TEXT DEFAULT '';");
+      if (guideCols.length && !guideCols.some((c) => c.name === "views"))
+        await tx.exec("ALTER TABLE shopping_guides ADD COLUMN views INTEGER DEFAULT 0;");
+      if (guideCols.length && !guideCols.some((c) => c.name === "created_at"))
+        await tx.exec("ALTER TABLE shopping_guides ADD COLUMN created_at INTEGER DEFAULT 0;");
     });
     return db;
   } catch (error) {

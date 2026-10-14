@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { openStore } from "../server/database.js";
-import { getShoppingGuide, saveShoppingGuide } from "../server/store.js";
+import { getShoppingGuide, saveShoppingGuide, listShoppingGuides } from "../server/store.js";
 import { readConfig } from "../server/config.js";
 import { createApp } from "../server/app.js";
 
@@ -156,5 +156,127 @@ test("HTTP API: Khách xem hướng dẫn công khai và Admin quản lý video/
   } finally {
     await new Promise((resolve) => server.close(resolve));
     db.close();
+  }
+});
+
+test("Đăng và quản lý nhiều bài viết hướng dẫn & tin tức (Thêm, Sửa, Ẩn, Xóa, Lọc danh mục và Lượt xem)", async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "vnl-multi-guide-"));
+  let db = await openStore(path.join(directory, "test.sqlite"));
+  const config = readConfig({
+    PUBLIC_ORIGIN: "http://localhost:3000",
+    ADMIN_PASSWORD: "multi-guide-admin-password",
+  });
+  const server = createApp(db, config);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const root = `http://127.0.0.1:${server.address().port}`;
+  const adminHeaders = {
+    Origin: config.origin,
+    "X-Admin-Key": config.adminPassword,
+    "Content-Type": "application/json",
+  };
+
+  try {
+    // 1. Initial list has seeded guides
+    const initialList = await listShoppingGuides(db, true);
+    assert.ok(initialList.length >= 4);
+    const mainGuide = initialList.find((g) => g.id === "main");
+    assert.ok(mainGuide);
+    assert.equal(mainGuide.category, "guide");
+
+    // 2. View count increments when viewing specific guide
+    const prevViews = mainGuide.views;
+    const viewed = await getShoppingGuide(db, "main");
+    assert.equal(viewed.views, prevViews + 1);
+
+    // 3. Admin adds a new guide article via HTTP POST
+    const createRes = await fetch(root + "/api/admin/guide", {
+      method: "POST",
+      headers: adminHeaders,
+      body: JSON.stringify({
+        id: "new",
+        title: "Mẹo tối ưu chất lượng âm thanh Discord Voice",
+        subtitle: "Cách bật khử tiếng ồn Krisp và chỉnh bitrate 384kbps",
+        category: "tips",
+        coverImage: "assets/vnl-banner.png",
+        content: "Chi tiết cách cấu hình phòng voice đạt âm thanh chuẩn phòng thu.",
+        steps: [
+          { title: "Bước 1", description: "Vào Voice & Video Settings" },
+        ],
+        isActive: true,
+      }),
+    });
+    assert.equal(createRes.status, 200);
+    const createData = await createRes.json();
+    assert.equal(createData.success, true);
+    assert.ok(createData.guide.id.includes("meo-toi-uu"));
+    const newGuideId = createData.guide.id;
+
+    // 4. Public API GET /api/guide returns both single primary guide and list of guides
+    const publicListRes = await fetch(root + "/api/guide");
+    assert.equal(publicListRes.status, 200);
+    const publicListData = await publicListRes.json();
+    assert.ok(Array.isArray(publicListData.guides));
+    assert.ok(publicListData.guides.some((g) => g.id === newGuideId));
+
+    // 5. Public API GET /api/guide/:id returns specific article
+    const getArticleRes = await fetch(root + `/api/guide/${newGuideId}`);
+    assert.equal(getArticleRes.status, 200);
+    const getArticleData = await getArticleRes.json();
+    assert.equal(getArticleData.guide.title, "Mẹo tối ưu chất lượng âm thanh Discord Voice");
+    assert.equal(getArticleData.guide.category, "tips");
+
+    // 6. Admin updates article via PUT
+    const updateRes = await fetch(root + `/api/admin/guide/${newGuideId}`, {
+      method: "PUT",
+      headers: adminHeaders,
+      body: JSON.stringify({
+        title: "Mẹo tối ưu chất lượng âm thanh Discord Voice VIP 2026",
+        subtitle: "Cập nhật mới nhất",
+        category: "tips",
+        isActive: true,
+      }),
+    });
+    assert.equal(updateRes.status, 200);
+    const updateData = await updateRes.json();
+    assert.equal(updateData.guide.title, "Mẹo tối ưu chất lượng âm thanh Discord Voice VIP 2026");
+
+    // 7. Admin toggles status to inactive (Ẩn)
+    const toggleRes = await fetch(root + `/api/admin/guide/${newGuideId}/toggle`, {
+      method: "PATCH",
+      headers: adminHeaders,
+      body: JSON.stringify({ isActive: false }),
+    });
+    assert.equal(toggleRes.status, 200);
+
+    // Public list should not contain hidden guide
+    const hiddenPublicRes = await fetch(root + "/api/guide");
+    const hiddenPublicData = await hiddenPublicRes.json();
+    assert.ok(!hiddenPublicData.guides.some((g) => g.id === newGuideId));
+
+    // Admin list should still contain hidden guide
+    const adminListRes = await fetch(root + "/api/admin/guide", {
+      headers: { "X-Admin-Key": config.adminPassword },
+    });
+    const adminListData = await adminListRes.json();
+    const adminGuide = adminListData.guides.find((g) => g.id === newGuideId);
+    assert.ok(adminGuide);
+    assert.equal(adminGuide.isActive, false);
+
+    // 8. Admin deletes guide
+    const deleteRes = await fetch(root + `/api/admin/guide/${newGuideId}`, {
+      method: "DELETE",
+      headers: adminHeaders,
+    });
+    assert.equal(deleteRes.status, 200);
+
+    const afterDeleteAdminRes = await fetch(root + "/api/admin/guide", {
+      headers: { "X-Admin-Key": config.adminPassword },
+    });
+    const afterDeleteData = await afterDeleteAdminRes.json();
+    assert.ok(!afterDeleteData.guides.some((g) => g.id === newGuideId));
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+    rmSync(directory, { recursive: true, force: true });
   }
 });
