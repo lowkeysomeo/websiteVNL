@@ -98,6 +98,14 @@ a svg,
   display: block;
   flex-shrink: 0;
 }
+[data-icon] .cat-custom-icon {
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
 [data-icon] {
   display: inline-flex;
   align-items: center;

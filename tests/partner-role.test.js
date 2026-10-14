@@ -279,17 +279,27 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
     const preservedCats = (await tamperCatRes.json()).categories;
     assert.equal(preservedCats.find(c => c.id === "discord").name, "Discord", "Tên hạng mục mặc định được bảo vệ không bị đối tác sửa");
 
-    // D. Đối tác sửa hạng mục của chính mình -> Thành công
+    // D. Đối tác sửa hạng mục của chính mình với emoji / icon tùy chọn (VD: ⚡) -> Thành công
     const editOwnCatRes = await fetch(origin + "/api/admin/categories", {
       method: "PUT",
       headers: partnerHeaders,
       body: JSON.stringify({
-        categories: addedCats.map(c => c.id === "custom-ptn-cat" ? { ...c, name: "Dịch Vụ Riêng VIP", icon: "box" } : c),
+        categories: addedCats.map(c => c.id === "custom-ptn-cat" ? { ...c, name: "Dịch Vụ Riêng VIP", icon: "⚡" } : c),
       }),
     });
     assert.equal(editOwnCatRes.status, 200);
     const editedCats = (await editOwnCatRes.json()).categories;
-    assert.equal(editedCats.find(c => c.id === "custom-ptn-cat").name, "Dịch Vụ Riêng VIP");
+    const editedPtnCat = editedCats.find(c => c.id === "custom-ptn-cat");
+    assert.equal(editedPtnCat.name, "Dịch Vụ Riêng VIP");
+    assert.equal(editedPtnCat.icon, "⚡", "Biểu tượng icon / emoji tùy chọn (⚡) được lưu chính xác");
+
+    // Khách hàng xem danh mục công khai nhận được icon emoji tùy chọn
+    const pubCatsRes = await fetch(origin + "/api/categories");
+    assert.equal(pubCatsRes.status, 200);
+    const pubCats = (await pubCatsRes.json()).categories;
+    const pubCustomCat = pubCats.find(c => c.id === "custom-ptn-cat");
+    assert(pubCustomCat, "Danh mục tùy chọn xuất hiện ngoài cửa hàng");
+    assert.equal(pubCustomCat.icon, "⚡", "Emoji tùy chọn được trả về đúng cho cửa hàng");
 
     // E. Đối tác xóa hạng mục của chính mình -> Thành công
     const deleteOwnCatRes = await fetch(origin + "/api/admin/categories", {

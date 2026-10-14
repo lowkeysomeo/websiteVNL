@@ -208,6 +208,39 @@ window.initAdminPricing = (() => {
     }
   }
 
+  const CATEGORY_ICON_PRESETS = [
+    { value: "box", label: "📦 Hộp quà / Dịch vụ (box)", emoji: "📦" },
+    { value: "gamepad", label: "🎮 Tay cầm Game / Giải trí (gamepad)", emoji: "🎮" },
+    { value: "layers", label: "🎬 Phim ảnh / Gói xếp lớp (layers)", emoji: "🎬" },
+    { value: "sparkles", label: "✨ Ngôi sao / Sáng tạo (sparkles)", emoji: "✨" },
+    { value: "grid", label: "🔲 Lưới / Tổng hợp (grid)", emoji: "🔲" },
+    { value: "headphones", label: "🎧 Âm nhạc / Hỗ trợ (headphones)", emoji: "🎧" },
+    { value: "book", label: "📖 Sách / Hướng dẫn (book)", emoji: "📖" },
+    { value: "bolt", label: "⚡ Tia chớp / Nạp tốc hành (bolt)", emoji: "⚡" },
+    { value: "shield", label: "🛡️ Bảo mật / Bản quyền (shield)", emoji: "🛡️" },
+    { value: "diamond", label: "💎 Kim cương / Cao cấp (diamond)", emoji: "💎" },
+    { value: "crown", label: "👑 Vương miện / Đặc quyền (crown)", emoji: "👑" },
+    { value: "fire", label: "🔥 Thịnh hành / Hot trend (fire)", emoji: "🔥" },
+    { value: "rocket", label: "🚀 Tăng tốc / Boost (rocket)", emoji: "🚀" },
+    { value: "bot", label: "🤖 AI / Bot tự động (bot)", emoji: "🤖" },
+    { value: "code", label: "💻 Phần mềm / Kỹ thuật (code)", emoji: "💻" },
+    { value: "palette", label: "🎨 Thiết kế / Đồ họa (palette)", emoji: "🎨" },
+    { value: "heart", label: "❤️ Yêu thích / Yêu chuộng (heart)", emoji: "❤️" },
+    { value: "gift", label: "🎁 Quà tặng / Gift card (gift)", emoji: "🎁" },
+    { value: "key", label: "🔑 Bản quyền / Key kích hoạt (key)", emoji: "🔑" },
+    { value: "globe", label: "🌐 Mạng xã hội / Web (globe)", emoji: "🌐" },
+    { value: "none", label: "⭕ Không dùng biểu tượng (Chỉ hiện chữ)", emoji: "⭕" },
+  ];
+
+  const QUICK_EMOJIS = ["⚡", "💎", "👑", "🛡️", "🤖", "🚀", "🔥", "🎯", "🎨", "🎵", "💻", "⭐", "🎁", "🔑", "🌟", "🏆", "💼", "🎉", "🍀", "💖"];
+
+  function getCategoryEmoji(iconVal) {
+    if (!iconVal || iconVal === "none") return "";
+    const preset = CATEGORY_ICON_PRESETS.find(p => p.value === iconVal);
+    if (preset) return preset.emoji;
+    return iconVal;
+  }
+
   function openCategoriesManager(fromProductId = null) {
     if (fromProductId) returnToProductId = fromProductId;
     const isPartner = currentUser && currentUser.role === "partner";
@@ -234,6 +267,7 @@ window.initAdminPricing = (() => {
               const count = products.filter(p => p.category === cat.id).length;
               const isCatPartner = Boolean(cat.partnerEmail);
               const isOwned = isPartner ? Boolean(cat.partnerEmail && cat.partnerEmail.toLowerCase() === partnerEmail) : true;
+              const isCustomCatIcon = Boolean(cat.icon && !CATEGORY_ICON_PRESETS.some(p => p.value === cat.icon));
 
               let ownerBadge = "";
               if (!isCatPartner) {
@@ -252,17 +286,28 @@ window.initAdminPricing = (() => {
                       <label style="font-size:10px; color:var(--accent); font-weight:600; display:block; margin-bottom:3px;">TÊN HẠNG MỤC *</label>
                       <input id="cat-edit-name-input" value="${esc(cat.name)}" required maxlength="50" style="width:100%; padding:6px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px;" />
                     </div>
-                    <div style="width:170px;">
-                      <label style="font-size:10px; color:var(--accent); font-weight:600; display:block; margin-bottom:3px;">BIỂU TƯỢNG (ICON)</label>
+                    <div style="flex:1; min-width:240px;">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+                        <label style="font-size:10px; color:var(--accent); font-weight:600; margin:0;">BIỂU TƯỢNG (ICON)</label>
+                        <span style="font-size:10px; color:var(--muted);">Tùy chọn icon / emoji</span>
+                      </div>
                       <select id="cat-edit-icon-select" style="width:100%; padding:6px 10px; font-size:12px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px;">
-                        <option value="gamepad" ${cat.icon === "gamepad" ? "selected" : ""}>🎮 Tay cầm Game</option>
-                        <option value="layers" ${cat.icon === "layers" ? "selected" : ""}>🎬 Phim ảnh / Gói</option>
-                        <option value="sparkles" ${cat.icon === "sparkles" ? "selected" : ""}>✨ Ngôi sao / Sáng tạo</option>
-                        <option value="box" ${cat.icon === "box" ? "selected" : ""}>📦 Hộp quà / Dịch vụ</option>
-                        <option value="grid" ${cat.icon === "grid" ? "selected" : ""}>🔲 Lưới / Tổng hợp</option>
-                        <option value="headphones" ${cat.icon === "headphones" ? "selected" : ""}>🎧 Âm nhạc</option>
-                        <option value="book" ${cat.icon === "book" ? "selected" : ""}>📖 Sách / Hướng dẫn</option>
+                        ${CATEGORY_ICON_PRESETS.map(p => `<option value="${p.value}" ${(!isCustomCatIcon && cat.icon === p.value) ? "selected" : ""}>${p.label}</option>`).join("")}
+                        <option value="__custom__" ${isCustomCatIcon ? "selected" : ""}>✨ + Tùy chọn icon / emoji riêng...</option>
                       </select>
+                      <div id="cat-edit-custom-icon-wrap" style="${isCustomCatIcon ? 'display:block;' : 'display:none;'} margin-top:6px; background:rgba(217,119,6,0.08); border:1px dashed var(--accent); padding:8px 10px; border-radius:6px;">
+                        <label style="color:var(--accent); font-size:10px; font-weight:600; display:block; margin-bottom:4px;">
+                          ✨ TỰ NHẬP EMOJI HOẶC BIỂU TƯỢNG TÙY CHỌN:
+                        </label>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                          <input id="cat-edit-custom-icon-input" value="${isCustomCatIcon ? esc(cat.icon) : ''}" placeholder="Nhập emoji hoặc icon..." maxlength="30" style="flex:1; padding:5px 8px; font-size:12px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:4px;" />
+                          <span id="cat-edit-icon-preview" style="font-size:16px;">${isCustomCatIcon ? esc(cat.icon) : '📦'}</span>
+                        </div>
+                        <div style="margin-top:6px; display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
+                          <span style="font-size:10px; color:var(--muted);">Chọn nhanh:</span>
+                          ${QUICK_EMOJIS.slice(0, 10).map(em => `<button type="button" class="button secondary btn-xs btn-emoji-pick" data-target-input="#cat-edit-custom-icon-input" data-target-preview="#cat-edit-icon-preview" data-emoji="${em}" style="padding:1px 5px; font-size:12px; line-height:1;">${em}</button>`).join("")}
+                        </div>
+                      </div>
                     </div>
                     <div style="display:flex; gap:6px; align-self:flex-end;">
                       <button type="button" class="button primary btn-xs" data-cat-save="${esc(cat.id)}">💾 Lưu</button>
@@ -275,7 +320,7 @@ window.initAdminPricing = (() => {
                 <div class="cat-manager-row">
                   <div class="cat-row-info">
                     <span class="cat-index-badge">#${idx + 1}</span>
-                    <strong class="cat-name-display">${esc(cat.name)}</strong>
+                    <strong class="cat-name-display"><span class="cat-icon-symbol" style="font-size:14px; margin-right:4px;">${esc(getCategoryEmoji(cat.icon))}</span>${esc(cat.name)}</strong>
                     <code class="cat-id-code">[${esc(cat.id)}]</code>
                     <span class="status-badge" style="background:#26181b; font-size:10px;">${count} sản phẩm</span>
                     ${ownerBadge}
@@ -306,16 +351,32 @@ window.initAdminPricing = (() => {
           <div class="pricing-form-grid">
             <label>Tên hiển thị hạng mục *<input name="catName" required maxlength="50" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa, Thiết Kế..."></label>
             <label>Mã hạng mục (Tùy chọn)<input name="catId" maxlength="30" placeholder="Để trống sẽ tự tạo từ tên..."></label>
-            <label>Biểu tượng (Icon)<select name="catIcon">
-              <option value="gamepad">🎮 Tay cầm Game / Giải trí (gamepad)</option>
-              <option value="layers">🎬 Phim ảnh / Gói xếp lớp (layers)</option>
-              <option value="sparkles">✨ Ngôi sao / Sáng tạo (sparkles)</option>
-              <option value="box" selected>📦 Hộp quà / Dịch vụ (box)</option>
-              <option value="grid">🔲 Lưới / Tổng hợp (grid)</option>
-              <option value="headphones">🎧 Âm nhạc / Hỗ trợ (headphones)</option>
-              <option value="book">📖 Sách / Hướng dẫn (book)</option>
-            </select></label>
-          </div>
+            <label>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span>Biểu tượng (Icon)</span>
+                <span style="font-size:11px; color:var(--muted);">Tùy chọn icon / emoji riêng</span>
+              </div>
+              <select name="catIconPreset" id="cat-add-icon-select">
+                ${CATEGORY_ICON_PRESETS.map(p => `<option value="${p.value}" ${p.value === "box" ? "selected" : ""}>${p.label}</option>`).join("")}
+                <option value="__custom__">✨ + Tùy chọn icon / emoji riêng...</option>
+              </select>
+            </label>
+            <div id="cat-add-custom-icon-wrap" style="display:none; grid-column:1 / -1; margin-top:-4px; background:rgba(217,119,6,0.08); border:1px dashed var(--accent); padding:10px 14px; border-radius:8px;">
+              <label style="color:var(--accent); font-size:11px; font-weight:600; display:block; margin-bottom:4px;">
+                ✨ NHẬP EMOJI HOẶC BIỂU TƯỢNG TÙY CHỌN (VD: ⚡, 💎, 👑, 🤖, 🎨, ...)
+              </label>
+              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <input id="cat-add-custom-icon-input" name="catCustomIcon" placeholder="Nhập emoji hoặc tên icon..." maxlength="30" style="flex:1; min-width:180px; padding:6px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px;" />
+                <div style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted);">
+                  <span>Xem trước:</span>
+                  <span id="cat-add-icon-preview" style="font-size:18px; line-height:1; min-width:24px; text-align:center;">📦</span>
+                </div>
+              </div>
+              <div style="margin-top:8px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                <span style="font-size:11px; color:var(--muted); font-weight:600;">Chọn nhanh emoji:</span>
+                ${QUICK_EMOJIS.map(em => `<button type="button" class="button secondary btn-xs btn-emoji-pick" data-target-input="#cat-add-custom-icon-input" data-target-preview="#cat-add-icon-preview" data-emoji="${em}" style="padding:2px 7px; font-size:13px; line-height:1;">${em}</button>`).join("")}
+              </div>
+            </div>
           <p class="pricing-form-message" role="status"></p>
           <button type="submit" class="button primary" style="margin-top:10px;">+ Tạo hạng mục này</button>
         </form>
@@ -903,17 +964,25 @@ window.initAdminPricing = (() => {
               <input name="newCategoryName" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa, Thiết Kế..." style="margin-top:4px;">
             </label>
             <label style="color:var(--text); font-size:11px; display:block;">
-              Biểu tượng đại diện:
-              <select name="newCategoryIcon" style="margin-top:4px;">
-                <option value="gamepad">🎮 Tay cầm Game / Giải trí (gamepad)</option>
-                <option value="layers">🎬 Phim ảnh / Gói xếp lớp (layers)</option>
-                <option value="sparkles">✨ Ngôi sao / Sáng tạo (sparkles)</option>
-                <option value="box" selected>📦 Hộp quà / Dịch vụ (box)</option>
-                <option value="grid">🔲 Lưới / Tổng hợp (grid)</option>
-                <option value="headphones">🎧 Âm nhạc / Hỗ trợ (headphones)</option>
-                <option value="book">📖 Sách / Hướng dẫn (book)</option>
+              Biểu tượng (Icon):
+              <select name="newCategoryIcon" class="new-cat-inline-icon-select" style="margin-top:4px;">
+                ${CATEGORY_ICON_PRESETS.map(p => `<option value="${p.value}" ${p.value === "box" ? "selected" : ""}>${p.label}</option>`).join("")}
+                <option value="__custom__">✨ + Tùy chọn icon / emoji riêng...</option>
               </select>
             </label>
+            <div class="new-cat-inline-custom-icon-wrap" style="display:none; margin-top:6px; background:rgba(217,119,6,0.08); border:1px dashed var(--accent); padding:8px 10px; border-radius:6px;">
+              <label style="color:var(--accent); font-size:10px; font-weight:600; display:block; margin-bottom:4px;">
+                ✨ NHẬP EMOJI HOẶC BIỂU TƯỢNG TÙY CHỌN:
+              </label>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input class="new-cat-inline-custom-icon-input" name="newCategoryCustomIcon" placeholder="Nhập emoji hoặc icon..." maxlength="30" style="flex:1; padding:5px 8px; font-size:12px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:4px;" />
+                <span class="new-cat-inline-icon-preview" style="font-size:16px;">📦</span>
+              </div>
+              <div style="margin-top:6px; display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
+                <span style="font-size:10px; color:var(--muted);">Chọn nhanh:</span>
+                ${QUICK_EMOJIS.slice(0, 10).map(em => `<button type="button" class="button secondary btn-xs btn-emoji-inline-pick" data-emoji="${em}" style="padding:1px 5px; font-size:12px; line-height:1;">${em}</button>`).join("")}
+              </div>
+            </div>
           </div>
           ${!isPartner ? `
           <label>Đối tác sở hữu (tùy chọn)<select name="partnerEmail">
@@ -1022,17 +1091,25 @@ window.initAdminPricing = (() => {
             <input name="newCategoryName" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa, Thiết Kế..." style="margin-top:4px;">
           </label>
           <label style="color:var(--text); font-size:11px; display:block;">
-            Biểu tượng đại diện:
-            <select name="newCategoryIcon" style="margin-top:4px;">
-              <option value="gamepad">🎮 Tay cầm Game / Giải trí (gamepad)</option>
-              <option value="layers">🎬 Phim ảnh / Gói xếp lớp (layers)</option>
-              <option value="sparkles">✨ Ngôi sao / Sáng tạo (sparkles)</option>
-              <option value="box" selected>📦 Hộp quà / Dịch vụ (box)</option>
-              <option value="grid">🔲 Lưới / Tổng hợp (grid)</option>
-              <option value="headphones">🎧 Âm nhạc / Hỗ trợ (headphones)</option>
-              <option value="book">📖 Sách / Hướng dẫn (book)</option>
+            Biểu tượng (Icon):
+            <select name="newCategoryIcon" class="new-cat-inline-icon-select" style="margin-top:4px;">
+              ${CATEGORY_ICON_PRESETS.map(p => `<option value="${p.value}" ${p.value === "box" ? "selected" : ""}>${p.label}</option>`).join("")}
+              <option value="__custom__">✨ + Tùy chọn icon / emoji riêng...</option>
             </select>
           </label>
+          <div class="new-cat-inline-custom-icon-wrap" style="display:none; margin-top:6px; background:rgba(217,119,6,0.08); border:1px dashed var(--accent); padding:8px 10px; border-radius:6px;">
+            <label style="color:var(--accent); font-size:10px; font-weight:600; display:block; margin-bottom:4px;">
+              ✨ NHẬP EMOJI HOẶC BIỂU TƯỢNG TÙY CHỌN:
+            </label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input class="new-cat-inline-custom-icon-input" name="newCategoryCustomIcon" placeholder="Nhập emoji hoặc icon..." maxlength="30" style="flex:1; padding:5px 8px; font-size:12px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:4px;" />
+              <span class="new-cat-inline-icon-preview" style="font-size:16px;">📦</span>
+            </div>
+            <div style="margin-top:6px; display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
+              <span style="font-size:10px; color:var(--muted);">Chọn nhanh:</span>
+              ${QUICK_EMOJIS.slice(0, 10).map(em => `<button type="button" class="button secondary btn-xs btn-emoji-inline-pick" data-emoji="${em}" style="padding:1px 5px; font-size:12px; line-height:1;">${em}</button>`).join("")}
+            </div>
+          </div>
         </div>
         ${!isPartner ? `
         <label>Đối tác sở hữu (tùy chọn)<select name="partnerEmail">
@@ -1549,7 +1626,11 @@ window.initAdminPricing = (() => {
         if (!catName) throw new Error("Vui lòng nhập tên hiển thị hạng mục.");
         let catId = slugify((data.get("catId") || "").trim() || catName);
         if (!catId) catId = "cat-" + Date.now();
-        const catIcon = data.get("catIcon") || "box";
+        const iconPreset = data.get("catIconPreset") || "box";
+        let catIcon = iconPreset;
+        if (iconPreset === "__custom__") {
+          catIcon = (data.get("catCustomIcon") || "").trim() || "box";
+        }
         if (categoriesList.some(c => c.id === catId)) throw new Error(`Mã hạng mục "${catId}" đã tồn tại.`);
         const newCat = { id: catId, name: catName, icon: catIcon };
         if (currentUser && currentUser.role === "partner") {
@@ -1578,7 +1659,11 @@ window.initAdminPricing = (() => {
         if (category === "__custom__") {
           const newName = (data.get("newCategoryName") || "").trim();
           if (!newName) throw new Error("Vui lòng nhập tên cho hạng mục mới.");
-          const newIcon = data.get("newCategoryIcon") || "box";
+          const iconPreset = data.get("newCategoryIcon") || "box";
+          let newIcon = iconPreset;
+          if (iconPreset === "__custom__") {
+            newIcon = (data.get("newCategoryCustomIcon") || "").trim() || "box";
+          }
           const newId = slugify(newName) || "cat-" + Date.now();
           if (!categoriesList.some(c => c.id === newId)) {
             const newCat = { id: newId, name: newName, icon: newIcon };
@@ -1624,7 +1709,11 @@ window.initAdminPricing = (() => {
         if (category === "__custom__") {
           const newName = (data.get("newCategoryName") || "").trim();
           if (!newName) throw new Error("Vui lòng nhập tên cho hạng mục mới.");
-          const newIcon = data.get("newCategoryIcon") || "box";
+          const iconPreset = data.get("newCategoryIcon") || "box";
+          let newIcon = iconPreset;
+          if (iconPreset === "__custom__") {
+            newIcon = (data.get("newCategoryCustomIcon") || "").trim() || "box";
+          }
           const newId = slugify(newName) || "cat-" + Date.now();
           if (!categoriesList.some(c => c.id === newId)) {
             const newCat = { id: newId, name: newName, icon: newIcon };
@@ -1753,6 +1842,49 @@ window.initAdminPricing = (() => {
           const wrap = document.querySelector("#new-cat-inline-wrap");
           if (wrap) wrap.style.display = event.target.value === "__custom__" ? "block" : "none";
         }
+        if (event.target.id === "cat-add-icon-select") {
+          const wrap = document.querySelector("#cat-add-custom-icon-wrap");
+          const preview = document.querySelector("#cat-add-icon-preview");
+          const isCustom = event.target.value === "__custom__";
+          if (wrap) wrap.style.display = isCustom ? "block" : "none";
+          if (preview) {
+            if (!isCustom) {
+              preview.textContent = getCategoryEmoji(event.target.value);
+            } else {
+              const customInp = document.querySelector("#cat-add-custom-icon-input");
+              preview.textContent = (customInp && customInp.value.trim()) || "📦";
+            }
+          }
+        }
+        if (event.target.id === "cat-edit-icon-select") {
+          const wrap = document.querySelector("#cat-edit-custom-icon-wrap");
+          const preview = document.querySelector("#cat-edit-icon-preview");
+          const isCustom = event.target.value === "__custom__";
+          if (wrap) wrap.style.display = isCustom ? "block" : "none";
+          if (preview) {
+            if (!isCustom) {
+              preview.textContent = getCategoryEmoji(event.target.value);
+            } else {
+              const customInp = document.querySelector("#cat-edit-custom-icon-input");
+              preview.textContent = (customInp && customInp.value.trim()) || "📦";
+            }
+          }
+        }
+        if (event.target.classList && event.target.classList.contains("new-cat-inline-icon-select")) {
+          const form = event.target.closest("form");
+          const wrap = form ? form.querySelector(".new-cat-inline-custom-icon-wrap") : null;
+          const preview = form ? form.querySelector(".new-cat-inline-icon-preview") : null;
+          const isCustom = event.target.value === "__custom__";
+          if (wrap) wrap.style.display = isCustom ? "block" : "none";
+          if (preview) {
+            if (!isCustom) {
+              preview.textContent = getCategoryEmoji(event.target.value);
+            } else {
+              const customInp = form ? form.querySelector(".new-cat-inline-custom-icon-input") : null;
+              preview.textContent = (customInp && customInp.value.trim()) || "📦";
+            }
+          }
+        }
         if (event.target.id === "product-image-select") {
           const wrap = document.querySelector("#product-custom-image-wrap");
           const preview = document.querySelector("#product-image-live-preview");
@@ -1800,6 +1932,19 @@ window.initAdminPricing = (() => {
         }
       });
       document.addEventListener("input", event => {
+        if (event.target.id === "cat-add-custom-icon-input") {
+          const preview = document.querySelector("#cat-add-icon-preview");
+          if (preview) preview.textContent = event.target.value.trim() || "📦";
+        }
+        if (event.target.id === "cat-edit-custom-icon-input") {
+          const preview = document.querySelector("#cat-edit-icon-preview");
+          if (preview) preview.textContent = event.target.value.trim() || "📦";
+        }
+        if (event.target.classList && event.target.classList.contains("new-cat-inline-custom-icon-input")) {
+          const form = event.target.closest("form");
+          const preview = form ? form.querySelector(".new-cat-inline-icon-preview") : null;
+          if (preview) preview.textContent = event.target.value.trim() || "📦";
+        }
         if (event.target.id === "product-custom-image-input") {
           const preview = document.querySelector("#product-image-live-preview");
           if (preview) {
@@ -2034,6 +2179,35 @@ window.initAdminPricing = (() => {
         if (button.dataset.productDown) {
           moveProduct(button.dataset.productDown, 1);
         }
+        if (button.classList.contains("btn-emoji-pick")) {
+          const targetInputSel = button.dataset.targetInput;
+          const targetPreviewSel = button.dataset.targetPreview;
+          const emoji = button.dataset.emoji;
+          if (targetInputSel) {
+            const input = document.querySelector(targetInputSel);
+            if (input) {
+              input.value = emoji;
+              input.focus();
+            }
+          }
+          if (targetPreviewSel) {
+            const preview = document.querySelector(targetPreviewSel);
+            if (preview) preview.textContent = emoji;
+          }
+        }
+        if (button.classList.contains("btn-emoji-inline-pick")) {
+          const form = button.closest("form");
+          const emoji = button.dataset.emoji;
+          if (form) {
+            const input = form.querySelector(".new-cat-inline-custom-icon-input");
+            const preview = form.querySelector(".new-cat-inline-icon-preview");
+            if (input) {
+              input.value = emoji;
+              input.focus();
+            }
+            if (preview) preview.textContent = emoji;
+          }
+        }
         if (button.hasAttribute("data-categories-manage")) {
           const fromPid = button.getAttribute("data-categories-manage");
           openCategoriesManager(fromPid || null);
@@ -2068,12 +2242,16 @@ window.initAdminPricing = (() => {
           const cId = button.dataset.catSave;
           const nameInput = document.querySelector("#cat-edit-name-input");
           const iconSelect = document.querySelector("#cat-edit-icon-select");
+          const customIconInput = document.querySelector("#cat-edit-custom-icon-input");
           const newName = nameInput ? nameInput.value.trim() : "";
           if (!newName) {
             notify("Tên hạng mục không được để trống.");
             return;
           }
-          const newIcon = iconSelect ? iconSelect.value : "box";
+          let newIcon = iconSelect ? iconSelect.value : "box";
+          if (newIcon === "__custom__") {
+            newIcon = (customIconInput ? customIconInput.value.trim() : "") || "box";
+          }
           const cat = categoriesList.find(c => c.id === cId);
           if (cat) {
             if (currentUser?.role === "partner") {
