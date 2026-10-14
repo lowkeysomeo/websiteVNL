@@ -1,40 +1,26 @@
-import { DatabaseSync } from "node:sqlite";
-import { readFileSync, mkdirSync } from "node:fs";
-import path from "node:path";
 import { randomUUID, randomBytes } from "node:crypto";
+export { openStore } from "./database.js";
 
-export function openStore(filename) {
-  if (filename !== ":memory:")
-    mkdirSync(path.dirname(filename), { recursive: true });
-  const db = new DatabaseSync(filename);
-  db.exec(
-    "PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;",
-  );
-  db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
-  try {
-    db.exec("ALTER TABLE orders ADD COLUMN server_invite TEXT;");
-  } catch {
-    // Column already exists
-  }
-  return db;
-}
-
-export function balance(db, userId) {
-  const depositSum = db
-    .prepare(
-      "SELECT COALESCE(SUM(amount), 0) AS total FROM wallet_ledger WHERE user_id = ?",
-    )
-    .get(userId).total;
-  const orderSpent = db
-    .prepare(
-      "SELECT COALESCE(SUM(total), 0) AS total FROM orders WHERE user_id = ? AND payment_method = 'wallet' AND status != 'cancelled'",
-    )
-    .get(userId).total;
+export async function balance(db, userId) {
+  const depositSum = (
+    await db
+      .prepare(
+        "SELECT COALESCE(SUM(amount), 0) AS total FROM wallet_ledger WHERE user_id = ?",
+      )
+      .get(userId)
+  ).total;
+  const orderSpent = (
+    await db
+      .prepare(
+        "SELECT COALESCE(SUM(total), 0) AS total FROM orders WHERE user_id = ? AND payment_method = 'wallet' AND status != 'cancelled'",
+      )
+      .get(userId)
+  ).total;
   return depositSum - orderSpent;
 }
 
 // The event, ledger entry and deposit status commit together. A retry cannot add money twice.
-export function processTransfer(db, event, bank, now = Date.now()) {
+export async function processTransfer(db, event, bank, now = Date.now()) {
   const id = String(event.id ?? "");
   if (
     !/^\d{1,30}$/.test(id) ||
@@ -63,19 +49,17 @@ export function processTransfer(db, event, bank, now = Date.now()) {
       .normalize("NFKC")
       .replace(/\s/g, "")
       .toLowerCase();
-  db.exec("BEGIN IMMEDIATE");
-  try {
-    const duplicate = db
+  return db.transaction(async (db) => {
+    const duplicate = await db
       .prepare(
         "SELECT outcome FROM bank_events WHERE transaction_id = ? OR (? IS NOT NULL AND reference = ?)",
       )
       .get(id, reference, reference);
     if (duplicate) {
-      db.exec("COMMIT");
       return { outcome: "duplicate" };
     }
     const deposit = code
-      ? db.prepare("SELECT * FROM deposits WHERE code = ?").get(code)
+      ? await db.prepare("SELECT * FROM deposits WHERE code = ?").get(code)
       : null;
     let outcome = "unmatched";
     if (event.transferType !== "in") outcome = "outgoing";
@@ -91,44 +75,46 @@ export function processTransfer(db, event, bank, now = Date.now()) {
       else if (deposit.amount !== event.transferAmount) outcome = "review";
       else outcome = "credited";
     }
-    db.prepare(
-      "INSERT INTO bank_events (transaction_id, reference, deposit_id, amount, outcome, received_at) VALUES (?, ?, ?, ?, ?, ?)",
-    ).run(
-      id,
-      reference,
-      deposit?.id ?? null,
-      event.transferAmount,
-      outcome,
-      now,
-    );
-    if (outcome === "credited") {
-      db.prepare(
-        "INSERT INTO wallet_ledger (id, user_id, deposit_id, transaction_id, amount, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-      ).run(
-        randomUUID(),
-        deposit.user_id,
-        deposit.id,
+    await db
+      .prepare(
+        "INSERT INTO bank_events (transaction_id, reference, deposit_id, amount, outcome, received_at) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      .run(
         id,
+        reference,
+        deposit?.id ?? null,
         event.transferAmount,
+        outcome,
         now,
       );
-      db.prepare(
-        "UPDATE deposits SET status = 'credited', credited_at = ? WHERE id = ?",
-      ).run(now, deposit.id);
+    if (outcome === "credited") {
+      await db
+        .prepare(
+          "INSERT INTO wallet_ledger (id, user_id, deposit_id, transaction_id, amount, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .run(
+          randomUUID(),
+          deposit.user_id,
+          deposit.id,
+          id,
+          event.transferAmount,
+          now,
+        );
+      await db
+        .prepare(
+          "UPDATE deposits SET status = 'credited', credited_at = ? WHERE id = ?",
+        )
+        .run(now, deposit.id);
     } else if (outcome === "review" && deposit?.status !== "credited") {
-      db.prepare("UPDATE deposits SET status = 'review' WHERE id = ?").run(
-        deposit.id,
-      );
+      await db
+        .prepare("UPDATE deposits SET status = 'review' WHERE id = ?")
+        .run(deposit.id);
     }
-    db.exec("COMMIT");
     return { outcome };
-  } catch (error) {
-    db.exec("ROLLBACK");
-    throw error;
-  }
+  });
 }
 
-export function createOrder(db, orderData) {
+export async function createOrder(db, orderData) {
   const {
     userId,
     customerName,
@@ -145,17 +131,20 @@ export function createOrder(db, orderData) {
     now = Date.now(),
   } = orderData;
 
-  db.exec("BEGIN IMMEDIATE");
-  try {
+  return db.transaction(async (db) => {
     if (paymentMethod === "wallet") {
       if (!userId) {
-        const error = new Error("Vui lòng đăng nhập tài khoản để thanh toán bằng ví.");
+        const error = new Error(
+          "Vui lòng đăng nhập tài khoản để thanh toán bằng ví.",
+        );
         error.status = 401;
         throw error;
       }
-      const currentBalance = balance(db, userId);
+      const currentBalance = await balance(db, userId);
       if (currentBalance < total) {
-        const formattedBalance = new Intl.NumberFormat("vi-VN").format(currentBalance);
+        const formattedBalance = new Intl.NumberFormat("vi-VN").format(
+          currentBalance,
+        );
         const formattedTotal = new Intl.NumberFormat("vi-VN").format(total);
         const error = new Error(
           `Số dư ví không đủ (hiện có: ${formattedBalance}₫, cần thanh toán: ${formattedTotal}₫). Vui lòng nạp thêm tiền.`,
@@ -168,32 +157,33 @@ export function createOrder(db, orderData) {
     const orderId = "VNL-" + randomBytes(4).toString("hex").toUpperCase();
     const initialStatus = paymentMethod === "wallet" ? "processing" : "pending";
 
-    db.prepare(
-      `INSERT INTO orders (
+    await db
+      .prepare(
+        `INSERT INTO orders (
         id, user_id, customer_name, customer_email, customer_note,
         items_json, total, payment_method, has_log_items,
         discord_account, discord_password, backup_codes, server_invite, claim_link,
         status, created_at, completed_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL)`,
-    ).run(
-      orderId,
-      userId || null,
-      customerName,
-      customerEmail,
-      customerNote,
-      JSON.stringify(items),
-      total,
-      paymentMethod,
-      hasLogItems ? 1 : 0,
-      discordAccount,
-      discordPassword,
-      backupCodes,
-      serverInvite,
-      initialStatus,
-      now,
-    );
+      )
+      .run(
+        orderId,
+        userId || null,
+        customerName,
+        customerEmail,
+        customerNote,
+        JSON.stringify(items),
+        total,
+        paymentMethod,
+        hasLogItems ? 1 : 0,
+        discordAccount,
+        discordPassword,
+        backupCodes,
+        serverInvite,
+        initialStatus,
+        now,
+      );
 
-    db.exec("COMMIT");
     return {
       id: orderId,
       userId,
@@ -208,90 +198,98 @@ export function createOrder(db, orderData) {
       status: initialStatus,
       createdAt: now,
     };
-  } catch (error) {
-    db.exec("ROLLBACK");
-    throw error;
-  }
+  });
 }
 
 // User-facing order history: NEVER returns discord_password or backup_codes
-export function getUserOrders(db, userId) {
-  return db
-    .prepare(
-      "SELECT id, customer_name, customer_email, customer_note, items_json, total, payment_method, has_log_items, server_invite, claim_link, status, created_at, completed_at FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 50",
-    )
-    .all(userId)
-    .map((row) => ({
-      id: row.id,
-      customerName: row.customer_name,
-      customerEmail: row.customer_email,
-      customerNote: row.customer_note,
-      items: JSON.parse(row.items_json),
-      total: row.total,
-      paymentMethod: row.payment_method,
-      hasLogItems: Boolean(row.has_log_items),
-      serverInvite: row.server_invite,
-      claimLink: row.claim_link,
-      status: row.status,
-      createdAt: row.created_at,
-      completedAt: row.completed_at,
-    }));
+export async function getUserOrders(db, userId) {
+  return (
+    await db
+      .prepare(
+        "SELECT id, customer_name, customer_email, customer_note, items_json, total, payment_method, has_log_items, server_invite, claim_link, status, created_at, completed_at FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 50",
+      )
+      .all(userId)
+  ).map((row) => ({
+    id: row.id,
+    customerName: row.customer_name,
+    customerEmail: row.customer_email,
+    customerNote: row.customer_note,
+    items: JSON.parse(row.items_json),
+    total: row.total,
+    paymentMethod: row.payment_method,
+    hasLogItems: Boolean(row.has_log_items),
+    serverInvite: row.server_invite,
+    claimLink: row.claim_link,
+    status: row.status,
+    createdAt: row.created_at,
+    completedAt: row.completed_at,
+  }));
 }
 
 // Admin order view: Full credentials only visible to admin
-export function getAdminOrders(db, { status, limit = 50, offset = 0 } = {}) {
+export async function getAdminOrders(
+  db,
+  { status, limit = 50, offset = 0 } = {},
+) {
   let query = "SELECT * FROM orders";
   const params = [];
-  if (status && ["pending", "processing", "completed", "cancelled"].includes(status)) {
+  if (
+    status &&
+    ["pending", "processing", "completed", "cancelled"].includes(status)
+  ) {
     query += " WHERE status = ?";
     params.push(status);
   }
   query += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
   params.push(limit, offset);
 
-  return db
-    .prepare(query)
-    .all(...params)
-    .map((row) => ({
-      id: row.id,
-      userId: row.user_id,
-      customerName: row.customer_name,
-      customerEmail: row.customer_email,
-      customerNote: row.customer_note,
-      items: JSON.parse(row.items_json),
-      total: row.total,
-      paymentMethod: row.payment_method,
-      hasLogItems: Boolean(row.has_log_items),
-      discordAccount: row.discord_account,
-      discordPassword: row.discord_password,
-      backupCodes: row.backup_codes,
-      serverInvite: row.server_invite,
-      claimLink: row.claim_link,
-      status: row.status,
-      createdAt: row.created_at,
-      completedAt: row.completed_at,
-    }));
+  return (await db.prepare(query).all(...params)).map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    customerName: row.customer_name,
+    customerEmail: row.customer_email,
+    customerNote: row.customer_note,
+    items: JSON.parse(row.items_json),
+    total: row.total,
+    paymentMethod: row.payment_method,
+    hasLogItems: Boolean(row.has_log_items),
+    discordAccount: row.discord_account,
+    discordPassword: row.discord_password,
+    backupCodes: row.backup_codes,
+    serverInvite: row.server_invite,
+    claimLink: row.claim_link,
+    status: row.status,
+    createdAt: row.created_at,
+    completedAt: row.completed_at,
+  }));
 }
 
-export function updateAdminOrder(db, orderId, { status, claimLink }) {
-  const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId);
+export async function updateAdminOrder(db, orderId, { status, claimLink }) {
+  const order = await db
+    .prepare("SELECT * FROM orders WHERE id = ?")
+    .get(orderId);
   if (!order) {
     const error = new Error("Không tìm thấy đơn hàng.");
     error.status = 404;
     throw error;
   }
   const nextStatus = status || order.status;
-  if (!["pending", "processing", "completed", "cancelled"].includes(nextStatus)) {
+  if (
+    !["pending", "processing", "completed", "cancelled"].includes(nextStatus)
+  ) {
     const error = new Error("Trạng thái đơn hàng không hợp lệ.");
     error.status = 400;
     throw error;
   }
-  const completedAt = nextStatus === "completed" ? (order.completed_at || Date.now()) : null;
+  const completedAt =
+    nextStatus === "completed" ? order.completed_at || Date.now() : null;
   const nextClaimLink = claimLink !== undefined ? claimLink : order.claim_link;
 
-  db.prepare(
-    "UPDATE orders SET status = ?, claim_link = ?, completed_at = ? WHERE id = ?",
-  ).run(nextStatus, nextClaimLink, completedAt, orderId);
+  await db
+    .prepare(
+      "UPDATE orders SET status = ?, claim_link = ?, completed_at = ? WHERE id = ?",
+    )
+    .run(nextStatus, nextClaimLink, completedAt, orderId);
 
   return {
     id: order.id,
@@ -314,9 +312,9 @@ export function updateAdminOrder(db, orderId, { status, claimLink }) {
   };
 }
 
-export function getAnnouncement(db) {
+export async function getAnnouncement(db) {
   try {
-    const row = db
+    const row = await db
       .prepare(
         "SELECT id, content, is_active, updated_at FROM site_announcements WHERE id = 'current'",
       )
@@ -344,22 +342,28 @@ export function getAnnouncement(db) {
   }
 }
 
-export function saveAnnouncement(db, content, is_active = 1, now = Date.now()) {
+export async function saveAnnouncement(
+  db,
+  content,
+  is_active = 1,
+  now = Date.now(),
+) {
   const cleanContent = String(content ?? "").trim();
   if (!cleanContent) {
     const error = new Error("Nội dung thông báo không được để trống.");
     error.status = 400;
     throw error;
   }
-  db.prepare(
-    `INSERT INTO site_announcements (id, content, is_active, updated_at)
+  await db
+    .prepare(
+      `INSERT INTO site_announcements (id, content, is_active, updated_at)
      VALUES ('current', ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        content = excluded.content,
        is_active = excluded.is_active,
        updated_at = excluded.updated_at`,
-  ).run(cleanContent, is_active ? 1 : 0, now);
+    )
+    .run(cleanContent, is_active ? 1 : 0, now);
 
-  return getAnnouncement(db);
+  return await getAnnouncement(db);
 }
-

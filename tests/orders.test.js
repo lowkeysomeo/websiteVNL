@@ -8,7 +8,7 @@ import { createApp } from "../server/app.js";
 import { passwordHash } from "../server/security.js";
 
 async function setupServer() {
-  const db = openStore(":memory:");
+  const db = await openStore(":memory:");
   const config = readConfig({
     HOST: "127.0.0.1",
     PORT: "3000",
@@ -80,7 +80,7 @@ test("order creation distinguishes gift vs log and protects discord credentials"
     const userId = randomUUID();
     const email = "buyer@example.com";
     const passHash = await passwordHash("securepassword123");
-    ctx.db
+    await ctx.db
       .prepare(
         "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
       )
@@ -88,23 +88,31 @@ test("order creation distinguishes gift vs log and protects discord credentials"
 
     // Credit user's wallet
     const depositId = randomUUID();
-    ctx.db
+    await ctx.db
       .prepare(
         "INSERT INTO deposits (id, user_id, code, amount, status, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
       )
-      .run(depositId, userId, "VNL1234567890AB", 300000, "credited", Date.now(), Date.now() + 86400000);
-    ctx.db
+      .run(
+        depositId,
+        userId,
+        "VNL1234567890AB",
+        300000,
+        "credited",
+        Date.now(),
+        Date.now() + 86400000,
+      );
+    await ctx.db
       .prepare(
         "INSERT INTO bank_events (transaction_id, deposit_id, amount, outcome, received_at) VALUES (?, ?, ?, ?, ?)",
       )
       .run("TX1001", depositId, 300000, "credited", Date.now());
-    ctx.db
+    await ctx.db
       .prepare(
         "INSERT INTO wallet_ledger (id, user_id, deposit_id, transaction_id, amount, created_at) VALUES (?, ?, ?, ?, ?, ?)",
       )
       .run(randomUUID(), userId, depositId, "TX1001", 300000, Date.now());
 
-    assert.equal(balance(ctx.db, userId), 300000);
+    assert.equal(await balance(ctx.db, userId), 300000);
 
     // 2. Log in
     const loginRes = await ctx.request("POST", "/api/auth/login", {
@@ -127,7 +135,9 @@ test("order creation distinguishes gift vs log and protects discord credentials"
       {
         name: "Nguyen Van A",
         email: "buyer@example.com",
-        items: [{ productId: "nitro", variantId: "boost_gift_1m", quantity: 1 }],
+        items: [
+          { productId: "nitro", variantId: "boost_gift_1m", quantity: 1 },
+        ],
       },
       authHeaders,
     );
@@ -189,7 +199,12 @@ test("order creation distinguishes gift vs log and protects discord credentials"
     const logOrderId = logOrderSuccess.data.order.id;
 
     // 7. Verify Customer GET /api/orders NEVER exposes password or backup codes!
-    const customerOrdersRes = await ctx.request("GET", "/api/orders", null, authHeaders);
+    const customerOrdersRes = await ctx.request(
+      "GET",
+      "/api/orders",
+      null,
+      authHeaders,
+    );
     assert.equal(customerOrdersRes.status, 200);
     assert.equal(customerOrdersRes.data.orders.length, 2);
     for (const ord of customerOrdersRes.data.orders) {
@@ -217,7 +232,9 @@ test("order creation distinguishes gift vs log and protects discord credentials"
     assert.equal(adminOrders.status, 200);
     assert.equal(adminOrders.data.orders.length, 2);
 
-    const adminLogOrder = adminOrders.data.orders.find((o) => o.id === logOrderId);
+    const adminLogOrder = adminOrders.data.orders.find(
+      (o) => o.id === logOrderId,
+    );
     assert.equal(adminLogOrder.discordAccount, "discorduser@gmail.com");
     assert.equal(adminLogOrder.discordPassword, "supersecretpass");
     assert.equal(adminLogOrder.backupCodes, "12345678, 87654321, 99887766");
@@ -234,13 +251,26 @@ test("order creation distinguishes gift vs log and protects discord credentials"
     );
     assert.equal(patchRes.status, 200);
     assert.equal(patchRes.data.order.status, "completed");
-    assert.equal(patchRes.data.order.claimLink, "https://discord.gift/ABCDEFGHIJKLMNOP");
+    assert.equal(
+      patchRes.data.order.claimLink,
+      "https://discord.gift/ABCDEFGHIJKLMNOP",
+    );
 
     // 10. Customer now sees the claimLink in their orders
-    const updatedCustomerOrders = await ctx.request("GET", "/api/orders", null, authHeaders);
-    const customerGiftOrder = updatedCustomerOrders.data.orders.find((o) => o.id === giftOrderId);
+    const updatedCustomerOrders = await ctx.request(
+      "GET",
+      "/api/orders",
+      null,
+      authHeaders,
+    );
+    const customerGiftOrder = updatedCustomerOrders.data.orders.find(
+      (o) => o.id === giftOrderId,
+    );
     assert.equal(customerGiftOrder.status, "completed");
-    assert.equal(customerGiftOrder.claimLink, "https://discord.gift/ABCDEFGHIJKLMNOP");
+    assert.equal(
+      customerGiftOrder.claimLink,
+      "https://discord.gift/ABCDEFGHIJKLMNOP",
+    );
 
     // 11. Server Boost order: requires permanent Discord invite link
     // 11a. Boost order without serverInvite -> MUST FAIL (400)
@@ -285,21 +315,44 @@ test("order creation distinguishes gift vs log and protects discord credentials"
       authHeaders,
     );
     assert.equal(boostSuccess.status, 201);
-    assert.equal(boostSuccess.data.order.serverInvite, "https://discord.gg/vietnamlegacy");
+    assert.equal(
+      boostSuccess.data.order.serverInvite,
+      "https://discord.gg/vietnamlegacy",
+    );
     assert.equal(boostSuccess.data.balance, 63000);
     const boostOrderId = boostSuccess.data.order.id;
 
     // 11d. Customer GET /api/orders includes serverInvite
-    const customerOrdersWithBoost = await ctx.request("GET", "/api/orders", null, authHeaders);
-    const customerBoostOrder = customerOrdersWithBoost.data.orders.find((o) => o.id === boostOrderId);
-    assert.equal(customerBoostOrder.serverInvite, "https://discord.gg/vietnamlegacy");
+    const customerOrdersWithBoost = await ctx.request(
+      "GET",
+      "/api/orders",
+      null,
+      authHeaders,
+    );
+    const customerBoostOrder = customerOrdersWithBoost.data.orders.find(
+      (o) => o.id === boostOrderId,
+    );
+    assert.equal(
+      customerBoostOrder.serverInvite,
+      "https://discord.gg/vietnamlegacy",
+    );
 
     // 11e. Admin GET /api/admin/orders includes serverInvite
-    const adminOrdersWithBoost = await ctx.request("GET", "/api/admin/orders", null, {
-      "X-Admin-Key": "testadminsecret",
-    });
-    const adminBoostOrder = adminOrdersWithBoost.data.orders.find((o) => o.id === boostOrderId);
-    assert.equal(adminBoostOrder.serverInvite, "https://discord.gg/vietnamlegacy");
+    const adminOrdersWithBoost = await ctx.request(
+      "GET",
+      "/api/admin/orders",
+      null,
+      {
+        "X-Admin-Key": "testadminsecret",
+      },
+    );
+    const adminBoostOrder = adminOrdersWithBoost.data.orders.find(
+      (o) => o.id === boostOrderId,
+    );
+    assert.equal(
+      adminBoostOrder.serverInvite,
+      "https://discord.gg/vietnamlegacy",
+    );
 
     // 12. Insufficient balance test
     // User balance is now 63,000 VND. Try to order Nitro Boost Gift 1y (950,000 VND)
@@ -309,7 +362,9 @@ test("order creation distinguishes gift vs log and protects discord credentials"
       {
         name: "Nguyen Van A",
         email: "buyer@example.com",
-        items: [{ productId: "nitro", variantId: "boost_gift_1y", quantity: 1 }],
+        items: [
+          { productId: "nitro", variantId: "boost_gift_1y", quantity: 1 },
+        ],
       },
       authHeaders,
     );

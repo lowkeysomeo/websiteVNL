@@ -3,7 +3,7 @@ import { openStore } from "./store.js";
 import { createApp } from "./app.js";
 
 const config = readConfig();
-const db = openStore(config.databasePath);
+const db = await openStore(config.databasePath, config.remoteDatabase);
 const server = createApp(db, config);
 server.requestTimeout = 15000;
 server.headersTimeout = 10000;

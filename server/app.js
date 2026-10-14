@@ -83,21 +83,21 @@ export function createApp(db, config) {
   const cookie = (value, age) =>
     `${cookieName}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${config.production ? "; Secure" : ""}`;
   const dummyHash = passwordHash(token());
-  function session(req) {
+  async function session(req) {
     const raw = String(req.headers.cookie || "")
       .split(";")
       .map((value) => value.trim())
       .find((value) => value.startsWith(cookieName + "="))
       ?.slice(cookieName.length + 1);
     if (!raw || !/^[a-f0-9]{64}$/.test(raw)) return null;
-    return db
+    return await db
       .prepare(
         "SELECT s.*, u.email FROM sessions s JOIN users u ON u.id = s.user_id WHERE token_hash = ? AND expires_at > ?",
       )
       .get(digest(raw), Date.now());
   }
-  function requireSession(req) {
-    const value = session(req);
+  async function requireSession(req) {
+    const value = await session(req);
     if (!value) throw fail(401, "Vui lòng đăng nhập.");
     return value;
   }
@@ -105,24 +105,29 @@ export function createApp(db, config) {
     if (req.headers.origin !== config.origin)
       throw fail(403, "Nguồn yêu cầu không hợp lệ.");
   }
-  function protect(req) {
+  async function protect(req) {
     sameOrigin(req);
-    const value = requireSession(req);
+    const value = await requireSession(req);
     if (!equal(value.csrf_token, req.headers["x-csrf-token"] || ""))
       throw fail(403, "Phiên không hợp lệ. Vui lòng tải lại trang.");
     return value;
   }
-  function startSession(res, userId) {
+  async function startSession(res, userId) {
     const raw = token();
     const csrf = token();
-    db.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(Date.now());
-    db.prepare(
-      "INSERT INTO sessions (token_hash, user_id, csrf_token, expires_at) VALUES (?, ?, ?, ?)",
-    ).run(digest(raw), userId, csrf, Date.now() + SESSION_AGE);
+    await db
+      .prepare("DELETE FROM sessions WHERE expires_at <= ?")
+      .run(Date.now());
+    await db
+      .prepare(
+        "INSERT INTO sessions (token_hash, user_id, csrf_token, expires_at) VALUES (?, ?, ?, ?)",
+      )
+      .run(digest(raw), userId, csrf, Date.now() + SESSION_AGE);
     res.setHeader("Set-Cookie", cookie(raw, SESSION_AGE / 1000));
     return csrf;
   }
   function requireAdmin(req) {
+    if (!config.adminPassword) throw fail(503, "Quản trị chưa được cấu hình.");
     const adminKey = req.headers["x-admin-key"] || "";
     if (!equal(adminKey, config.adminPassword)) {
       throw fail(401, "Yêu cầu mật khẩu quản trị viên hợp lệ.");
@@ -157,14 +162,16 @@ export function createApp(db, config) {
       if (route.startsWith("/api/")) {
         if (!allow(`request:${ip}`, 180, 60000))
           throw fail(429, "Quá nhiều yêu cầu. Vui lòng thử lại sau.");
-        if (req.method === "GET" && route === "/api/health")
+        if (req.method === "GET" && route === "/api/health") {
+          await db.prepare("SELECT 1").get();
           return json(200, { ok: true });
+        }
         if (req.method === "GET" && route === "/api/session") {
-          const current = session(req);
+          const current = await session(req);
           return json(200, {
             user: current ? { email: current.email } : null,
             csrfToken: current?.csrf_token ?? null,
-            balance: current ? balance(db, current.user_id) : null,
+            balance: current ? await balance(db, current.user_id) : null,
             paymentsEnabled: config.paymentsMode === "live",
             bank: {
               name: config.bank.gateway,
@@ -179,7 +186,7 @@ export function createApp(db, config) {
           const raw = await readBody(req);
           if (!verifyWebhook(req.headers, raw, config.webhookSecret))
             throw fail(401, "Chữ ký webhook không hợp lệ.");
-          const result = processTransfer(db, parse(raw), config.bank);
+          const result = await processTransfer(db, parse(raw), config.bank);
           return json(200, { success: true, outcome: result.outcome });
         }
         if (
@@ -216,7 +223,7 @@ export function createApp(db, config) {
             );
           if (!allow(`auth-email:${digest(email)}`, 15, 15 * 60000))
             throw fail(429, "Vui lòng thử lại sau 15 phút.");
-          let user = db
+          let user = await db
             .prepare("SELECT * FROM users WHERE email = ?")
             .get(email);
           if (route.endsWith("/register")) {
@@ -228,13 +235,19 @@ export function createApp(db, config) {
             const hash = await passwordHash(password);
             user = { id: randomUUID(), email };
             try {
-              db.prepare(
-                "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
-              ).run(user.id, email, hash, Date.now());
+              await db
+                .prepare(
+                  "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+                )
+                .run(user.id, email, hash, Date.now());
             } catch (error) {
               if (
-                error.code === "ERR_SQLITE_ERROR" &&
-                db.prepare("SELECT id FROM users WHERE email = ?").get(email)
+                ["ERR_SQLITE_ERROR", "SQLITE_CONSTRAINT_UNIQUE"].includes(
+                  error.code,
+                ) &&
+                (await db
+                  .prepare("SELECT id FROM users WHERE email = ?")
+                  .get(email))
               )
                 throw fail(409, "Không thể đăng ký email này.");
               throw error;
@@ -247,38 +260,42 @@ export function createApp(db, config) {
             if (!user || !valid)
               throw fail(401, "Email hoặc mật khẩu không đúng.");
           }
-          const previous = session(req);
+          const previous = await session(req);
           if (previous)
-            db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(
-              previous.token_hash,
-            );
-          const csrfToken = startSession(res, user.id);
+            await db
+              .prepare("DELETE FROM sessions WHERE token_hash = ?")
+              .run(previous.token_hash);
+          const csrfToken = await startSession(res, user.id);
           return json(route.endsWith("/register") ? 201 : 200, {
             user: { email },
             csrfToken,
-            balance: balance(db, user.id),
+            balance: await balance(db, user.id),
           });
         }
         if (req.method === "POST" && route === "/api/auth/logout") {
-          const current = protect(req);
-          db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(
-            current.token_hash,
-          );
+          const current = await protect(req);
+          await db
+            .prepare("DELETE FROM sessions WHERE token_hash = ?")
+            .run(current.token_hash);
           res.setHeader("Set-Cookie", cookie("", 0));
           return json(200, { ok: true });
         }
         if (req.method === "GET" && route === "/api/wallet") {
-          const current = requireSession(req);
-          const deposits = db
-            .prepare(
-              "SELECT * FROM deposits WHERE user_id = ? ORDER BY created_at DESC LIMIT 30",
-            )
-            .all(current.user_id)
-            .map(depositView);
-          return json(200, { balance: balance(db, current.user_id), deposits });
+          const current = await requireSession(req);
+          const deposits = (
+            await db
+              .prepare(
+                "SELECT * FROM deposits WHERE user_id = ? ORDER BY created_at DESC LIMIT 30",
+              )
+              .all(current.user_id)
+          ).map(depositView);
+          return json(200, {
+            balance: await balance(db, current.user_id),
+            deposits,
+          });
         }
         if (req.method === "POST" && route === "/api/deposits") {
-          const current = protect(req);
+          const current = await protect(req);
           if (config.paymentsMode !== "live")
             throw fail(503, "Shop chưa mở nạp tiền. Vui lòng quay lại sau.");
           if (!allow(`deposit:${current.user_id}`, 10, 3600000))
@@ -291,14 +308,18 @@ export function createApp(db, config) {
           )
             throw fail(400, "Số tiền nạp từ 10.000 đến 10.000.000 đồng.");
           const now = Date.now();
-          db.prepare(
-            "UPDATE deposits SET status = 'expired' WHERE user_id = ? AND status = 'pending' AND expires_at < ?",
-          ).run(current.user_id, now);
-          const pending = db
+          await db
             .prepare(
-              "SELECT COUNT(*) AS count FROM deposits WHERE user_id = ? AND status = 'pending'",
+              "UPDATE deposits SET status = 'expired' WHERE user_id = ? AND status = 'pending' AND expires_at < ?",
             )
-            .get(current.user_id).count;
+            .run(current.user_id, now);
+          const pending = (
+            await db
+              .prepare(
+                "SELECT COUNT(*) AS count FROM deposits WHERE user_id = ? AND status = 'pending'",
+              )
+              .get(current.user_id)
+          ).count;
           if (pending >= 3)
             throw fail(
               409,
@@ -314,32 +335,34 @@ export function createApp(db, config) {
             expires_at: now + 86400000,
             credited_at: null,
           };
-          db.prepare(
-            "INSERT INTO deposits (id, user_id, code, amount, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
-          ).run(
-            deposit.id,
-            current.user_id,
-            deposit.code,
-            amount,
-            now,
-            deposit.expires_at,
-          );
+          await db
+            .prepare(
+              "INSERT INTO deposits (id, user_id, code, amount, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
+            )
+            .run(
+              deposit.id,
+              current.user_id,
+              deposit.code,
+              amount,
+              now,
+              deposit.expires_at,
+            );
           return json(201, paymentDetails(deposit));
         }
         const match = route.match(/^\/api\/deposits\/([a-f0-9-]{36})$/);
         if (req.method === "GET" && match) {
-          const current = requireSession(req);
-          const row = db
+          const current = await requireSession(req);
+          const row = await db
             .prepare("SELECT * FROM deposits WHERE id = ? AND user_id = ?")
             .get(match[1], current.user_id);
           if (!row) throw fail(404, "Không tìm thấy yêu cầu nạp.");
           return json(200, {
             ...paymentDetails(row),
-            balance: balance(db, current.user_id),
+            balance: await balance(db, current.user_id),
           });
         }
         if (req.method === "POST" && route === "/api/orders") {
-          const current = protect(req);
+          const current = await protect(req);
           if (!allow(`order:${current.user_id}`, 30, 60000))
             throw fail(429, "Quá nhiều đơn hàng. Vui lòng thử lại sau 1 phút.");
           const body = parse(await readBody(req));
@@ -388,12 +411,20 @@ export function createApp(db, config) {
             discordPassword = String(body.discordPassword || "").trim();
             backupCodes = String(body.backupCodes || "").trim();
 
-            if (!discordAccount || discordAccount.length < 3 || discordAccount.length > 100)
+            if (
+              !discordAccount ||
+              discordAccount.length < 3 ||
+              discordAccount.length > 100
+            )
               throw fail(
                 400,
                 "Đơn có gói Nạp Acc (Log). Vui lòng nhập tài khoản Discord (Email/SĐT).",
               );
-            if (!discordPassword || discordPassword.length < 4 || discordPassword.length > 128)
+            if (
+              !discordPassword ||
+              discordPassword.length < 4 ||
+              discordPassword.length > 128
+            )
               throw fail(
                 400,
                 "Đơn có gói Nạp Acc (Log). Vui lòng nhập mật khẩu Discord.",
@@ -409,7 +440,7 @@ export function createApp(db, config) {
               );
           }
 
-          const order = createOrder(db, {
+          const order = await createOrder(db, {
             userId: current.user_id,
             customerName,
             customerEmail,
@@ -439,17 +470,22 @@ export function createApp(db, config) {
               status: order.status,
               createdAt: order.createdAt,
             },
-            balance: balance(db, current.user_id),
+            balance: await balance(db, current.user_id),
           });
         }
         if (req.method === "GET" && route === "/api/orders") {
-          const current = requireSession(req);
-          const orders = getUserOrders(db, current.user_id);
+          const current = await requireSession(req);
+          const orders = await getUserOrders(db, current.user_id);
           return json(200, { orders });
         }
         if (req.method === "POST" && route === "/api/admin/auth") {
+          if (!config.adminPassword)
+            throw fail(503, "Quản trị chưa được cấu hình.");
           if (!allow(`admin-auth:${ip}`, 10, 15 * 60000))
-            throw fail(429, "Thử đăng nhập quá nhiều lần. Vui lòng chờ 15 phút.");
+            throw fail(
+              429,
+              "Thử đăng nhập quá nhiều lần. Vui lòng chờ 15 phút.",
+            );
           const body = parse(await readBody(req));
           const pass = String(body.password || "");
           if (!equal(pass, config.adminPassword))
@@ -459,7 +495,7 @@ export function createApp(db, config) {
         if (req.method === "GET" && route === "/api/admin/orders") {
           requireAdmin(req);
           const status = url.searchParams.get("status") || undefined;
-          const orders = getAdminOrders(db, { status });
+          const orders = await getAdminOrders(db, { status });
           return json(200, { orders });
         }
         const adminOrderMatch = route.match(
@@ -468,25 +504,29 @@ export function createApp(db, config) {
         if (req.method === "PATCH" && adminOrderMatch) {
           requireAdmin(req);
           const body = parse(await readBody(req));
-          const updated = updateAdminOrder(db, adminOrderMatch[1], {
+          const updated = await updateAdminOrder(db, adminOrderMatch[1], {
             status: body.status,
             claimLink: body.claimLink,
           });
           return json(200, { success: true, order: updated });
         }
         if (req.method === "GET" && route === "/api/announcement") {
-          const ann = getAnnouncement(db);
+          const ann = await getAnnouncement(db);
           return json(200, { success: true, announcement: ann });
         }
         if (req.method === "GET" && route === "/api/admin/announcement") {
           requireAdmin(req);
-          const ann = getAnnouncement(db);
+          const ann = await getAnnouncement(db);
           return json(200, { success: true, announcement: ann });
         }
         if (req.method === "POST" && route === "/api/admin/announcement") {
           requireAdmin(req);
           const body = parse(await readBody(req));
-          const ann = saveAnnouncement(db, body.content, body.is_active !== false);
+          const ann = await saveAnnouncement(
+            db,
+            body.content,
+            body.is_active !== false,
+          );
           return json(200, { success: true, announcement: ann });
         }
         throw fail(404, "Không tìm thấy chức năng.");
@@ -510,7 +550,9 @@ export function createApp(db, config) {
           "admin.js",
           "admin.css",
         ].includes(relative) &&
-        !/^assets\/(vendor\/|fonts\/)?[a-zA-Z0-9_.-]+\.(svg|png|js|json)$/.test(relative)
+        !/^assets\/(vendor\/|fonts\/)?[a-zA-Z0-9_.-]+\.(svg|png|js|json)$/.test(
+          relative,
+        )
       )
         throw fail(404, "Không tìm thấy trang.");
       const bytes = await readFile(path.join(root, relative));

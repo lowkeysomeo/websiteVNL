@@ -1,0 +1,88 @@
+import { readFile } from "node:fs/promises";
+import { mkdirSync } from "node:fs";
+import path from "node:path";
+
+export function adaptClient(client) {
+  let transactionQueue = Promise.resolve();
+  const db = {
+    prepare(sql) {
+      const execute = (args) => client.execute({ sql, args });
+      return {
+        async get(...args) {
+          return (await execute(args)).rows[0];
+        },
+        async all(...args) {
+          return (await execute(args)).rows;
+        },
+        async run(...args) {
+          return execute(args);
+        },
+      };
+    },
+    exec(sql) {
+      return client.executeMultiple(sql);
+    },
+    close() {
+      client.close();
+    },
+    async transaction(action) {
+      const previous = transactionQueue;
+      let release;
+      transactionQueue = new Promise((resolve) => {
+        release = resolve;
+      });
+      await previous;
+      let tx;
+      try {
+        // The database write lock also serializes transactions across Vercel instances.
+        tx = await client.transaction("write");
+        const result = await action(adaptClient(tx));
+        await tx.commit();
+        return result;
+      } catch (error) {
+        if (tx && !tx.closed) await tx.rollback();
+        throw error;
+      } finally {
+        tx?.close();
+        release();
+      }
+    },
+  };
+  return db;
+}
+
+export async function openStore(filename, remote = {}) {
+  if (process.env.VERCEL && !remote.url)
+    throw new Error(
+      "TURSO_DATABASE_URL is required on Vercel; local wallets are disabled.",
+    );
+  let client;
+  if (remote.url) {
+    if (!/^(libsql|https):\/\//.test(remote.url) || !remote.authToken)
+      throw new Error("Configure TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.");
+    const { createClient } = await import("@libsql/client/web");
+    client = createClient({ url: remote.url, authToken: remote.authToken });
+  } else {
+    if (filename !== ":memory:")
+      mkdirSync(path.dirname(filename), { recursive: true });
+    const { createLocalClient } = await import("./local-database.js");
+    client = createLocalClient(filename);
+  }
+  const db = adaptClient(client);
+  try {
+    const schema = await readFile(
+      new URL("./schema.sql", import.meta.url),
+      "utf8",
+    );
+    await db.transaction(async (tx) => {
+      await tx.exec(schema);
+      const columns = await tx.prepare("PRAGMA table_info(orders)").all();
+      if (!columns.some((column) => column.name === "server_invite"))
+        await tx.exec("ALTER TABLE orders ADD COLUMN server_invite TEXT;");
+    });
+    return db;
+  } catch (error) {
+    db.close();
+    throw error;
+  }
+}

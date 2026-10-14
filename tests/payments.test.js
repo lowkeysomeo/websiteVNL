@@ -20,26 +20,25 @@ const bank = {
   accountName: "TEST ACCOUNT",
 };
 const secret = "test-only-secret-not-for-deployment-00000000";
-function fixture() {
-  const db = openStore(":memory:");
+async function fixture() {
+  const db = await openStore(":memory:");
   const user = randomUUID();
   const deposit = randomUUID();
-  db.prepare("INSERT INTO users VALUES (?, ?, ?, ?)").run(
-    user,
-    "test@example.com",
-    "not-used",
-    Date.now(),
-  );
-  db.prepare(
-    "INSERT INTO deposits (id,user_id,code,amount,created_at,expires_at) VALUES (?,?,?,?,?,?)",
-  ).run(
-    deposit,
-    user,
-    "VNLABCDEF123456",
-    50000,
-    Date.now(),
-    Date.now() + 86400000,
-  );
+  await db
+    .prepare("INSERT INTO users VALUES (?, ?, ?, ?)")
+    .run(user, "test@example.com", "not-used", Date.now());
+  await db
+    .prepare(
+      "INSERT INTO deposits (id,user_id,code,amount,created_at,expires_at) VALUES (?,?,?,?,?,?)",
+    )
+    .run(
+      deposit,
+      user,
+      "VNLABCDEF123456",
+      50000,
+      Date.now(),
+      Date.now() + 86400000,
+    );
   const event = {
     id: 12345,
     referenceCode: "TEST-1",
@@ -74,23 +73,28 @@ test("signature verifies original bytes and rejects edited payloads or old times
   assert.equal(verifyWebhook(headers, raw, ""), false);
 });
 
-test("a transfer is credited once even when id or reference is repeated", () => {
-  const { db, user, event } = fixture();
+test("a transfer is credited once even when id or reference is repeated", async () => {
+  const { db, user, event } = await fixture();
   try {
-    assert.equal(processTransfer(db, event, bank).outcome, "credited");
-    assert.equal(processTransfer(db, event, bank).outcome, "duplicate");
+    assert.equal((await processTransfer(db, event, bank)).outcome, "credited");
+    assert.equal((await processTransfer(db, event, bank)).outcome, "duplicate");
     assert.equal(
-      processTransfer(db, { ...event, id: 999 }, bank).outcome,
+      (await processTransfer(db, { ...event, id: 999 }, bank)).outcome,
       "duplicate",
     );
     assert.equal(
-      processTransfer(db, { ...event, id: 1000, referenceCode: "TEST-2" }, bank)
-        .outcome,
+      (
+        await processTransfer(
+          db,
+          { ...event, id: 1000, referenceCode: "TEST-2" },
+          bank,
+        )
+      ).outcome,
       "already_paid",
     );
-    assert.equal(balance(db, user), 50000);
+    assert.equal(await balance(db, user), 50000);
     assert.equal(
-      db.prepare("SELECT COUNT(*) AS n FROM wallet_ledger").get().n,
+      (await db.prepare("SELECT COUNT(*) AS n FROM wallet_ledger").get()).n,
       1,
     );
   } finally {
@@ -98,7 +102,7 @@ test("a transfer is credited once even when id or reference is repeated", () => 
   }
 });
 
-test("outgoing, wrong bank, wrong account, missing and ambiguous codes do not credit", () => {
+test("outgoing, wrong bank, wrong account, missing and ambiguous codes do not credit", async () => {
   for (const patch of [
     { transferType: "out" },
     { gateway: "OtherBank" },
@@ -106,40 +110,44 @@ test("outgoing, wrong bank, wrong account, missing and ambiguous codes do not cr
     { code: null, content: "khong co ma" },
     { content: "VNLABCDEF123456 VNL000000000000" },
   ]) {
-    const { db, user, event } = fixture();
+    const { db, user, event } = await fixture();
     try {
       assert.notEqual(
-        processTransfer(db, { ...event, ...patch }, bank).outcome,
+        (await processTransfer(db, { ...event, ...patch }, bank)).outcome,
         "credited",
       );
-      assert.equal(balance(db, user), 0);
+      assert.equal(await balance(db, user), 0);
     } finally {
       db.close();
     }
   }
 });
 
-test("incorrect amounts and late transfers go to review without credit", () => {
+test("incorrect amounts and late transfers go to review without credit", async () => {
   for (const expired of [false, true]) {
-    const { db, user, deposit, event } = fixture();
+    const { db, user, deposit, event } = await fixture();
     try {
       if (expired)
-        db.prepare("UPDATE deposits SET expires_at = ? WHERE id = ?").run(
-          Date.now() - 1,
-          deposit,
-        );
+        await db
+          .prepare("UPDATE deposits SET expires_at = ? WHERE id = ?")
+          .run(Date.now() - 1, deposit);
       assert.equal(
-        processTransfer(
-          db,
-          { ...event, transferAmount: expired ? 50000 : 49000 },
-          bank,
+        (
+          await processTransfer(
+            db,
+            { ...event, transferAmount: expired ? 50000 : 49000 },
+            bank,
+          )
         ).outcome,
         "review",
       );
-      assert.equal(balance(db, user), 0);
+      assert.equal(await balance(db, user), 0);
       assert.equal(
-        db.prepare("SELECT status FROM deposits WHERE id = ?").get(deposit)
-          .status,
+        (
+          await db
+            .prepare("SELECT status FROM deposits WHERE id = ?")
+            .get(deposit)
+        ).status,
         "review",
       );
     } finally {
@@ -148,8 +156,8 @@ test("incorrect amounts and late transfers go to review without credit", () => {
   }
 });
 
-test("invalid amounts do not enter the ledger or event log", () => {
-  const { db, user, event } = fixture();
+test("invalid amounts do not enter the ledger or event log", async () => {
+  const { db, user, event } = await fixture();
   try {
     for (const transferAmount of [
       -50000,
@@ -158,12 +166,13 @@ test("invalid amounts do not enter the ledger or event log", () => {
       "50000",
       Number.MAX_SAFE_INTEGER,
     ])
-      assert.throws(() =>
-        processTransfer(db, { ...event, transferAmount }, bank),
+      await assert.rejects(
+        async () =>
+          await processTransfer(db, { ...event, transferAmount }, bank),
       );
-    assert.equal(balance(db, user), 0);
+    assert.equal(await balance(db, user), 0);
     assert.equal(
-      db.prepare("SELECT COUNT(*) AS n FROM bank_events").get().n,
+      (await db.prepare("SELECT COUNT(*) AS n FROM bank_events").get()).n,
       0,
     );
   } finally {
@@ -171,50 +180,49 @@ test("invalid amounts do not enter the ledger or event log", () => {
   }
 });
 
-test("a failed ledger write rolls back the event so a retry can succeed", () => {
-  const { db, user, event } = fixture();
+test("a failed ledger write rolls back the event so a retry can succeed", async () => {
+  const { db, user, event } = await fixture();
   try {
-    db.exec(
+    await db.exec(
       "CREATE TRIGGER fail_ledger BEFORE INSERT ON wallet_ledger BEGIN SELECT RAISE(ABORT, 'test failure'); END;",
     );
-    assert.throws(() => processTransfer(db, event, bank));
-    assert.equal(balance(db, user), 0);
+    await assert.rejects(async () => await processTransfer(db, event, bank));
+    assert.equal(await balance(db, user), 0);
     assert.equal(
-      db.prepare("SELECT COUNT(*) AS n FROM bank_events").get().n,
+      (await db.prepare("SELECT COUNT(*) AS n FROM bank_events").get()).n,
       0,
     );
-    db.exec("DROP TRIGGER fail_ledger");
-    assert.equal(processTransfer(db, event, bank).outcome, "credited");
-    assert.equal(balance(db, user), 50000);
+    await db.exec("DROP TRIGGER fail_ledger");
+    assert.equal((await processTransfer(db, event, bank)).outcome, "credited");
+    assert.equal(await balance(db, user), 50000);
   } finally {
     db.close();
   }
 });
 
-test("wallet balances survive closing and reopening the database", () => {
+test("wallet balances survive closing and reopening the database", async () => {
   const folder = mkdtempSync(path.join(tmpdir(), "vnl-wallet-test-"));
   const filename = path.join(folder, "test.sqlite");
-  let db = openStore(filename);
+  let db = await openStore(filename);
   try {
     const user = randomUUID();
     const deposit = randomUUID();
-    db.prepare("INSERT INTO users VALUES (?, ?, ?, ?)").run(
-      user,
-      "persist@example.com",
-      "unused",
-      Date.now(),
-    );
-    db.prepare(
-      "INSERT INTO deposits (id,user_id,code,amount,created_at,expires_at) VALUES (?,?,?,?,?,?)",
-    ).run(
-      deposit,
-      user,
-      "VNLABCDEF123456",
-      50000,
-      Date.now(),
-      Date.now() + 60000,
-    );
-    processTransfer(
+    await db
+      .prepare("INSERT INTO users VALUES (?, ?, ?, ?)")
+      .run(user, "persist@example.com", "unused", Date.now());
+    await db
+      .prepare(
+        "INSERT INTO deposits (id,user_id,code,amount,created_at,expires_at) VALUES (?,?,?,?,?,?)",
+      )
+      .run(
+        deposit,
+        user,
+        "VNLABCDEF123456",
+        50000,
+        Date.now(),
+        Date.now() + 60000,
+      );
+    await processTransfer(
       db,
       {
         id: 123,
@@ -227,8 +235,8 @@ test("wallet balances survive closing and reopening the database", () => {
       bank,
     );
     db.close();
-    db = openStore(filename);
-    assert.equal(balance(db, user), 50000);
+    db = await openStore(filename);
+    assert.equal(await balance(db, user), 50000);
   } finally {
     db.close();
     rmSync(folder, { recursive: true, force: true });
@@ -249,7 +257,7 @@ test("passwords are salted and live config refuses incomplete setup", async () =
 });
 
 test("HTTP registration, ownership, CSRF, signed webhook, session expiry and logout", async () => {
-  const db = openStore(":memory:");
+  const db = await openStore(":memory:");
   // Integration test uses fake bank data only. readConfig blocks live payments on local HTTP.
   const config = {
     production: false,
@@ -410,7 +418,7 @@ test("HTTP registration, ownership, CSRF, signed webhook, session expiry and log
     assert.equal(login.status, 200);
     const newCookie = login.headers.get("set-cookie").split(";")[0];
     assert.notEqual(cookie, newCookie);
-    db.prepare("UPDATE sessions SET expires_at = 0").run();
+    await db.prepare("UPDATE sessions SET expires_at = 0").run();
     assert.equal(
       (await call("/api/wallet", { cookie: newCookie })).status,
       401,
@@ -422,7 +430,7 @@ test("HTTP registration, ownership, CSRF, signed webhook, session expiry and log
 });
 
 test("disabled payments refuse both deposit creation and webhook processing", async () => {
-  const db = openStore(":memory:");
+  const db = await openStore(":memory:");
   const config = {
     production: false,
     origin: "http://localhost",

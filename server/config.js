@@ -7,8 +7,13 @@ export const root = path.resolve(
 );
 
 export function readConfig(env = process.env) {
-  const origin = new URL(env.PUBLIC_ORIGIN || "http://localhost:3000");
-  const production = env.NODE_ENV === "production";
+  const origin = new URL(
+    env.PUBLIC_ORIGIN ||
+      (env.VERCEL_PROJECT_PRODUCTION_URL
+        ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}`
+        : "http://localhost:3000"),
+  );
+  const production = env.NODE_ENV === "production" || env.VERCEL === "1";
   if (production && origin.protocol !== "https:")
     throw new Error("PUBLIC_ORIGIN must use HTTPS in production.");
   if (
@@ -27,8 +32,12 @@ export function readConfig(env = process.env) {
     origin: origin.origin,
     production,
     databasePath: path.resolve(root, env.DATABASE_PATH || "./data/vnl.sqlite"),
+    remoteDatabase: {
+      url: env.TURSO_DATABASE_URL || env.TURSO_URL,
+      authToken: env.TURSO_AUTH_TOKEN || env.TURSO_DATABASE_AUTH_TOKEN,
+    },
     paymentsMode: env.PAYMENTS_MODE || "disabled",
-    adminPassword: env.ADMIN_PASSWORD || "vnladmin2026",
+    adminPassword: env.ADMIN_PASSWORD || "",
     bank: {
       code: env.BANK_CODE || "",
       gateway: env.BANK_GATEWAY || "",

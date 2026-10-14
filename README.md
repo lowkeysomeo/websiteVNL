@@ -1,16 +1,19 @@
 # VietNam Legacy
 
+**Deploy trên Vercel:** xem [VERCEL.md](./VERCEL.md) để kết nối Turso và cấu hình tài khoản/ví.
+
 Cửa hàng và backend tài khoản/ví: đăng ký, đăng nhập bằng email và mật khẩu, xem số dư, tạo yêu cầu chuyển khoản, lịch sử nạp và webhook SePay tự động cộng tiền.
 
 **Hiện nạp tiền đang khóa (`PAYMENTS_MODE=disabled`). Chưa có kết nối SePay hoặc hosting và chưa xác nhận giao dịch ngân hàng thật.** Giao diện cửa hàng vẫn dùng bảng giá và đơn hàng thử; ví chưa được dùng để trừ tiền mua hàng.
 
 ## Chạy trên máy
 
-Cài Node.js 24 hoặc mới hơn. Không cần cài thư viện ngoài.
+Cài Node.js 24 và cài các dependency bằng `npm ci`.
 
 ```powershell
 cd C:\Users\Administrator\Documents\GitHub\webVNL
 Copy-Item .env.example .env
+npm ci
 npm start
 ```
 
