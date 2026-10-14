@@ -1,6 +1,6 @@
 // Giao diện giá, ưu đãi và nạp tiền QR dùng chung phiên đăng nhập của trang quản trị.
 window.initAdminPricing = (() => {
-  let api, notify, products = [], promotions = [], bankSettings = { bank: {}, isActive: false }, depositsList = [], depositFilter = "all", depositSearch = "", currentView = "orders", initialized = false, loaded = false;
+  let api, notify, products = [], promotions = [], bankSettings = { bank: {}, isActive: false }, depositsList = [], depositFilter = "all", depositSearch = "", guideData = null, currentView = "orders", initialized = false, loaded = false;
   const $ = (selector) => document.querySelector(selector);
   const money = n => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -8,6 +8,76 @@ window.initAdminPricing = (() => {
   const depositStatusLabels = { pending: "Chờ chuyển khoản", credited: "Đã cộng tiền", review: "Cần đối soát", expired: "Hết hạn / Hủy" };
   const formatDate = value => value == null ? "Không giới hạn" : new Date(value).toLocaleString("vi-VN");
   const inputDate = value => value == null ? "" : new Date(value - new Date(value).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+  function parseVideoEmbed(url) {
+    if (!url) return null;
+    const trimmed = String(url).trim();
+    const ytMatch = trimmed.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
+    if (ytMatch) {
+      return {
+        type: "youtube",
+        embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}?rel=0`,
+        id: ytMatch[1],
+      };
+    }
+    if (/\.(mp4|webm|ogg)($|\?)/i.test(trimmed)) {
+      return {
+        type: "direct",
+        src: trimmed,
+      };
+    }
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      return {
+        type: "iframe",
+        src: trimmed,
+      };
+    }
+    return null;
+  }
+
+  function renderVideoPreviewHtml(videoEmbed) {
+    if (!videoEmbed) {
+      return `<div class="guide-media-empty"><span>📹</span><p>Chưa có video. Dán link YouTube vào ô trên để xem trước tại đây.</p></div>`;
+    }
+    if (videoEmbed.type === "youtube") {
+      return `
+        <div class="guide-video-embed-preview">
+          <iframe src="${esc(videoEmbed.embedUrl)}" title="Xem trước video hướng dẫn" frameborder="0" allowfullscreen></iframe>
+        </div>
+        <small class="video-preview-badge">✓ Đã nhận diện video YouTube</small>
+      `;
+    }
+    if (videoEmbed.type === "direct") {
+      return `
+        <div class="guide-video-embed-preview">
+          <video src="${esc(videoEmbed.src)}" controls preload="metadata"></video>
+        </div>
+        <small class="video-preview-badge">✓ Đã nhận diện video MP4</small>
+      `;
+    }
+    return `
+      <div class="guide-video-embed-preview">
+        <iframe src="${esc(videoEmbed.src)}" title="Xem trước video hướng dẫn" frameborder="0"></iframe>
+      </div>
+    `;
+  }
+
+  function renderImagesPreviewHtml(images) {
+    const valid = (images || []).filter(url => Boolean(url && url.trim()));
+    if (!valid.length) {
+      return `<div class="guide-media-empty"><span>🖼️</span><p>Chưa có hình ảnh. Nhập link ảnh vào ô trên để xem trước tại đây.</p></div>`;
+    }
+    return `
+      <div class="guide-images-grid-preview">
+        ${valid.map(img => `
+          <div class="guide-image-preview-item">
+            <img src="${esc(img.trim())}" alt="Xem trước ảnh" onerror="this.parentElement.innerHTML='<span class=img-err>Ảnh lỗi</span>'" />
+          </div>
+        `).join("")}
+      </div>
+      <small class="image-preview-badge">✓ Hiển thị ${valid.length} hình ảnh</small>
+    `;
+  }
 
   const VIETNAM_BANKS = [
     { code: "MB", gateway: "MB Bank", name: "MB Bank (Ngân hàng Quân Đội)" },
@@ -33,16 +103,18 @@ window.initAdminPricing = (() => {
   async function load() {
     const panel = $("#admin-pricing-view");
     try {
-      const [pricingData, bankData, depositsData] = await Promise.all([
+      const [pricingData, bankData, depositsData, guideRes] = await Promise.all([
         api("/api/admin/pricing"),
         api("/api/admin/bank").catch(() => ({ settings: { bank: {}, isActive: false } })),
         api("/api/admin/deposits?limit=100").catch(() => ({ deposits: [] })),
+        api("/api/admin/guide").catch(() => ({ guide: null })),
       ]);
       loaded = true;
       products = pricingData.products;
       promotions = pricingData.promotions;
       bankSettings = bankData.settings || { bank: {}, isActive: false };
       depositsList = depositsData.deposits || [];
+      guideData = guideRes.guide || null;
       render();
     } catch (error) {
       panel.innerHTML = `<p class="admin-error-msg" role="alert">${esc(error.message)}</p><button type="button" class="button secondary" data-pricing-reload>Tải lại dữ liệu</button>`;
@@ -263,6 +335,138 @@ window.initAdminPricing = (() => {
       `;
       return;
     }
+    if (currentView === "guide") {
+      const guide = guideData || {
+        title: "Hướng dẫn mua hàng tại VietNam Legacy",
+        subtitle: "Đơn giản · Nhanh chóng · Nhận hàng tự động & Hỗ trợ 24/7",
+        videoUrl: "",
+        images: ["assets/vnl-banner.png"],
+        steps: [
+          { title: "Bước 1: Chọn sản phẩm & Gói cần mua", description: "Duyệt qua danh mục Discord Nitro, Decor hoặc dịch vụ bạn cần." },
+          { title: "Bước 2: Nạp tiền ví qua mã QR ngân hàng", description: "Mở Ví cá nhân tại góc trên trang web, quét mã VietQR tự động." },
+          { title: "Bước 3: Đặt đơn & Nhận hàng tức thì", description: "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng." },
+        ],
+        content: "Cần tư vấn thêm về gói dịch vụ Setup Server Discord chuyên nghiệp hoặc lập trình Custom Bot riêng? Đừng ngần ngại liên hệ với shop qua Discord chính thức.",
+        isActive: true,
+      };
+
+      const videoEmbed = parseVideoEmbed(guide.videoUrl);
+      const imagesList = Array.isArray(guide.images) ? guide.images : [];
+      const stepsList = Array.isArray(guide.steps) && guide.steps.length ? guide.steps : [
+        { title: "Bước 1: Chọn sản phẩm & Gói cần mua", description: "Duyệt qua danh mục Discord Nitro, Decor hoặc dịch vụ bạn cần." },
+        { title: "Bước 2: Nạp tiền ví qua mã QR ngân hàng", description: "Mở Ví cá nhân tại góc trên trang web, quét mã VietQR tự động." },
+        { title: "Bước 3: Đặt đơn & Nhận hàng tức thì", description: "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng." },
+      ];
+
+      panel.innerHTML = `
+        <header class="pricing-heading">
+          <div>
+            <span class="pricing-eyebrow">HƯỚNG DẪN MUA HÀNG</span>
+            <h2>Quản lý Hướng dẫn Khách hàng</h2>
+            <p>Đăng video hướng dẫn (YouTube / MP4), hình ảnh minh họa và các bước đặt đơn hiển thị cho khách hàng.</p>
+          </div>
+          <div class="pricing-actions">
+            <a href="/" target="_blank" class="button secondary" rel="noopener noreferrer">Mở cửa hàng kiểm tra ↗</a>
+          </div>
+        </header>
+
+        <section class="pricing-card guide-manager-card">
+          <form id="admin-guide-form">
+            <div class="card-header-row">
+              <div>
+                <h3>📝 Thiết lập nội dung hướng dẫn</h3>
+                <p>Nội dung này xuất hiện khi khách nhấn vào nút "Hướng dẫn mua hàng" trên menu hoặc trang chủ.</p>
+              </div>
+              <div class="announcement-toggle-group">
+                <label class="switch-label">
+                  <input type="checkbox" id="admin-guide-active" ${guide.isActive ? "checked" : ""} />
+                  <span class="switch-slider"></span>
+                </label>
+                <span id="admin-guide-active-label" class="${guide.isActive ? "status-active" : "status-inactive"}">
+                  ${guide.isActive ? "Đang bật hiển thị" : "Tạm ẩn"}
+                </span>
+              </div>
+            </div>
+
+            <div class="guide-form-grid">
+              <label>
+                Tiêu đề hướng dẫn chính *
+                <input name="title" required maxlength="200" value="${esc(guide.title)}" placeholder="VD: Hướng dẫn mua hàng tại VietNam Legacy" />
+                <small>Tiêu đề lớn hiển thị đầu cửa sổ hướng dẫn.</small>
+              </label>
+
+              <label>
+                Lời dẫn phụ (Subtitle)
+                <input name="subtitle" maxlength="300" value="${esc(guide.subtitle || "")}" placeholder="VD: Đơn giản · Nhanh chóng · Nhận hàng tự động & Hỗ trợ 24/7" />
+                <small>Dòng tóm tắt ngắn bên dưới tiêu đề.</small>
+              </label>
+            </div>
+
+            <div class="guide-media-section">
+              <div class="guide-media-col">
+                <label>
+                  🎬 Link Video hướng dẫn (YouTube / MP4)
+                  <input id="guide-video-input" name="videoUrl" value="${esc(guide.videoUrl || "")}" placeholder="VD: https://www.youtube.com/watch?v=... hoặc https://youtu.be/... hoặc file .mp4" />
+                  <small>Dán link video YouTube (hoặc link MP4). Hệ thống sẽ tự động phát video chuẩn 16:9 cho khách xem trực tiếp.</small>
+                </label>
+
+                <div class="guide-preview-video-box" id="guide-preview-video-box">
+                  ${renderVideoPreviewHtml(videoEmbed)}
+                </div>
+              </div>
+
+              <div class="guide-media-col">
+                <label>
+                  🖼️ Link Hình ảnh hướng dẫn (Mỗi dòng 1 link)
+                  <textarea id="guide-images-input" name="images" rows="4" placeholder="VD:&#10;assets/vnl-banner.png&#10;https://i.imgur.com/example.png">${esc(imagesList.join("\n"))}</textarea>
+                  <small>Nhập link các ảnh chụp màn hình hoặc banner hướng dẫn từng bước. Mỗi ảnh trên một dòng riêng.</small>
+                </label>
+
+                <div class="guide-preview-images-box" id="guide-preview-images-box">
+                  ${renderImagesPreviewHtml(imagesList)}
+                </div>
+              </div>
+            </div>
+
+            <fieldset class="guide-steps-fieldset">
+              <legend>📋 Các bước mua hàng chi tiết</legend>
+              <p class="fieldset-desc">Tạo các bước rõ ràng giúp khách dễ dàng làm quen với quy trình mua hàng.</p>
+              
+              <div id="guide-steps-container" class="guide-steps-container">
+                ${stepsList.map((step, idx) => `
+                  <div class="guide-step-editor-row" data-step-index="${idx}">
+                    <span class="step-num-badge">${idx + 1}</span>
+                    <div class="step-fields">
+                      <input name="stepTitle[]" required placeholder="Tên bước (VD: Bước ${idx + 1}: Chọn gói sản phẩm)" value="${esc(step.title)}" />
+                      <textarea name="stepDesc[]" rows="2" placeholder="Chi tiết bước này...">${esc(step.description)}</textarea>
+                    </div>
+                    <button type="button" class="button secondary btn-small btn-danger" data-remove-step title="Xóa bước này">✕</button>
+                  </div>
+                `).join("")}
+              </div>
+
+              <div class="guide-steps-actions">
+                <button type="button" class="button secondary btn-small" id="btn-add-guide-step">+ Thêm bước tiếp theo</button>
+              </div>
+            </fieldset>
+
+            <div class="guide-notes-section">
+              <label>
+                💬 Lời dặn hoặc Hướng dẫn liên hệ hỗ trợ
+                <textarea name="content" rows="3" placeholder="Ghi chú thêm về điều kiện bảo hành, link Discord hoặc tư vấn riêng...">${esc(guide.content || "")}</textarea>
+                <small>Đoạn văn này xuất hiện cuối cùng trước nút liên hệ Discord của shop.</small>
+              </label>
+            </div>
+
+            <div class="guide-form-footer">
+              <p id="guide-form-message" class="pricing-form-message"></p>
+              <button type="submit" class="button primary" id="btn-save-guide">Lưu & Đăng hướng dẫn 💾</button>
+            </div>
+          </form>
+        </section>
+      `;
+      return;
+    }
     const coupon = currentView === "coupons", kind = coupon ? "coupon" : "campaign";
     const rows = promotions.filter(p => p.kind === kind);
     panel.innerHTML = `<header class="pricing-heading"><div><span class="pricing-eyebrow">ƯU ĐÃI CỬA HÀNG</span><h2>${coupon ? "Mã giảm giá" : "Đợt giảm giá"}</h2>
@@ -456,7 +660,7 @@ window.initAdminPricing = (() => {
 
   async function submit(event) {
     const form = event.target;
-    if (!["admin-prices-form", "promotion-form", "product-create-form", "variant-create-form", "admin-bank-form"].includes(form.id)) return;
+    if (!["admin-prices-form", "promotion-form", "product-create-form", "variant-create-form", "admin-bank-form", "admin-guide-form"].includes(form.id)) return;
     event.preventDefault();
     const button = form.querySelector('[type="submit"]'), message = form.querySelector(".pricing-form-message");
     if (button.disabled) return;
@@ -467,6 +671,29 @@ window.initAdminPricing = (() => {
         const prices = [...form.querySelectorAll("[data-price-product]:not(:disabled)")].map(input => ({ productId: input.dataset.priceProduct, variantId: input.dataset.priceVariant, price: Number(input.value) }));
         await api("/api/admin/prices", { method: "PUT", body: JSON.stringify({ prices }) });
         notify("Đã lưu bảng giá sản phẩm.");
+      } else if (form.id === "admin-guide-form") {
+        const data = new FormData(form);
+        const title = (data.get("title") || "").trim();
+        const subtitle = (data.get("subtitle") || "").trim();
+        const videoUrl = (data.get("videoUrl") || "").trim();
+        const content = (data.get("content") || "").trim();
+        const isActive = $("#admin-guide-active") ? $("#admin-guide-active").checked : true;
+        const imagesRaw = data.get("images") || "";
+        const images = imagesRaw.split("\n").map(s => s.trim()).filter(Boolean);
+        const stepTitleEls = form.querySelectorAll("[name='stepTitle[]']");
+        const stepDescEls = form.querySelectorAll("[name='stepDesc[]']");
+        const steps = [];
+        for (let i = 0; i < stepTitleEls.length; i++) {
+          const st = (stepTitleEls[i].value || "").trim();
+          const sd = (stepDescEls[i].value || "").trim();
+          if (st || sd) steps.push({ title: st, description: sd });
+        }
+        const res = await api("/api/admin/guide", {
+          method: "POST",
+          body: JSON.stringify({ title, subtitle, videoUrl, images, steps, content, isActive }),
+        });
+        guideData = res.guide;
+        notify("Đã lưu và cập nhật hướng dẫn mua hàng!");
       } else if (form.id === "admin-bank-form") {
         const data = new FormData(form);
         const isActive = $("#bank-active-toggle") ? $("#bank-active-toggle").checked : true;
@@ -546,8 +773,29 @@ window.initAdminPricing = (() => {
             statusText.className = event.target.checked ? "status-active" : "status-inactive";
           }
         }
+        if (event.target.id === "admin-guide-active") {
+          const statusText = document.querySelector("#admin-guide-active-label");
+          if (statusText) {
+            statusText.textContent = event.target.checked ? "Đang bật hiển thị" : "Tạm ẩn";
+            statusText.className = event.target.checked ? "status-active" : "status-inactive";
+          }
+        }
       });
       document.addEventListener("input", event => {
+        if (event.target.id === "guide-video-input") {
+          const box = document.querySelector("#guide-preview-video-box");
+          if (box) {
+            const embed = parseVideoEmbed(event.target.value);
+            box.innerHTML = renderVideoPreviewHtml(embed);
+          }
+        }
+        if (event.target.id === "guide-images-input") {
+          const box = document.querySelector("#guide-preview-images-box");
+          if (box) {
+            const imgs = event.target.value.split("\n").map(s => s.trim()).filter(Boolean);
+            box.innerHTML = renderImagesPreviewHtml(imgs);
+          }
+        }
         if (event.target.id === "deposit-search-input") {
           depositSearch = event.target.value.trim().toLowerCase();
           const container = document.querySelector("#deposit-cards-container");
@@ -568,6 +816,39 @@ window.initAdminPricing = (() => {
       document.addEventListener("click", async event => {
         const button = event.target.closest("button");
         if (!button) return;
+        if (button.id === "btn-add-guide-step") {
+          const container = document.querySelector("#guide-steps-container");
+          if (container) {
+            const nextIdx = container.querySelectorAll(".guide-step-editor-row").length;
+            const row = document.createElement("div");
+            row.className = "guide-step-editor-row";
+            row.dataset.stepIndex = nextIdx;
+            row.innerHTML = `
+              <span class="step-num-badge">${nextIdx + 1}</span>
+              <div class="step-fields">
+                <input name="stepTitle[]" required placeholder="Tên bước (VD: Bước ${nextIdx + 1}: ...)" value="Bước ${nextIdx + 1}: " />
+                <textarea name="stepDesc[]" rows="2" placeholder="Chi tiết bước này..."></textarea>
+              </div>
+              <button type="button" class="button secondary btn-small btn-danger" data-remove-step title="Xóa bước này">✕</button>
+            `;
+            container.appendChild(row);
+            row.querySelector("input").focus();
+          }
+        }
+        if (button.hasAttribute("data-remove-step")) {
+          const row = button.closest(".guide-step-editor-row");
+          if (row) {
+            const container = document.querySelector("#guide-steps-container");
+            row.remove();
+            if (container) {
+              container.querySelectorAll(".guide-step-editor-row").forEach((r, idx) => {
+                r.dataset.stepIndex = idx;
+                const badge = r.querySelector(".step-num-badge");
+                if (badge) badge.textContent = idx + 1;
+              });
+            }
+          }
+        }
         if (button.dataset.adminView) switchView(button.dataset.adminView);
         if (button.hasAttribute("data-pricing-reload")) await load();
         if (button.hasAttribute("data-deposits-reload")) await load();

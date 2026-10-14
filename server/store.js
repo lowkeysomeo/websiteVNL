@@ -657,3 +657,153 @@ export async function cancelDeposit(db, depositId, now = Date.now()) {
     .run(deposit.id);
   return { success: true, depositId: deposit.id, status: "expired" };
 }
+
+export const DEFAULT_SHOPPING_GUIDE = {
+  title: "Hướng dẫn mua hàng tại VietNam Legacy",
+  subtitle: "Đơn giản · Nhanh chóng · Nhận hàng tự động & Hỗ trợ 24/7",
+  videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  images: ["assets/vnl-banner.png"],
+  steps: [
+    {
+      title: "Bước 1: Chọn sản phẩm & Gói cần mua",
+      description:
+        "Duyệt qua danh mục Discord Nitro, Decor hoặc dịch vụ bạn cần. Chọn gói thời hạn phù hợp và hình thức nhận (Link quà tặng Gift hoặc Nạp qua tài khoản Log).",
+    },
+    {
+      title: "Bước 2: Nạp tiền ví qua mã QR ngân hàng",
+      description:
+        "Mở Ví cá nhân tại góc trên trang web, nhập số tiền cần nạp và dùng app ngân hàng quét mã VietQR tự động. Tiền sẽ được cộng vào ví ngay sau khi chuyển khoản.",
+    },
+    {
+      title: "Bước 3: Đặt đơn & Nhận hàng tức thì",
+      description:
+        "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng. Link quà tặng Discord sẽ hiển thị ngay trong mục 'Đơn hàng của tôi'. Đội ngũ hỗ trợ luôn sẵn sàng đồng hành 24/7.",
+    },
+  ],
+  content:
+    "Cần tư vấn thêm về gói dịch vụ Setup Server Discord chuyên nghiệp hoặc lập trình Custom Bot riêng? Đừng ngần ngại liên hệ với shop qua Discord chính thức.",
+  isActive: true,
+  updatedAt: 0,
+};
+
+export async function getShoppingGuide(db) {
+  let row = null;
+  try {
+    row = await db
+      .prepare(
+        "SELECT id, title, subtitle, video_url, image_urls_json, steps_json, content, is_active, updated_at FROM shopping_guides WHERE id = 'main'",
+      )
+      .get();
+  } catch {
+    // If table doesn't exist yet
+  }
+  if (!row) {
+    return { ...DEFAULT_SHOPPING_GUIDE };
+  }
+  let images = [];
+  try {
+    images = JSON.parse(row.image_urls_json || "[]");
+    if (!Array.isArray(images)) images = [];
+  } catch {
+    images = [];
+  }
+  let steps = [];
+  try {
+    steps = JSON.parse(row.steps_json || "[]");
+    if (!Array.isArray(steps)) steps = [];
+  } catch {
+    steps = [];
+  }
+  return {
+    title: row.title || DEFAULT_SHOPPING_GUIDE.title,
+    subtitle: row.subtitle ?? "",
+    videoUrl: row.video_url ?? "",
+    images,
+    steps,
+    content: row.content ?? "",
+    isActive: Boolean(row.is_active),
+    updatedAt: Number(row.updated_at || 0),
+  };
+}
+
+export async function saveShoppingGuide(db, data, now = Date.now()) {
+  const title = String(data.title || "").trim();
+  if (!title) {
+    const err = new Error("Tiêu đề hướng dẫn không được để trống.");
+    err.status = 400;
+    throw err;
+  }
+  if (title.length > 200) {
+    const err = new Error("Tiêu đề quá dài (tối đa 200 ký tự).");
+    err.status = 400;
+    throw err;
+  }
+
+  const subtitle = String(data.subtitle || "").trim().slice(0, 300);
+  const videoUrl = String(data.videoUrl || data.video_url || "").trim().slice(0, 1000);
+  const content = String(data.content || "").trim().slice(0, 3000);
+  const isActive =
+    data.isActive !== false && data.is_active !== false && data.isActive !== 0;
+
+  let images = [];
+  if (Array.isArray(data.images)) {
+    images = data.images
+      .map((url) => String(url || "").trim())
+      .filter((url) => url.length > 0 && url.length <= 1000)
+      .slice(0, 20);
+  } else if (typeof data.images === "string") {
+    images = data.images
+      .split("\n")
+      .map((url) => url.trim())
+      .filter((url) => url.length > 0 && url.length <= 1000)
+      .slice(0, 20);
+  }
+
+  let steps = [];
+  if (Array.isArray(data.steps)) {
+    steps = data.steps
+      .map((s) => ({
+        title: String(s.title || "").trim().slice(0, 150),
+        description: String(s.description || "").trim().slice(0, 1000),
+      }))
+      .filter((s) => s.title.length > 0 || s.description.length > 0)
+      .slice(0, 20);
+  }
+
+  await db
+    .prepare(
+      `INSERT INTO shopping_guides (id, title, subtitle, video_url, image_urls_json, steps_json, content, is_active, updated_at)
+       VALUES ('main', ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         title = excluded.title,
+         subtitle = excluded.subtitle,
+         video_url = excluded.video_url,
+         image_urls_json = excluded.image_urls_json,
+         steps_json = excluded.steps_json,
+         content = excluded.content,
+         is_active = excluded.is_active,
+         updated_at = excluded.updated_at`,
+    )
+    .run(
+      title,
+      subtitle,
+      videoUrl,
+      JSON.stringify(images),
+      JSON.stringify(steps),
+      content,
+      isActive ? 1 : 0,
+      now,
+    );
+
+  return {
+    title,
+    subtitle,
+    videoUrl,
+    images,
+    steps,
+    content,
+    isActive,
+    updatedAt: now,
+  };
+}
+

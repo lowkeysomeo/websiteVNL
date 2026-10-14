@@ -726,3 +726,189 @@ body {
   .deposit-item-actions { width: 100%; justify-content: flex-end; }
 }
 
+/* Guide Manager Styles in Admin */
+.guide-manager-card {
+  margin-top: 16px;
+}
+.guide-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.guide-form-grid label,
+.guide-media-col label,
+.guide-notes-section label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.guide-form-grid small,
+.guide-media-col small,
+.guide-notes-section small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.guide-media-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.guide-media-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.guide-preview-video-box,
+.guide-preview-images-box {
+  background: #140b0e;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.guide-media-empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+.guide-media-empty span {
+  font-size: 28px;
+  display: block;
+  margin-bottom: 6px;
+}
+.guide-video-embed-preview {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #000;
+}
+.guide-video-embed-preview iframe,
+.guide-video-embed-preview video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.video-preview-badge,
+.image-preview-badge {
+  color: #90e6bb;
+  font-size: 10px;
+  margin-top: 6px;
+  align-self: flex-start;
+}
+.guide-images-grid-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+.guide-image-preview-item {
+  aspect-ratio: 16/9;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #0d0608;
+}
+.guide-image-preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.guide-image-preview-item .img-err {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 9px;
+  color: #ffaca4;
+}
+.guide-steps-fieldset {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.guide-steps-fieldset legend {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 0 8px;
+}
+.fieldset-desc {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0 0 14px;
+}
+.guide-steps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.guide-step-editor-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #170d10;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+.step-num-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 209, 92, 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(255, 209, 92, 0.3);
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.step-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.step-fields input {
+  font-weight: 600;
+}
+.guide-steps-actions {
+  margin-top: 14px;
+}
+.guide-notes-section {
+  margin-bottom: 20px;
+}
+.guide-form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
+@media (max-width: 768px) {
+  .guide-form-grid,
+  .guide-media-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+

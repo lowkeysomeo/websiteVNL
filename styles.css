@@ -2422,3 +2422,210 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
 .checkout-price-breakdown>div:not(:first-child)>span:last-child { color:#a7e8bd; }
 .order-discount-note { display:block; color:var(--muted); font-size:11px; line-height:1.6; margin-top:6px; }
 .price-loading { font-size:12px; color:var(--muted); }
+
+/* Guide Dialog & Banner Styles */
+.guide-dialog {
+  max-width: 760px;
+  width: calc(100% - 32px);
+  padding: 28px;
+}
+.guide-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  border-bottom: 1px solid #4a3438;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+.guide-dialog-header h2 {
+  margin: 4px 0 0;
+  font-size: 20px;
+  color: var(--accent);
+}
+.guide-dialog-subtitle {
+  font-size: 13px;
+  color: #d1c0b8;
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+.guide-video-wrapper {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0d0507;
+  border: 1px solid #573e43;
+  margin: 0 0 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+.guide-video-wrapper iframe,
+.guide-video-wrapper video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.guide-section-heading {
+  font-size: 14px;
+  color: #fff;
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.guide-steps-section {
+  margin-bottom: 24px;
+}
+.guide-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.guide-step-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: #271418;
+  border: 1px solid #4f363b;
+  border-radius: 10px;
+  padding: 14px 16px;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.guide-step-card:hover {
+  border-color: #7d545c;
+  transform: translateY(-1px);
+}
+.guide-step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 209, 92, 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(255, 209, 92, 0.35);
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.guide-step-body h5 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: #fff;
+}
+.guide-step-body p {
+  margin: 0;
+  font-size: 12px;
+  color: #bdafa8;
+  line-height: 1.5;
+}
+.guide-gallery-section {
+  margin-bottom: 24px;
+}
+.guide-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.guide-gallery-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #4f363b;
+  background: #180a0d;
+  aspect-ratio: 16 / 9;
+  display: block;
+}
+.guide-gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.25s ease;
+}
+.guide-gallery-item:hover img {
+  transform: scale(1.05);
+}
+.guide-gallery-zoom {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.guide-gallery-item:hover .guide-gallery-zoom {
+  opacity: 1;
+}
+.guide-note-box {
+  background: rgba(255, 209, 92, 0.08);
+  border: 1px solid rgba(255, 209, 92, 0.25);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+}
+.guide-note-box p {
+  margin: 0;
+  font-size: 12px;
+  color: #e5d7aa;
+  line-height: 1.5;
+}
+.guide-dialog-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  border-top: 1px solid #4a3438;
+  padding-top: 18px;
+}
+
+/* Guide Banner on Homepage */
+.guide-banner {
+  margin: 40px 0;
+  background: linear-gradient(135deg, #2a1318 0%, #1c0a0e 100%);
+  border: 1px solid #573e43;
+  border-radius: 14px;
+  padding: 28px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.guide-banner-body h2 {
+  margin: 6px 0 8px;
+  font-size: 20px;
+  color: #fff;
+}
+.guide-banner-body p {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #bdafa8;
+  max-width: 600px;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .guide-dialog {
+    padding: 20px 16px;
+  }
+  .guide-banner {
+    padding: 20px;
+  }
+  .guide-dialog-actions {
+    flex-direction: column;
+  }
+  .guide-dialog-actions .button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+

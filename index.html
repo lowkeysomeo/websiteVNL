@@ -28,13 +28,13 @@
     <link rel="icon" type="image/png" href="assets/vnl-avatar.png?v=20261014" />
     <link rel="shortcut icon" type="image/png" href="assets/vnl-avatar.png?v=20261014" />
     <link rel="apple-touch-icon" href="assets/vnl-avatar.png?v=20261014" />
-    <link rel="stylesheet" href="styles.css?v=20261014-mobile1" />
+    <link rel="stylesheet" href="styles.css?v=20261014-guide1" />
     <script src="assets/vendor/three.min.js" defer></script>
     <script src="assets/fonts/vnl-font.js" defer></script>
     <script src="hero3d.js" defer></script>
     <script src="cursor.js?v=20261012-cursor11" defer></script>
     <script src="products.js" defer></script>
-    <script src="app.js?v=20261014-mobile1" defer></script>
+    <script src="app.js?v=20261014-guide1" defer></script>
     <link rel="stylesheet" href="wallet.css" />
     <script src="wallet.js" defer></script>
     <script src="intro.js?v=20261013-intro2" defer></script>
@@ -327,6 +327,19 @@
           </div>
         </section>
 
+        <section class="guide-banner" id="guide-banner" aria-labelledby="guide-banner-title">
+          <div class="guide-banner-body">
+            <span class="eyebrow">HƯỚNG DẪN MUA HÀNG</span>
+            <h2 id="guide-banner-title">Mua sắm dễ dàng cùng VietNam Legacy</h2>
+            <p>
+              Xem video hướng dẫn chi tiết và các bước đơn giản để nạp tiền ví, đặt đơn và nhận link quà tặng Discord nhanh chóng.
+            </p>
+            <button class="button primary" data-action="guide">
+              Xem video & hướng dẫn mua <span data-icon="book"></span>
+            </button>
+          </div>
+        </section>
+
         <section class="bottom-banner">
           <div>
             <span class="eyebrow">JOIN THE LEGACY</span>
@@ -521,6 +534,18 @@
         ×
       </button>
       <div id="info-content"></div>
+    </dialog>
+    <dialog id="guide-dialog" class="guide-dialog" aria-labelledby="guide-dialog-title">
+      <div class="guide-dialog-header">
+        <div>
+          <span class="eyebrow">VIETNAM LEGACY</span>
+          <h2 id="guide-dialog-title">Hướng dẫn mua hàng</h2>
+        </div>
+        <button class="dialog-close icon-button" data-close aria-label="Đóng">
+          ×
+        </button>
+      </div>
+      <div id="guide-dialog-body" class="guide-dialog-body"></div>
     </dialog>
     <button
       class="scroll-top-button"

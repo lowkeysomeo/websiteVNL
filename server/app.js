@@ -17,6 +17,8 @@ import {
   getAdminDeposits,
   manualCreditDeposit,
   cancelDeposit,
+  getShoppingGuide,
+  saveShoppingGuide,
 } from "./store.js";
 import {
   getCatalog,
@@ -667,6 +669,22 @@ export function createApp(db, config) {
           sameOrigin(req);
           const result = await cancelDeposit(db, adminDepositCancelMatch[1]);
           return json(200, result);
+        }
+        if (req.method === "GET" && route === "/api/guide") {
+          const guide = await getShoppingGuide(db);
+          return json(200, { success: true, guide });
+        }
+        if (req.method === "GET" && route === "/api/admin/guide") {
+          requireAdmin(req);
+          const guide = await getShoppingGuide(db);
+          return json(200, { success: true, guide });
+        }
+        if (["POST", "PUT"].includes(req.method) && route === "/api/admin/guide") {
+          requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const guide = await saveShoppingGuide(db, body);
+          return json(200, { success: true, guide });
         }
         throw fail(404, "Không tìm thấy chức năng.");
       }

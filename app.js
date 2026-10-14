@@ -705,6 +705,189 @@ async function showOrders() {
 }
 
 
+let cachedGuide = null;
+
+function parseGuideVideo(url) {
+  if (!url) return null;
+  const trimmed = String(url).trim();
+  const ytMatch = trimmed.match(
+    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+  );
+  if (ytMatch) {
+    return {
+      type: "youtube",
+      embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}?rel=0`,
+      id: ytMatch[1],
+    };
+  }
+  if (/\.(mp4|webm|ogg)($|\?)/i.test(trimmed)) {
+    return {
+      type: "direct",
+      src: trimmed,
+    };
+  }
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return {
+      type: "iframe",
+      src: trimmed,
+    };
+  }
+  return null;
+}
+
+async function showGuideModal() {
+  const guideDialog = document.querySelector("#guide-dialog");
+  const guideBody = document.querySelector("#guide-dialog-body");
+  const guideTitle = document.querySelector("#guide-dialog-title");
+
+  if (!guideDialog || !guideBody) {
+    showInfo("Hướng dẫn mua hàng", "<p>Đang tải hướng dẫn...</p>");
+    return;
+  }
+
+  if (!guideDialog.open) guideDialog.showModal();
+
+  if (!cachedGuide) {
+    guideBody.innerHTML = `<p class="muted" style="text-align:center; padding: 28px 0;">Đang tải hướng dẫn mua hàng...</p>`;
+    try {
+      const res = await fetch("/api/guide");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.guide) cachedGuide = data.guide;
+      }
+    } catch {
+      // Offline fallback
+    }
+  }
+
+  const guide = cachedGuide || {
+    title: "Hướng dẫn mua hàng tại VietNam Legacy",
+    subtitle: "Đơn giản · Nhanh chóng · Nhận hàng tự động & Hỗ trợ 24/7",
+    videoUrl: "",
+    images: ["assets/vnl-banner.png"],
+    steps: [
+      {
+        title: "Bước 1: Chọn sản phẩm & Gói cần mua",
+        description:
+          "Duyệt qua danh mục Discord Nitro, Decor hoặc dịch vụ bạn cần. Chọn gói thời hạn phù hợp và hình thức nhận (Link quà tặng Gift hoặc Nạp qua tài khoản Log).",
+      },
+      {
+        title: "Bước 2: Nạp tiền ví qua mã QR ngân hàng",
+        description:
+          "Mở Ví cá nhân tại góc trên trang web, nhập số tiền cần nạp và dùng app ngân hàng quét mã VietQR tự động. Tiền sẽ được cộng vào ví ngay sau khi chuyển khoản.",
+      },
+      {
+        title: "Bước 3: Đặt đơn & Nhận hàng tức thì",
+        description:
+          "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng. Link quà tặng Discord sẽ hiển thị ngay trong mục 'Đơn hàng của tôi'. Đội ngũ hỗ trợ luôn sẵn sàng đồng hành 24/7.",
+      },
+    ],
+    content:
+      "Cần tư vấn thêm về gói dịch vụ Setup Server Discord chuyên nghiệp hoặc lập trình Custom Bot riêng? Đừng ngần ngại liên hệ với shop qua Discord chính thức.",
+    isActive: true,
+  };
+
+  if (guideTitle) guideTitle.textContent = guide.title || "Hướng dẫn mua hàng";
+
+  const videoEmbed = parseGuideVideo(guide.videoUrl);
+  const images = Array.isArray(guide.images) ? guide.images.filter(Boolean) : [];
+  const steps = Array.isArray(guide.steps) ? guide.steps : [];
+
+  let videoHtml = "";
+  if (videoEmbed) {
+    if (videoEmbed.type === "youtube") {
+      videoHtml = `
+        <div class="guide-video-wrapper">
+          <iframe src="${escapeHtml(videoEmbed.embedUrl)}" title="${escapeHtml(guide.title)}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+        </div>
+      `;
+    } else if (videoEmbed.type === "direct") {
+      videoHtml = `
+        <div class="guide-video-wrapper">
+          <video src="${escapeHtml(videoEmbed.src)}" controls playsinline preload="metadata"></video>
+        </div>
+      `;
+    } else if (videoEmbed.type === "iframe") {
+      videoHtml = `
+        <div class="guide-video-wrapper">
+          <iframe src="${escapeHtml(videoEmbed.src)}" title="${escapeHtml(guide.title)}" frameborder="0" allowfullscreen loading="lazy"></iframe>
+        </div>
+      `;
+    }
+  }
+
+  let imagesHtml = "";
+  if (images.length) {
+    imagesHtml = `
+      <div class="guide-gallery-section">
+        <h4 class="guide-section-heading"><span data-icon="sparkles"></span> Hình ảnh minh họa</h4>
+        <div class="guide-gallery">
+          ${images
+            .map(
+              (img) => `
+            <a class="guide-gallery-item" href="${escapeHtml(img)}" target="_blank" rel="noopener noreferrer" title="Bấm để xem ảnh phóng to">
+              <img src="${escapeHtml(img)}" alt="Hình ảnh hướng dẫn" loading="lazy" />
+              <span class="guide-gallery-zoom">🔍 Phóng to</span>
+            </a>
+          `,
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  let stepsHtml = "";
+  if (steps.length) {
+    stepsHtml = `
+      <div class="guide-steps-section">
+        <h4 class="guide-section-heading"><span data-icon="book"></span> Các bước mua hàng</h4>
+        <div class="guide-steps-list">
+          ${steps
+            .map(
+              (s, idx) => `
+            <div class="guide-step-card">
+              <div class="guide-step-badge">${idx + 1}</div>
+              <div class="guide-step-body">
+                <h5>${escapeHtml(s.title || `Bước ${idx + 1}`)}</h5>
+                <p>${escapeHtml(s.description || "")}</p>
+              </div>
+            </div>
+          `,
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  let contentHtml = "";
+  if (guide.content) {
+    contentHtml = `
+      <div class="guide-note-box">
+        <p>${escapeHtml(guide.content)}</p>
+      </div>
+    `;
+  }
+
+  guideBody.innerHTML = `
+    ${guide.subtitle ? `<p class="guide-dialog-subtitle">${escapeHtml(guide.subtitle)}</p>` : ""}
+    ${videoHtml}
+    ${stepsHtml}
+    ${imagesHtml}
+    ${contentHtml}
+    <div class="guide-dialog-actions">
+      <a class="button primary" href="${storeConfig.discordUrl}" target="_blank" rel="noopener noreferrer">
+        Hỏi shop trên Discord ${icon("arrow")}
+      </a>
+      <button class="button secondary" type="button" data-guide-explore>
+        Khám phá sản phẩm ngay
+      </button>
+    </div>
+  `;
+}
+window.showGuideModal = showGuideModal;
+
 function showSupport() {
   showInfo(
     "Cùng kết nối với Legacy.",
@@ -727,13 +910,7 @@ function handleAction(action) {
     smoothScrollTo("#catalog");
   }
   if (action === "guide") {
-    showInfo(
-      "Mua hàng trong 3 bước.",
-      `
-      <ol class="info-list"><li>Xem sản phẩm và chọn gói phù hợp.</li><li>Thêm vào giỏ, kiểm tra gói và số lượng.</li><li>Thử đặt đơn hoặc liên hệ Discord để hỏi về việc mua thực tế.</li></ol>
-      <p>Setup Server và Custom Bot được tư vấn riêng trên Discord. Trang hiện dùng giá mẫu và chưa nhận thanh toán.</p>
-      <a class="button primary" href="${storeConfig.discordUrl}" target="_blank" rel="noopener noreferrer">Hỏi shop trên Discord ${icon("arrow")}</a>`,
-    );
+    showGuideModal();
   }
   if (action === "demo") {
     showInfo(
@@ -784,6 +961,10 @@ document.addEventListener("click", (event) => {
   const button = event.target.closest("button, a");
   if (!button) return;
   if (button.hasAttribute("data-close")) button.closest("dialog")?.close();
+  if (button.hasAttribute("data-guide-explore")) {
+    document.querySelector("#guide-dialog")?.close();
+    smoothScrollTo("#catalog");
+  }
   if (button.dataset.detail) showProduct(button.dataset.detail);
   if (button.dataset.add) addToCart(button.dataset.add);
   if (button.dataset.buy) showProduct(button.dataset.buy, true);
