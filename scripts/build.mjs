@@ -19,6 +19,7 @@ const files = [
   "admin.js",
   "admin-pricing.js",
   "admin.css",
+  "favicon.ico",
 ];
 for (const file of files)
   await copyFile(new URL(file, root), new URL(file, output));

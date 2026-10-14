@@ -182,10 +182,14 @@ test("Vercel web handler serves admin-pricing.js asset and handles pricing APIs 
     await db.exec(await readFile(new URL("../server/schema.sql", import.meta.url), "utf8"));
     const endpoint = webHandler(createApp(db, config).listeners("request")[0]);
 
-    // 1. Static asset: admin-pricing.js is accessible
+    // 1. Static asset: admin-pricing.js and favicon.ico are accessible
     const assetRes = await endpoint.fetch(new Request(origin + "/admin-pricing.js"));
     assert.equal(assetRes.status, 200);
     assert.match(assetRes.headers.get("content-type"), /javascript/);
+
+    const faviconRes = await endpoint.fetch(new Request(origin + "/favicon.ico"));
+    assert.equal(faviconRes.status, 200);
+    assert.equal(faviconRes.headers.get("content-type"), "image/x-icon");
 
     // 2. Admin pricing endpoint
     const adminHeaders = { "X-Admin-Key": config.adminPassword, Origin: origin, "Content-Type": "application/json" };

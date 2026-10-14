@@ -50,6 +50,7 @@ const types = {
   ".js": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".ico": "image/x-icon",
   ".json": "application/json",
 };
 
@@ -677,6 +678,7 @@ export function createApp(db, config) {
       if (
         ![
           "index.html",
+          "favicon.ico",
           "local-entry.js",
           "styles.css",
           "products.js",
