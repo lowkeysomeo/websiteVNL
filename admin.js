@@ -1,6 +1,7 @@
 (() => {
   let adminKey = sessionStorage.getItem("vnl_admin_key") || "";
   let allOrders = [];
+  let statsRequest = 0;
   let currentFilter = "all";
   let searchQuery = "";
 
@@ -60,6 +61,10 @@
     if (!res.ok) {
       throw new Error(data.error || "Yêu cầu thất bại.");
     }
+    // Thao tác đơn/nạp thành công thì lấy lại thống kê ngay.
+    if ((options.method || "GET").toUpperCase() !== "GET" && /^\/api\/admin\/(orders|deposits)(?:[/?]|$)/.test(path)) {
+      void loadStats();
+    }
     return data;
   }
 
@@ -106,6 +111,11 @@
   tabLoginPartner?.addEventListener("click", () => setLoginMode("partner"));
 
   function showLogin() {
+    statsRequest += 1;
+    for (const id of ["stat-total-orders", "stat-processing-orders", "stat-completed-orders", "stat-total-revenue"]) {
+      document.querySelector("#" + id).textContent = "—";
+    }
+    document.querySelector("#admin-stats-feedback").textContent = "";
     loginScreen.hidden = false;
     adminApp.hidden = true;
     if (passwordInput) passwordInput.value = "";
@@ -267,27 +277,46 @@
     ordersContainer.innerHTML =
       '<p class="admin-loading-text">Đang tải danh sách đơn hàng...</p>';
     try {
-      const res = await api("/api/admin/orders?limit=100");
+      const [res] = await Promise.all([api("/api/admin/orders?limit=100"), loadStats()]);
       allOrders = res.orders || [];
-      updateStats();
       renderOrders();
     } catch (err) {
       ordersContainer.innerHTML = `<p class="admin-error-msg">${escapeHtml(err.message)}</p>`;
     }
   }
 
-  function updateStats() {
-    document.querySelector("#stat-total-orders").textContent = allOrders.length;
-    document.querySelector("#stat-processing-orders").textContent =
-      allOrders.filter((o) => o.status === "processing" || o.status === "pending").length;
-    document.querySelector("#stat-completed-orders").textContent =
-      allOrders.filter((o) => o.status === "completed").length;
-
-    const revenue = allOrders
-      .filter((o) => o.status !== "cancelled")
-      .reduce((sum, o) => sum + (o.total || 0), 0);
-    document.querySelector("#stat-total-revenue").textContent = money(revenue);
+  function updateStats(stats) {
+    document.querySelector("#stat-total-orders").textContent = stats.totalOrders;
+    document.querySelector("#stat-processing-orders").textContent = stats.needsAction;
+    document.querySelector("#stat-completed-orders").textContent = stats.completedOrders;
+    document.querySelector("#stat-total-revenue").textContent = money(stats.revenue);
+    document.querySelector("#stat-processing-orders").title =
+      stats.processingOrders + " đơn đang xử lý, " + stats.pendingDeposits + " yêu cầu nạp chờ/đối soát";
   }
+
+  async function loadStats() {
+    if (!adminKey || adminApp.hidden) return;
+    const request = ++statsRequest;
+    const feedback = document.querySelector("#admin-stats-feedback");
+    try {
+      const result = await api("/api/admin/stats");
+      if (request !== statsRequest || !adminKey || adminApp.hidden) return;
+      updateStats(result.stats);
+      feedback.textContent = "Cập nhật lúc " + new Date(result.stats.updatedAt).toLocaleTimeString("vi-VN") + " · Tự làm mới mỗi 15 giây";
+    } catch (error) {
+      if (request !== statsRequest || adminApp.hidden) return;
+      // Giữ số liệu gần nhất khi mất mạng, tránh hiển thị số 0 gây hiểu nhầm.
+      feedback.textContent = "Chưa cập nhật được thống kê: " + error.message;
+    }
+  }
+
+  setInterval(() => {
+    if (!document.hidden) void loadStats();
+  }, 15000);
+  window.addEventListener("focus", () => { void loadStats(); });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void loadStats();
+  });
 
   function filterOrders() {
     return allOrders.filter((order) => {
@@ -593,7 +622,6 @@
         });
         const idx = allOrders.findIndex((o) => o.id === orderId);
         if (idx !== -1) allOrders[idx] = res.order;
-        updateStats();
         renderOrders();
         notify(`Đã lưu Link Claim và hoàn tất đơn ${orderId}!`);
       } catch (err) {
@@ -622,7 +650,6 @@
         });
         const idx = allOrders.findIndex((o) => o.id === orderId);
         if (idx !== -1) allOrders[idx] = res.order;
-        updateStats();
         renderOrders();
         notify(`Đã cập nhật trạng thái đơn ${orderId} thành "${nextStatus}".`);
       } catch (err) {

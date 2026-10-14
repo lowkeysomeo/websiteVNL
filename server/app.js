@@ -9,6 +9,7 @@ import {
   createOrder,
   getUserOrders,
   getAdminOrders,
+  getAdminStats,
   updateAdminOrder,
   getAnnouncement,
   saveAnnouncement,
@@ -775,6 +776,13 @@ export function createApp(db, config) {
         if (req.method === "GET" && route === "/api/admin/me") {
           const caller = await requireAdminOrPartner(req);
           return json(200, { success: true, user: caller, ...caller });
+        }
+        if (req.method === "GET" && route === "/api/admin/stats") {
+          const caller = await requireAdminOrPartner(req);
+          const stats = await getAdminStats(db, {
+            partnerEmail: caller.role === "partner" ? caller.email : undefined,
+          });
+          return json(200, { success: true, stats });
         }
         if (req.method === "GET" && route === "/api/admin/orders") {
           const caller = await requireAdminOrPartner(req);

@@ -1501,3 +1501,6 @@ body {
 
 
 
+
+.admin-stats-feedback { color: var(--muted); font-size: 12px; margin: -12px 0 20px; }
+

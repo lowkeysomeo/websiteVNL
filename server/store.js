@@ -426,6 +426,35 @@ export async function getAdminOrders(
   return orders.slice(offset, offset + limit);
 }
 
+// Thống kê toàn bộ dữ liệu, không phụ thuộc số đơn đang tải ở danh sách.
+export async function getAdminStats(db, { partnerEmail, now = Date.now() } = {}) {
+  const params = [];
+  const scope = partnerEmail ? `WHERE EXISTS (
+    SELECT 1 FROM json_each(o.items_json) item
+    JOIN custom_products product ON product.id = json_extract(item.value, '$.productId')
+    WHERE LOWER(product.partner_email) = ?
+  )` : "";
+  if (partnerEmail) params.push(partnerEmail.toLowerCase());
+  const row = await db.prepare(`SELECT
+    COUNT(*) AS totalOrders,
+    COALESCE(SUM(CASE WHEN o.status IN ('pending', 'processing') THEN 1 ELSE 0 END), 0) AS processingOrders,
+    COALESCE(SUM(CASE WHEN o.status = 'completed' THEN 1 ELSE 0 END), 0) AS completedOrders,
+    COALESCE(SUM(CASE WHEN o.status = 'completed' THEN o.total ELSE 0 END), 0) AS revenue
+    FROM orders o ${scope}`).get(...params);
+  const depositRow = partnerEmail ? { n: 0 } : await db.prepare(
+    "SELECT COUNT(*) AS n FROM deposits WHERE status = 'review' OR (status = 'pending' AND expires_at >= ?)",
+  ).get(now);
+  return {
+    totalOrders: Number(row.totalOrders),
+    processingOrders: Number(row.processingOrders),
+    completedOrders: Number(row.completedOrders),
+    revenue: Number(row.revenue),
+    pendingDeposits: Number(depositRow.n),
+    needsAction: Number(row.processingOrders) + Number(depositRow.n),
+    updatedAt: now,
+  };
+}
+
 export async function updateAdminOrder(db, orderId, { status, claimLink }, partnerEmail = null) {
   const order = await db
     .prepare("SELECT * FROM orders WHERE id = ?")
