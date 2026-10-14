@@ -150,6 +150,11 @@
   }
 
   function startScene(card, canvas) {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const lightDevice = window.matchMedia('(pointer: coarse)').matches ||
+      (navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4) ||
+      (navigator.deviceMemory > 0 && navigator.deviceMemory <= 4);
+    // Giảm số điểm ảnh trên thiết bị yếu, vẫn giữ nguyên bố cục và tương tác.
     // Scene & Camera
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x1a0b0e, 0.003);
@@ -162,10 +167,10 @@
       canvas: canvas,
       antialias: true,
       alpha: true,
-      powerPreference: 'high-performance'
+      powerPreference: 'default'
     });
     renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lightDevice ? 1.5 : 2));
     if (renderer.outputEncoding !== undefined) {
       renderer.outputEncoding = THREE.sRGBEncoding;
     }
@@ -294,7 +299,7 @@
     rootGroup.add(starMesh);
 
     // Floating Stardust Particles (luxury atmosphere)
-    const particleCount = 45;
+    const particleCount = lightDevice ? 24 : 45;
     const particleGeom = new THREE.BufferGeometry();
     const particlePositions = new Float32Array(particleCount * 3);
     const particleScales = new Float32Array(particleCount);
@@ -454,7 +459,7 @@
 
     card.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointermove', function (e) {
-      if (isDragging) handlePointerMove(e);
+      if (isDragging && !card.contains(e.target)) handlePointerMove(e);
     });
     card.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('pointerup', handlePointerUp);
@@ -477,19 +482,44 @@
       }, { passive: true });
     }
 
-    // Animation Loop
+    // Chỉ dựng hình khi thẻ đang hiện; dừng hẳn RAF khi chuyển tab hoặc cuộn đi.
     const clock = new THREE.Clock();
     let animId = null;
-    let isVisible = true;
+    let inViewport = !window.IntersectionObserver;
+    let lastFrame = null;
+    let disposed = false;
 
-    document.addEventListener('visibilitychange', function () {
-      isVisible = !document.hidden;
-      if (isVisible) clock.getDelta(); // reset clock delta
-    });
+    function scheduleFrame() {
+      if (!disposed && !document.hidden && inViewport && animId === null) {
+        animId = requestAnimationFrame(renderFrame);
+      }
+    }
 
-    function renderFrame() {
-      animId = requestAnimationFrame(renderFrame);
-      if (!isVisible) return;
+    function syncAnimation() {
+      if (animId !== null) cancelAnimationFrame(animId);
+      animId = null;
+      lastFrame = null;
+      clock.getDelta();
+      scheduleFrame();
+    }
+
+    document.addEventListener('visibilitychange', syncAnimation);
+    reducedMotion.addEventListener('change', syncAnimation);
+    const visibilityObserver = window.IntersectionObserver
+      ? new IntersectionObserver(entries => {
+          inViewport = entries.some(entry => entry.isIntersecting);
+          syncAnimation();
+        }, { threshold: 0 })
+      : null;
+    if (visibilityObserver) visibilityObserver.observe(card);
+
+    function renderFrame(time) {
+      animId = null;
+      if (disposed || document.hidden || !inViewport) return;
+      if (!reducedMotion.matches) scheduleFrame();
+      // Màn hình 120/144 Hz không cần dựng thêm hình cho hiệu ứng trang trí.
+      if (lastFrame !== null && time - lastFrame < 1000 / 60 - 0.5) return;
+      lastFrame = time;
 
       const delta = Math.min(clock.getDelta(), 0.1);
       const elapsed = clock.getElapsedTime();
@@ -560,11 +590,15 @@
       renderer.render(scene, camera);
     }
 
-    renderFrame();
+    scheduleFrame();
 
     // Clean up if needed
     window.addEventListener('beforeunload', function () {
-      if (animId) cancelAnimationFrame(animId);
+      disposed = true;
+      if (animId !== null) cancelAnimationFrame(animId);
+      if (visibilityObserver) visibilityObserver.disconnect();
+      document.removeEventListener('visibilitychange', syncAnimation);
+      reducedMotion.removeEventListener('change', syncAnimation);
       if (resizeObserver) resizeObserver.disconnect();
     });
   }
