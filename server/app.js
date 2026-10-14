@@ -22,6 +22,12 @@ import {
   saveShoppingGuide,
   deleteShoppingGuide,
   toggleShoppingGuideStatus,
+  listPartners,
+  savePartner,
+  togglePartnerStatus,
+  deletePartner,
+  createAdminToken,
+  getAdminUserFromToken,
 } from "./store.js";
 import {
   getCatalog,
@@ -156,12 +162,34 @@ export function createApp(db, config) {
     res.setHeader("Set-Cookie", cookie(raw, SESSION_AGE / 1000));
     return csrf;
   }
-  function requireAdmin(req) {
-    if (!config.adminPassword) throw fail(503, "Quản trị chưa được cấu hình.");
+  async function authenticateAdmin(req) {
     const adminKey = req.headers["x-admin-key"] || "";
-    if (!equal(adminKey, config.adminPassword)) {
+    if (!adminKey) return null;
+    if (config.adminPassword && equal(adminKey, config.adminPassword)) {
+      return { role: "admin", email: "admin@vietnamlegacy.com", name: "Quản trị viên" };
+    }
+    return await getAdminUserFromToken(db, adminKey, config.adminPassword);
+  }
+
+  async function requireAdmin(req) {
+    const caller = await authenticateAdmin(req);
+    if (!caller) {
+      if (!config.adminPassword) throw fail(503, "Quản trị chưa được cấu hình.");
       throw fail(401, "Yêu cầu mật khẩu quản trị viên hợp lệ.");
     }
+    if (caller.role !== "admin") {
+      throw fail(403, "Chỉ quản trị viên cấp cao mới có quyền thực hiện thao tác này.");
+    }
+    return caller;
+  }
+
+  async function requireAdminOrPartner(req) {
+    const caller = await authenticateAdmin(req);
+    if (!caller) {
+      if (!config.adminPassword) throw fail(503, "Quản trị chưa được cấu hình.");
+      throw fail(401, "Yêu cầu đăng nhập quản trị viên hoặc đối tác hợp lệ.");
+    }
+    return caller;
   }
 
   return http.createServer(async (req, res) => {
@@ -429,94 +457,99 @@ export function createApp(db, config) {
           return json(200, { quote: await quoteOrder(db, body.items, body.couponCode, current?.user_id) });
         }
         if (req.method === "GET" && route === "/api/admin/pricing") {
-          requireAdmin(req);
-          return json(200, { products: await getCatalog(db, Date.now(), true), promotions: await listPromotions(db), categories: await getCategories(db) });
+          const caller = await requireAdminOrPartner(req);
+          return json(200, {
+            products: await getCatalog(db, Date.now(), true),
+            promotions: caller.role === "admin" ? await listPromotions(db) : [],
+            categories: await getCategories(db),
+            caller,
+          });
         }
         if (req.method === "PUT" && route === "/api/admin/catalog/reorder") {
-          requireAdmin(req);
+          await requireAdmin(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
           const products = await saveCatalogOrder(db, body.productIds);
           return json(200, { products });
         }
         if (req.method === "PUT" && route === "/api/admin/categories") {
-          requireAdmin(req);
+          await requireAdmin(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
           const categories = await saveCategories(db, body.categories);
           return json(200, { categories });
         }
         if (req.method === "PUT" && route === "/api/admin/prices") {
-          requireAdmin(req);
+          await requireAdmin(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
           await savePrices(db, body.prices);
           return json(200, { products: await getCatalog(db, Date.now(), true) });
         }
         if (req.method === "POST" && route === "/api/admin/products") {
-          requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
-          const product = await createCustomProduct(db, body);
+          const product = await createCustomProduct(db, body, Date.now(), null, caller);
           return json(201, { product });
         }
         const productToggleMatch = route.match(/^\/api\/admin\/products\/([a-z0-9_-]+)\/toggle$/);
         if (req.method === "PATCH" && productToggleMatch) {
-          requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
-          return json(200, await toggleProductStatus(db, productToggleMatch[1], Boolean(body.isActive)));
+          return json(200, await toggleProductStatus(db, productToggleMatch[1], Boolean(body.isActive), Date.now(), caller));
         }
         const productMatch = route.match(/^\/api\/admin\/products\/([a-z0-9_-]+)$/);
         if (req.method === "PUT" && productMatch) {
-          requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
-          const product = await updateProduct(db, productMatch[1], body);
+          const product = await updateProduct(db, productMatch[1], body, Date.now(), caller);
           return json(200, { product });
         }
         if (req.method === "DELETE" && productMatch) {
-          requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
-          return json(200, await deleteProduct(db, productMatch[1]));
+          return json(200, await deleteProduct(db, productMatch[1], Date.now(), caller));
         }
         const variantAddMatch = route.match(/^\/api\/admin\/products\/([a-z0-9_-]+)\/variants$/);
         if (req.method === "POST" && variantAddMatch) {
-          requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
-          const variant = await addCustomVariant(db, variantAddMatch[1], body);
+          const variant = await addCustomVariant(db, variantAddMatch[1], body, Date.now(), caller);
           return json(201, { variant });
         }
         const variantToggleMatch = route.match(/^\/api\/admin\/products\/([a-z0-9_-]+)\/variants\/([a-z0-9_-]+)\/toggle$/);
         if (req.method === "PATCH" && variantToggleMatch) {
-          requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
-          return json(200, await toggleVariantStatus(db, variantToggleMatch[1], variantToggleMatch[2], Boolean(body.isActive)));
+          return json(200, await toggleVariantStatus(db, variantToggleMatch[1], variantToggleMatch[2], Boolean(body.isActive), Date.now(), caller));
         }
         const variantMatch = route.match(/^\/api\/admin\/products\/([a-z0-9_-]+)\/variants\/([a-z0-9_-]+)$/);
         if (req.method === "PUT" && variantMatch) {
-          requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
-          const variant = await updateVariant(db, variantMatch[1], variantMatch[2], body);
+          const variant = await updateVariant(db, variantMatch[1], variantMatch[2], body, Date.now(), caller);
           return json(200, { variant });
         }
         if (req.method === "DELETE" && variantMatch) {
-          requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
-          return json(200, await deleteVariant(db, variantMatch[1], variantMatch[2]));
+          return json(200, await deleteVariant(db, variantMatch[1], variantMatch[2], caller));
         }
         const promotionMatch = route.match(/^\/api\/admin\/promotions\/([a-f0-9-]{36})$/);
         if ((req.method === "POST" && route === "/api/admin/promotions") || (req.method === "PUT" && promotionMatch)) {
-          requireAdmin(req);
+          await requireAdmin(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
           return json(promotionMatch ? 200 : 201, { promotion: await savePromotion(db, body, promotionMatch?.[1]) });
         }
         if (req.method === "PATCH" && promotionMatch) {
-          requireAdmin(req);
+          await requireAdmin(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
           return json(200, { promotion: await setPromotionEnabled(db, promotionMatch[1], body.enabled) });
@@ -651,40 +684,113 @@ export function createApp(db, config) {
               "Thử đăng nhập quá nhiều lần. Vui lòng chờ 15 phút.",
             );
           const body = parse(await readBody(req));
+          if (body.email) {
+            const cleanEmail = String(body.email).trim().toLowerCase();
+            const pass = String(body.password || "").trim();
+            if (!cleanEmail || !pass) {
+              throw fail(400, "Vui lòng nhập đầy đủ email và mật khẩu.");
+            }
+            const partner = await db.prepare("SELECT * FROM partners WHERE LOWER(email) = ?").get(cleanEmail);
+            if (!partner) {
+              throw fail(401, "Tài khoản đối tác không tồn tại.");
+            }
+            if (!partner.is_active) {
+              throw fail(403, "Tài khoản đối tác đã bị khóa. Vui lòng liên hệ quản trị viên.");
+            }
+            const user = await db.prepare("SELECT * FROM users WHERE id = ?").get(partner.user_id);
+            if (!user) {
+              throw fail(401, "Không tìm thấy tài khoản người dùng của đối tác.");
+            }
+            const valid = await checkPassword(pass, user.password_hash);
+            if (!valid) {
+              throw fail(401, "Mật khẩu đối tác không chính xác.");
+            }
+            const token = await createAdminToken(db, user.id, "partner");
+            return json(200, {
+              success: true,
+              ok: true,
+              adminKey: token,
+              token,
+              role: "partner",
+              email: partner.email,
+              name: partner.name,
+            });
+          }
+
           const pass = String(body.password || "");
           if (!equal(pass, config.adminPassword))
             throw fail(401, "Mật khẩu quản trị không đúng.");
-          return json(200, { success: true, adminKey: config.adminPassword });
+          return json(200, {
+            success: true,
+            ok: true,
+            adminKey: config.adminPassword,
+            role: "admin",
+            email: "admin@vietnamlegacy.com",
+            name: "Quản trị viên",
+          });
+        }
+        if (req.method === "GET" && route === "/api/admin/me") {
+          const caller = await requireAdminOrPartner(req);
+          return json(200, { success: true, user: caller, ...caller });
         }
         if (req.method === "GET" && route === "/api/admin/orders") {
-          requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           const status = url.searchParams.get("status") || undefined;
-          const orders = await getAdminOrders(db, { status });
-          return json(200, { orders });
+          const partnerEmail = caller.role === "partner" ? caller.email : undefined;
+          const orders = await getAdminOrders(db, { status, partnerEmail });
+          return json(200, { orders, role: caller.role, partnerEmail: caller.email });
         }
         const adminOrderMatch = route.match(
           /^\/api\/admin\/orders\/([A-Za-z0-9_-]+)$/,
         );
         if (req.method === "PATCH" && adminOrderMatch) {
-          requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           const body = parse(await readBody(req));
+          const partnerEmail = caller.role === "partner" ? caller.email : undefined;
           const updated = await updateAdminOrder(db, adminOrderMatch[1], {
             status: body.status,
             claimLink: body.claimLink,
-          });
+          }, partnerEmail);
           return json(200, { success: true, order: updated });
+        }
+        if (req.method === "GET" && route === "/api/admin/partners") {
+          await requireAdmin(req);
+          const partners = await listPartners(db);
+          return json(200, { success: true, ok: true, partners });
+        }
+        if (req.method === "POST" && route === "/api/admin/partners") {
+          await requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const partner = await savePartner(db, body);
+          return json(201, { success: true, ok: true, partner });
+        }
+        const partnerToggleMatch = route.match(/^\/api\/admin\/partners\/([a-f0-9-]{36})\/toggle$/);
+        if (req.method === "PATCH" && partnerToggleMatch) {
+          await requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const result = await togglePartnerStatus(db, partnerToggleMatch[1], body.isActive);
+          return json(200, { success: true, ok: true, ...result });
+        }
+        const partnerDeleteMatch = route.match(/^\/api\/admin\/partners\/([a-f0-9-]{36})$/);
+        if (req.method === "DELETE" && partnerDeleteMatch) {
+          await requireAdmin(req);
+          sameOrigin(req);
+          const result = await deletePartner(db, partnerDeleteMatch[1]);
+          return json(200, { success: true, ok: true, ...result });
         }
         if (req.method === "GET" && route === "/api/announcement") {
           const ann = await getAnnouncement(db);
           return json(200, { success: true, announcement: ann });
         }
         if (req.method === "GET" && route === "/api/admin/announcement") {
-          requireAdmin(req);
+          await requireAdmin(req);
           const ann = await getAnnouncement(db);
           return json(200, { success: true, announcement: ann });
         }
         if (req.method === "POST" && route === "/api/admin/announcement") {
-          requireAdmin(req);
+          await requireAdmin(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
           if (typeof body.content !== "string" || typeof body.is_active !== "boolean") throw fail(400, "Nội dung hoặc trạng thái thông báo không hợp lệ.");
@@ -692,19 +798,19 @@ export function createApp(db, config) {
           return json(200, { success: true, announcement: ann });
         }
         if (req.method === "GET" && route === "/api/admin/bank") {
-          requireAdmin(req);
+          await requireAdmin(req);
           const settings = await getBankSettings(db, config);
           return json(200, { success: true, settings });
         }
         if (req.method === "PUT" && route === "/api/admin/bank") {
-          requireAdmin(req);
+          await requireAdmin(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
           const settings = await saveBankSettings(db, body);
           return json(200, { success: true, settings });
         }
         if (req.method === "GET" && route === "/api/admin/deposits") {
-          requireAdmin(req);
+          await requireAdmin(req);
           const status = url.searchParams.get("status") || "all";
           const search = url.searchParams.get("search") || "";
           const limit = url.searchParams.get("limit") || 100;
@@ -715,7 +821,7 @@ export function createApp(db, config) {
           /^\/api\/admin\/deposits\/([a-f0-9-]{36})\/credit$/,
         );
         if (req.method === "POST" && adminDepositCreditMatch) {
-          requireAdmin(req);
+          await requireAdmin(req);
           sameOrigin(req);
           const result = await manualCreditDeposit(db, adminDepositCreditMatch[1]);
           return json(200, result);
@@ -724,13 +830,13 @@ export function createApp(db, config) {
           /^\/api\/admin\/deposits\/([a-f0-9-]{36})\/cancel$/,
         );
         if (req.method === "POST" && adminDepositCancelMatch) {
-          requireAdmin(req);
+          await requireAdmin(req);
           sameOrigin(req);
           const result = await cancelDeposit(db, adminDepositCancelMatch[1]);
           return json(200, result);
         }
         if (req.method === "POST" && route === "/api/admin/deposits/simulate") {
-          requireAdmin(req);
+          await requireAdmin(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
           const code = String(body.code || "").trim().toUpperCase();
@@ -771,14 +877,14 @@ export function createApp(db, config) {
           return json(200, { success: true, guide });
         }
         if (req.method === "GET" && route === "/api/admin/guide") {
-          requireAdmin(req);
+          await requireAdmin(req);
           const guide = await getShoppingGuide(db);
           const guides = await listShoppingGuides(db, true);
           return json(200, { success: true, guide, guides });
         }
         const adminGuideToggleMatch = route.match(/^\/api\/admin\/guide\/([a-z0-9_-]+)\/toggle$/);
         if (req.method === "PATCH" && adminGuideToggleMatch) {
-          requireAdmin(req);
+          await requireAdmin(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
           const result = await toggleShoppingGuideStatus(db, adminGuideToggleMatch[1], body.isActive);
@@ -786,13 +892,13 @@ export function createApp(db, config) {
         }
         const adminGuideItemMatch = route.match(/^\/api\/admin\/guide\/([a-z0-9_-]+)$/);
         if (req.method === "DELETE" && adminGuideItemMatch) {
-          requireAdmin(req);
+          await requireAdmin(req);
           sameOrigin(req);
           const result = await deleteShoppingGuide(db, adminGuideItemMatch[1]);
           return json(200, result);
         }
         if (["POST", "PUT"].includes(req.method) && (route === "/api/admin/guide" || adminGuideItemMatch)) {
-          requireAdmin(req);
+          await requireAdmin(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
           const guideId = adminGuideItemMatch ? adminGuideItemMatch[1] : body.id;

@@ -242,6 +242,7 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
       ],
       detail: cp.detail || cp.description || "",
       service: cp.service === 1,
+      partnerEmail: cp.partner_email || null,
       isCustom: true,
       isActive: isProductActive,
       variants: prodVariants,
@@ -319,7 +320,35 @@ export async function saveCatalogOrder(db, productIds, now = Date.now()) {
   return await getCatalog(db, now, true);
 }
 
-export async function createCustomProduct(db, body, now = Date.now()) {
+async function assertProductOwner(db, productId, caller) {
+  if (!caller || caller.role !== "partner") return;
+  const custom = await db.prepare("SELECT partner_email FROM custom_products WHERE id = ?").get(productId);
+  if (!custom || String(custom.partner_email || "").toLowerCase() !== caller.email.toLowerCase()) {
+    throw fail("Bạn chỉ có quyền quản lý dịch vụ / mặt hàng của chính mình.", 403);
+  }
+}
+
+function normalizeNowCaller(now, caller) {
+  let effectiveNow = typeof now === "number" ? now : Date.now();
+  let effectiveCaller = caller;
+  if (now && typeof now === "object" && now.role) {
+    effectiveCaller = now;
+    effectiveNow = Date.now();
+  }
+  return { now: effectiveNow, caller: effectiveCaller };
+}
+
+export async function createCustomProduct(db, body, now = Date.now(), partnerEmail = null, caller = null) {
+  let effectiveCaller = caller;
+  let effectiveNow = typeof now === "number" ? now : Date.now();
+  let effectivePartner = partnerEmail;
+  if (now && typeof now === "object" && now.role) {
+    effectiveCaller = now;
+    effectiveNow = Date.now();
+  } else if (partnerEmail && typeof partnerEmail === "object" && partnerEmail.role) {
+    effectiveCaller = partnerEmail;
+    effectivePartner = null;
+  }
   const name = String(body.name || "").trim();
   if (!name || name.length > 100) throw fail("Tên mặt hàng cần từ 1 đến 100 ký tự.");
   const category = String(body.category || "entertainment").trim();
@@ -328,6 +357,11 @@ export async function createCustomProduct(db, body, now = Date.now()) {
   const detail = String(body.detail || description).trim().slice(0, 2000);
   const image = String(body.image || "").trim() || "assets/nitro.svg";
   const service = body.service ? 1 : 0;
+  const assignedPartnerEmail = (
+    effectiveCaller?.role === "partner"
+      ? effectiveCaller.email
+      : (effectivePartner || body.partnerEmail || "")
+  ).trim().toLowerCase() || null;
 
   let baseSlug = slugify(name) || "item";
   let id = baseSlug;
@@ -344,9 +378,9 @@ export async function createCustomProduct(db, body, now = Date.now()) {
         "Kích hoạt nhanh chóng và uy tín",
       ];
 
-  await db.prepare(`INSERT INTO custom_products (id, name, category, badge, description, image, features_json, detail, service, is_active, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`).run(
-    id, name, category, badge, description, image, JSON.stringify(features), detail, service, now, now
+  await db.prepare(`INSERT INTO custom_products (id, name, category, badge, description, image, features_json, detail, service, partner_email, is_active, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`).run(
+    id, name, category, badge, description, image, JSON.stringify(features), detail, service, assignedPartnerEmail, now, now
   );
 
   if (Array.isArray(body.variants)) {
@@ -360,8 +394,10 @@ export async function createCustomProduct(db, body, now = Date.now()) {
   return (await getCatalog(db, now, true)).find(p => p.id === id);
 }
 
-export async function addCustomVariant(db, productId, body, now = Date.now()) {
-  const catalog = await getCatalog(db, now, true);
+export async function addCustomVariant(db, productId, body, now = Date.now(), caller = null) {
+  const { now: effectiveNow, caller: effectiveCaller } = normalizeNowCaller(now, caller);
+  await assertProductOwner(db, productId, effectiveCaller);
+  const catalog = await getCatalog(db, effectiveNow, true);
   const product = catalog.find(p => p.id === productId);
   if (!product) throw fail("Không tìm thấy mặt hàng.", 404);
 
@@ -380,27 +416,32 @@ export async function addCustomVariant(db, productId, body, now = Date.now()) {
 
   await db.prepare(`INSERT INTO custom_variants (id, product_id, name, price, delivery_type, note, is_active, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`).run(
-    id, productId, name, price, deliveryType, note, now, now
+    id, productId, name, price, deliveryType, note, effectiveNow, effectiveNow
   );
 
   return { id, productId, name, price, deliveryType, note, isActive: true, isCustom: true };
 }
 
-export async function toggleProductStatus(db, productId, isActive, now = Date.now()) {
+export async function toggleProductStatus(db, productId, isActive, now = Date.now(), caller = null) {
+  const { now: effectiveNow, caller: effectiveCaller } = normalizeNowCaller(now, caller);
+  await assertProductOwner(db, productId, effectiveCaller);
   const custom = await db.prepare("SELECT * FROM custom_products WHERE id = ?").get(productId);
   if (custom) {
-    await db.prepare("UPDATE custom_products SET is_active = ?, updated_at = ? WHERE id = ?").run(isActive ? 1 : 0, now, productId);
+    await db.prepare("UPDATE custom_products SET is_active = ?, updated_at = ? WHERE id = ?").run(isActive ? 1 : 0, effectiveNow, productId);
   } else {
+    if (effectiveCaller && effectiveCaller.role === "partner") throw fail("Bạn chỉ có quyền quản lý mặt hàng của chính mình.", 403);
     const isDefault = products.some(p => p.id === productId);
     if (!isDefault) throw fail("Không tìm thấy mặt hàng.", 404);
     await db.prepare(`INSERT INTO catalog_item_status (item_key, is_active, updated_at) VALUES (?, ?, ?)
       ON CONFLICT(item_key) DO UPDATE SET is_active = excluded.is_active, updated_at = excluded.updated_at`)
-      .run("product:" + productId, isActive ? 1 : 0, now);
+      .run("product:" + productId, isActive ? 1 : 0, effectiveNow);
   }
   return { productId, isActive };
 }
 
-export async function updateProduct(db, productId, body, now = Date.now()) {
+export async function updateProduct(db, productId, body, now = Date.now(), caller = null) {
+  const { now: effectiveNow, caller: effectiveCaller } = normalizeNowCaller(now, caller);
+  await assertProductOwner(db, productId, effectiveCaller);
   const name = String(body.name || "").trim();
   if (!name || name.length > 100) throw fail("Tên mặt hàng cần từ 1 đến 100 ký tự.");
   const category = String(body.category || "entertainment").trim();
@@ -411,20 +452,26 @@ export async function updateProduct(db, productId, body, now = Date.now()) {
 
   const custom = await db.prepare("SELECT * FROM custom_products WHERE id = ?").get(productId);
   if (custom) {
-    await db.prepare(`UPDATE custom_products SET name = ?, category = ?, badge = ?, description = ?, image = ?, detail = ?, updated_at = ? WHERE id = ?`)
-      .run(name, category, badge, description, image, detail, now, productId);
+    const nextPartnerEmail = effectiveCaller && effectiveCaller.role === "admin" && body.partnerEmail !== undefined
+      ? (body.partnerEmail ? String(body.partnerEmail).trim().toLowerCase() : null)
+      : custom.partner_email;
+    await db.prepare(`UPDATE custom_products SET name = ?, category = ?, badge = ?, description = ?, image = ?, detail = ?, partner_email = ?, updated_at = ? WHERE id = ?`)
+      .run(name, category, badge, description, image, detail, nextPartnerEmail, effectiveNow, productId);
   } else {
+    if (effectiveCaller && effectiveCaller.role === "partner") throw fail("Bạn chỉ có quyền quản lý mặt hàng của chính mình.", 403);
     const isDefault = products.some(p => p.id === productId);
     if (!isDefault) throw fail("Không tìm thấy mặt hàng.", 404);
     const overrideData = { name, category, badge, description, image, detail };
     await db.prepare(`INSERT INTO catalog_item_overrides (item_key, data_json, updated_at) VALUES (?, ?, ?)
       ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`)
-      .run("product:" + productId, JSON.stringify(overrideData), now);
+      .run("product:" + productId, JSON.stringify(overrideData), effectiveNow);
   }
-  return (await getCatalog(db, now, true)).find(p => p.id === productId);
+  return (await getCatalog(db, effectiveNow, true)).find(p => p.id === productId);
 }
 
-export async function deleteProduct(db, productId, now = Date.now()) {
+export async function deleteProduct(db, productId, now = Date.now(), caller = null) {
+  const { now: effectiveNow, caller: effectiveCaller } = normalizeNowCaller(now, caller);
+  await assertProductOwner(db, productId, effectiveCaller);
   const custom = await db.prepare("SELECT * FROM custom_products WHERE id = ?").get(productId);
   if (custom) {
     await db.transaction(async (tx) => {
@@ -435,12 +482,13 @@ export async function deleteProduct(db, productId, now = Date.now()) {
     });
     return { productId, deleted: true };
   } else {
+    if (effectiveCaller && effectiveCaller.role === "partner") throw fail("Bạn chỉ có quyền xóa mặt hàng của chính mình.", 403);
     const isDefault = products.some(p => p.id === productId);
     if (!isDefault) throw fail("Không tìm thấy mặt hàng.", 404);
     await db.transaction(async (tx) => {
       await tx.prepare(`INSERT INTO catalog_item_status (item_key, is_active, updated_at) VALUES (?, ?, ?)
         ON CONFLICT(item_key) DO UPDATE SET is_active = excluded.is_active, updated_at = excluded.updated_at`)
-        .run("product:" + productId, -1, now);
+        .run("product:" + productId, -1, effectiveNow);
       await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("product:" + productId);
       await tx.prepare("DELETE FROM product_prices WHERE product_id = ?").run(productId);
     });
@@ -448,23 +496,28 @@ export async function deleteProduct(db, productId, now = Date.now()) {
   }
 }
 
-export async function toggleVariantStatus(db, productId, variantId, isActive, now = Date.now()) {
+export async function toggleVariantStatus(db, productId, variantId, isActive, now = Date.now(), caller = null) {
+  const { now: effectiveNow, caller: effectiveCaller } = normalizeNowCaller(now, caller);
+  await assertProductOwner(db, productId, effectiveCaller);
   const custom = await db.prepare("SELECT * FROM custom_variants WHERE product_id = ? AND id = ?").get(productId, variantId);
   if (custom) {
     await db.prepare("UPDATE custom_variants SET is_active = ?, updated_at = ? WHERE product_id = ? AND id = ?")
-      .run(isActive ? 1 : 0, now, productId, variantId);
+      .run(isActive ? 1 : 0, effectiveNow, productId, variantId);
   } else {
+    if (effectiveCaller && effectiveCaller.role === "partner") throw fail("Bạn chỉ có quyền quản lý mặt hàng của chính mình.", 403);
     const defaultProduct = products.find(p => p.id === productId);
     const defaultVariant = defaultProduct?.variants?.some(v => v.id === variantId);
     if (!defaultVariant) throw fail("Không tìm thấy gói sản phẩm.", 404);
     await db.prepare(`INSERT INTO catalog_item_status (item_key, is_active, updated_at) VALUES (?, ?, ?)
       ON CONFLICT(item_key) DO UPDATE SET is_active = excluded.is_active, updated_at = excluded.updated_at`)
-      .run("variant:" + productId + ":" + variantId, isActive ? 1 : 0, now);
+      .run("variant:" + productId + ":" + variantId, isActive ? 1 : 0, effectiveNow);
   }
   return { productId, variantId, isActive };
 }
 
-export async function updateVariant(db, productId, variantId, body, now = Date.now()) {
+export async function updateVariant(db, productId, variantId, body, now = Date.now(), caller = null) {
+  const { now: effectiveNow, caller: effectiveCaller } = normalizeNowCaller(now, caller);
+  await assertProductOwner(db, productId, effectiveCaller);
   const name = String(body.name || "").trim();
   if (!name || name.length > 100) throw fail("Tên gói sản phẩm cần từ 1 đến 100 ký tự.");
   const price = integer(Number(body.price), 0, 1000000000, "Giá gói");
@@ -475,12 +528,13 @@ export async function updateVariant(db, productId, variantId, body, now = Date.n
   if (custom) {
     await db.transaction(async (tx) => {
       await tx.prepare(`UPDATE custom_variants SET name = ?, price = ?, delivery_type = ?, note = ?, updated_at = ? WHERE product_id = ? AND id = ?`)
-        .run(name, price, deliveryType, note, now, productId, variantId);
+        .run(name, price, deliveryType, note, effectiveNow, productId, variantId);
       await tx.prepare(`INSERT INTO product_prices (product_id, variant_id, price, updated_at) VALUES (?, ?, ?, ?)
         ON CONFLICT(product_id, variant_id) DO UPDATE SET price = excluded.price, updated_at = excluded.updated_at`)
-        .run(productId, variantId, price, now);
+        .run(productId, variantId, price, effectiveNow);
     });
   } else {
+    if (effectiveCaller && effectiveCaller.role === "partner") throw fail("Bạn chỉ có quyền quản lý mặt hàng của chính mình.", 403);
     const defaultProduct = products.find(p => p.id === productId);
     const defaultVariant = defaultProduct?.variants?.some(v => v.id === variantId);
     if (!defaultVariant) throw fail("Không tìm thấy gói sản phẩm.", 404);
@@ -488,18 +542,20 @@ export async function updateVariant(db, productId, variantId, body, now = Date.n
     await db.transaction(async (tx) => {
       await tx.prepare(`INSERT INTO catalog_item_overrides (item_key, data_json, updated_at) VALUES (?, ?, ?)
         ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`)
-        .run("variant:" + productId + ":" + variantId, JSON.stringify(overrideData), now);
+        .run("variant:" + productId + ":" + variantId, JSON.stringify(overrideData), effectiveNow);
       await tx.prepare(`INSERT INTO product_prices (product_id, variant_id, price, updated_at) VALUES (?, ?, ?, ?)
         ON CONFLICT(product_id, variant_id) DO UPDATE SET price = excluded.price, updated_at = excluded.updated_at`)
-        .run(productId, variantId, price, now);
+        .run(productId, variantId, price, effectiveNow);
     });
   }
-  const cat = await getCatalog(db, now, true);
+  const cat = await getCatalog(db, effectiveNow, true);
   const prod = cat.find(p => p.id === productId);
   return prod?.variants?.find(v => v.id === variantId);
 }
 
-export async function deleteVariant(db, productId, variantId, now = Date.now()) {
+export async function deleteVariant(db, productId, variantId, now = Date.now(), caller = null) {
+  const { now: effectiveNow, caller: effectiveCaller } = normalizeNowCaller(now, caller);
+  await assertProductOwner(db, productId, effectiveCaller);
   const custom = await db.prepare("SELECT * FROM custom_variants WHERE product_id = ? AND id = ?").get(productId, variantId);
   if (custom) {
     await db.transaction(async (tx) => {
@@ -509,13 +565,14 @@ export async function deleteVariant(db, productId, variantId, now = Date.now()) 
     });
     return { productId, variantId, deleted: true };
   } else {
+    if (effectiveCaller && effectiveCaller.role === "partner") throw fail("Bạn chỉ có quyền quản lý mặt hàng của chính mình.", 403);
     const defaultProduct = products.find(p => p.id === productId);
     const defaultVariant = defaultProduct?.variants?.some(v => v.id === variantId);
     if (!defaultVariant) throw fail("Không tìm thấy gói sản phẩm.", 404);
     await db.transaction(async (tx) => {
       await tx.prepare(`INSERT INTO catalog_item_status (item_key, is_active, updated_at) VALUES (?, ?, ?)
         ON CONFLICT(item_key) DO UPDATE SET is_active = excluded.is_active, updated_at = excluded.updated_at`)
-        .run("variant:" + productId + ":" + variantId, -1, now);
+        .run("variant:" + productId + ":" + variantId, -1, effectiveNow);
       await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("variant:" + productId + ":" + variantId);
       await tx.prepare("DELETE FROM product_prices WHERE product_id = ? AND variant_id = ?").run(productId, variantId);
     });

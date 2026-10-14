@@ -93,6 +93,9 @@ export async function openStore(filename, remote = {}) {
         await tx.exec("ALTER TABLE payment_settings ADD COLUMN webhook_secret TEXT DEFAULT '';");
       if (payCols.length && !payCols.some((c) => c.name === "auto_credit"))
         await tx.exec("ALTER TABLE payment_settings ADD COLUMN auto_credit INTEGER DEFAULT 1;");
+      const prodCols = await tx.prepare("PRAGMA table_info(custom_products)").all();
+      if (prodCols.length && !prodCols.some((c) => c.name === "partner_email"))
+        await tx.exec("ALTER TABLE custom_products ADD COLUMN partner_email TEXT DEFAULT NULL;");
     });
     return db;
   } catch (error) {

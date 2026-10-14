@@ -5,7 +5,7 @@ window.initAdminPricing = (() => {
     { id: "entertainment", name: "Giải trí", icon: "layers" },
     { id: "creative", name: "Sáng tạo", icon: "sparkles" },
     { id: "services", name: "Dịch vụ Discord", icon: "box" },
-  ], adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false;
+  ], partnersList = [], currentUser = { role: "admin", email: "", name: "" }, adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false;
   const guideCategoryLabels = { guide: "Hướng dẫn", tips: "Mẹo & Thủ thuật", news: "Tin tức", other: "Khác" };
   const $ = (selector) => document.querySelector(selector);
   const money = n => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
@@ -109,15 +109,19 @@ window.initAdminPricing = (() => {
   async function load() {
     const panel = $("#admin-pricing-view");
     try {
-      const [pricingData, bankData, depositsData, guideRes] = await Promise.all([
+      const [pricingData, bankData, depositsData, guideRes, partnersRes] = await Promise.all([
         api("/api/admin/pricing"),
         api("/api/admin/bank").catch(() => ({ settings: { bank: {}, isActive: false } })),
         api("/api/admin/deposits?limit=100").catch(() => ({ deposits: [] })),
         api("/api/admin/guide").catch(() => ({ guide: null, guides: [] })),
+        api("/api/admin/partners").catch(() => ({ partners: [] })),
       ]);
       loaded = true;
       products = pricingData.products;
       promotions = pricingData.promotions;
+      if (pricingData.caller) {
+        currentUser = pricingData.caller;
+      }
       if (Array.isArray(pricingData.categories) && pricingData.categories.length) {
         categoriesList = pricingData.categories;
       }
@@ -125,6 +129,7 @@ window.initAdminPricing = (() => {
       depositsList = depositsData.deposits || [];
       guideData = guideRes.guide || null;
       guidesList = Array.isArray(guideRes.guides) ? guideRes.guides : (guideData ? [guideData] : []);
+      partnersList = Array.isArray(partnersRes?.partners) ? partnersRes.partners : [];
       render();
     } catch (error) {
       panel.innerHTML = `<p class="admin-error-msg" role="alert">${esc(error.message)}</p><button type="button" class="button secondary" data-pricing-reload>Tải lại dữ liệu</button>`;
@@ -266,24 +271,120 @@ window.initAdminPricing = (() => {
     const panel = $("#admin-pricing-view");
     if (currentView === "orders") return;
     if (!loaded) { panel.innerHTML = '<p class="pricing-hint">Đang tải giá và ưu đãi...</p><button type="button" class="button secondary" data-pricing-reload>Tải lại dữ liệu</button>'; return; }
+    if (currentView === "partners") {
+      panel.innerHTML = `
+        <header class="pricing-heading">
+          <div>
+            <span class="pricing-eyebrow">ĐỐI TÁC CỬA HÀNG</span>
+            <h2>Quản lý Đối tác (Partners)</h2>
+            <p>Cấp role đối tác cho Gmail, cho phép đối tác đăng nhập trang admin để đăng bán và quản lý dịch vụ riêng.</p>
+          </div>
+          <div class="pricing-actions">
+            <button type="button" class="button primary" data-partner-new>+ Cấp quyền đối tác mới</button>
+          </div>
+        </header>
+
+        <div id="catalog-editor"></div>
+
+        <div class="partners-stats-grid">
+          <div class="pricing-card partner-stat-box">
+            <span class="stat-label">TỔNG ĐỐI TÁC</span>
+            <strong>${partnersList.length}</strong>
+          </div>
+          <div class="pricing-card partner-stat-box">
+            <span class="stat-label">ĐANG HOẠT ĐỘNG</span>
+            <strong style="color:var(--success);">${partnersList.filter(p => p.isActive).length}</strong>
+          </div>
+          <div class="pricing-card partner-stat-box">
+            <span class="stat-label">TỔNG DỊCH VỤ ĐỐI TÁC</span>
+            <strong>${partnersList.reduce((acc, p) => acc + (p.productsCount || 0), 0)}</strong>
+          </div>
+        </div>
+
+        <div class="partners-list-container">
+          ${partnersList.length === 0 ? `
+            <div class="pricing-card" style="text-align:center; padding: 40px 20px;">
+              <span style="font-size:36px; display:block; margin-bottom:12px;">🤝</span>
+              <h3 style="margin:0 0 8px;">Chưa có đối tác nào</h3>
+              <p style="color:var(--muted); font-size:12px; margin:0 0 16px;">Bấm nút bên dưới để cấp quyền đối tác cho một địa chỉ Gmail.</p>
+              <button type="button" class="button primary" data-partner-new>+ Cấp quyền đối tác đầu tiên</button>
+            </div>
+          ` : `
+            <div class="partner-cards-grid">
+              ${partnersList.map(pt => `
+                <div class="pricing-card partner-card ${pt.isActive ? '' : 'is-inactive'}">
+                  <div class="partner-card-header">
+                    <div class="partner-avatar">🤝</div>
+                    <div class="partner-info">
+                      <h4>${esc(pt.name)}</h4>
+                      <p class="partner-email">${esc(pt.email)}</p>
+                    </div>
+                    <span class="partner-status-tag ${pt.isActive ? 'active' : 'locked'}">
+                      ${pt.isActive ? '🟢 Hoạt động' : '🔒 Đã khóa'}
+                    </span>
+                  </div>
+
+                  <div class="partner-metrics">
+                    <div class="metric-item">
+                      <small>Dịch vụ / Gói</small>
+                      <strong>${pt.productsCount || 0}</strong>
+                    </div>
+                    <div class="metric-item">
+                      <small>Đơn hàng</small>
+                      <strong>${pt.ordersCount || 0}</strong>
+                    </div>
+                    <div class="metric-item">
+                      <small>Doanh số</small>
+                      <strong>${money(pt.revenue || 0)}</strong>
+                    </div>
+                  </div>
+
+                  <div class="partner-meta">
+                    <small>Cấp quyền: ${new Date(pt.createdAt).toLocaleDateString('vi-VN')}</small>
+                  </div>
+
+                  <div class="partner-card-actions">
+                    <button type="button" class="button secondary btn-small" data-partner-toggle="${pt.id}" data-active="${pt.isActive ? 0 : 1}">
+                      ${pt.isActive ? 'Khóa đối tác' : 'Mở khóa'}
+                    </button>
+                    <button type="button" class="button danger btn-small" data-partner-delete="${pt.id}" data-name="${esc(pt.name)}" data-email="${esc(pt.email)}">
+                      Gỡ quyền ✕
+                    </button>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          `}
+        </div>
+      `;
+      return;
+    }
     if (currentView === "prices") {
+      const isPartner = currentUser.role === "partner";
       const displayedProducts = products.filter(p => {
+        if (isPartner) {
+          return String(p.partnerEmail || "").toLowerCase() === currentUser.email.toLowerCase();
+        }
         if (adminCategoryFilter !== "all" && p.category !== adminCategoryFilter) return false;
         return true;
       });
 
       panel.innerHTML = `<header class="pricing-heading">
         <div>
-          <span class="pricing-eyebrow">DANH MỤC CỬA HÀNG</span>
-          <h2>Giá, Vị trí & Mặt hàng</h2>
-          <p>Tùy chỉnh thứ tự vị trí hiển thị, phân chia các hạng mục, thêm mới, sửa hoặc ẩn/hiện từng gói.</p>
+          <span class="pricing-eyebrow">${isPartner ? "DỊCH VỤ CỦA TÔI" : "DANH MỤC CỬA HÀNG"}</span>
+          <h2>${isPartner ? "Dịch vụ & Mặt hàng của bạn" : "Giá, Vị trí & Mặt hàng"}</h2>
+          <p>${isPartner
+            ? `Bạn đang quản lý ${displayedProducts.length} mặt hàng / dịch vụ được ủy quyền bán trên VietNam Legacy.`
+            : "Tùy chỉnh thứ tự vị trí hiển thị, phân chia các hạng mục, thêm mới, sửa hoặc ẩn/hiện từng gói."
+          }</p>
         </div>
         <div class="pricing-actions">
-          <button type="button" class="button secondary" data-categories-manage>⚙️ Quản lý hạng mục</button>
-          <button type="button" class="button primary" data-product-new>+ Thêm mặt hàng mới</button>
+          ${!isPartner ? '<button type="button" class="button secondary" data-categories-manage>⚙️ Quản lý hạng mục</button>' : ''}
+          <button type="button" class="button primary" data-product-new>+ Thêm ${isPartner ? "dịch vụ mới" : "mặt hàng mới"}</button>
         </div>
       </header>
 
+      ${!isPartner ? `
       <div class="admin-category-filter-bar">
         <span class="cat-filter-label" style="font-size:11px; color:var(--muted); align-self:center; margin-right:4px;">Lọc hạng mục:</span>
         <button type="button" class="admin-cat-pill ${adminCategoryFilter === 'all' ? 'active' : ''}" data-filter-cat="all">Tất cả (${products.length})</button>
@@ -292,6 +393,7 @@ window.initAdminPricing = (() => {
           return `<button type="button" class="admin-cat-pill ${adminCategoryFilter === cat.id ? 'active' : ''}" data-filter-cat="${esc(cat.id)}">${esc(cat.name)} (${count})</button>`;
         }).join("")}
       </div>
+      ` : ''}
 
       <div id="catalog-editor"></div>
       <form id="admin-prices-form">
@@ -304,9 +406,10 @@ window.initAdminPricing = (() => {
               <div class="product-card-top">
                 <div>
                   <div class="product-title-row">
-                    <span class="product-pos-badge" title="Thứ tự vị trí hiển thị trên cửa hàng">#${globalIdx + 1}</span>
+                    ${!isPartner ? `<span class="product-pos-badge" title="Thứ tự vị trí hiển thị trên cửa hàng">#${globalIdx + 1}</span>` : ""}
                     <h3>${esc(p.name)}</h3>
                     <span class="product-category-chip">${esc(getCategoryDisplayName(p.category))}</span>
+                    ${p.partnerEmail ? `<span class="product-partner-badge" title="Mặt hàng do đối tác quản lý">🤝 ${esc(p.partnerEmail)}</span>` : ""}
                     ${p.service ? '<span class="status-badge service-sm">🛠️ Dịch vụ</span>' : ""}
                     ${p.isCustom ? '<span class="status-badge custom">Tự tạo</span>' : ""}
                     ${p.isActive ? '<span class="status-badge active">Đang bán</span>' : '<span class="status-badge disabled">Đã ẩn / Bỏ bán</span>'}
@@ -314,6 +417,7 @@ window.initAdminPricing = (() => {
                   <p class="product-desc-snippet">${esc(p.description || "Chưa có mô tả.")}</p>
                 </div>
                 <div class="product-card-actions">
+                  ${!isPartner ? `
                   <div class="reorder-btn-group" title="Sắp xếp vị trí của mặt hàng này">
                     <button type="button" class="button secondary btn-small btn-move" data-product-up="${p.id}" ${globalIdx === 0 ? "disabled" : ""} title="Đưa lên trên">▲ Lên</button>
                     <button type="button" class="button secondary btn-small btn-move" data-product-down="${p.id}" ${globalIdx === totalProds - 1 ? "disabled" : ""} title="Đưa xuống dưới">▼ Xuống</button>
@@ -321,6 +425,7 @@ window.initAdminPricing = (() => {
                       ${products.map((_, i) => `<option value="${i}" ${i === globalIdx ? "selected" : ""}>Vị trí ${i + 1}</option>`).join("")}
                     </select>
                   </div>
+                  ` : ''}
                   <button type="button" class="button secondary btn-small" data-variant-new="${p.id}">+ Thêm gói</button>
                   <button type="button" class="button secondary btn-small" data-product-edit="${p.id}" title="Chỉnh sửa thông tin mặt hàng">✏️ Sửa</button>
                   <button type="button" class="button secondary btn-small" data-product-toggle="${p.id}">${p.isActive ? "Bỏ bán (Ẩn)" : "Mở bán lại"}</button>
@@ -642,7 +747,45 @@ window.initAdminPricing = (() => {
           <button class="button secondary btn-small" type="button" data-promotion-toggle="${p.id}">${p.enabled ? "Tắt ưu đãi" : "Bật ưu đãi"}</button></div></article>`).join("") : `<div class="pricing-empty"><span>${coupon ? "✦" : "◷"}</span><h3>${coupon ? "Chưa có mã giảm giá" : "Chưa có đợt giảm giá"}</h3><p>Tạo ưu đãi đầu tiên khi cửa hàng sẵn sàng.</p></div>`}</div>`;
   }
 
+  function openPartnerEditor() {
+    $("#catalog-editor").innerHTML = `
+      <form id="partner-create-form" class="pricing-card promotion-form">
+        <div class="promotion-title">
+          <h3>🤝 Cấp quyền đối tác bán hàng</h3>
+          <button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button>
+        </div>
+        <p style="font-size:12px; color:var(--muted); margin: -4px 0 16px;">
+          Cấp quyền cho địa chỉ Gmail của đối tác để họ đăng nhập vào trang Admin bán dịch vụ của riêng họ.
+        </p>
+        <div class="pricing-form-grid">
+          <label>
+            Gmail đối tác *
+            <input name="email" type="email" required placeholder="ví dụ: doittac@gmail.com" autocomplete="off" />
+          </label>
+          <label>
+            Tên đối tác / Thương hiệu *
+            <input name="name" required maxlength="100" placeholder="ví dụ: Shop Discord Tuấn Anh" autocomplete="off" />
+          </label>
+          <label style="grid-column: 1 / -1;">
+            Mật khẩu đăng nhập đối tác * (tối thiểu 6 ký tự)
+            <input name="password" type="password" required minlength="6" placeholder="Khởi tạo mật khẩu đăng nhập cho đối tác..." autocomplete="new-password" />
+            <small style="color:var(--muted); font-size:11px; margin-top:4px; display:block;">
+              Ghi nhớ hoặc gửi mật khẩu này cho đối tác. Đối tác sẽ dùng Gmail + mật khẩu này để đăng nhập vào trang Admin.
+            </small>
+          </label>
+        </div>
+        <p class="pricing-form-message" role="status"></p>
+        <div style="display:flex; gap:10px; margin-top:14px;">
+          <button class="button primary" type="submit">Xác nhận cấp quyền đối tác 🤝</button>
+          <button class="button secondary" type="button" data-catalog-close>Hủy</button>
+        </div>
+      </form>
+    `;
+    $("#partner-create-form [name=email]").focus();
+  }
+
   function openProductEditor(productId = null) {
+    const isPartner = currentUser.role === "partner";
     if (productId) {
       const p = products.find(x => x.id === productId);
       if (!p) return;
@@ -652,11 +795,19 @@ window.initAdminPricing = (() => {
           <label>Tên mặt hàng *<input name="name" required maxlength="100" value="${esc(p.name)}"></label>
           <label>Danh mục / Hạng mục *<select name="category" required id="product-category-select">
             ${categoriesList.map(c => `<option value="${esc(c.id)}" ${p.category === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
-            <option value="__custom__">+ Nhập hạng mục mới...</option>
+            ${!isPartner ? '<option value="__custom__">+ Nhập hạng mục mới...</option>' : ''}
           </select></label>
           <div id="new-cat-inline-wrap" style="display:none; grid-column:1 / -1; margin-top:-6px;">
             <label style="color:var(--accent);">Tên hạng mục mới cần tạo *<input name="newCategoryName" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa..."></label>
           </div>
+          ${!isPartner ? `
+          <label>Đối tác sở hữu (tùy chọn)<select name="partnerEmail">
+            <option value="">-- Cửa hàng chính (VNL Admin) --</option>
+            ${partnersList.map(pt => `<option value="${esc(pt.email)}" ${(p?.partnerEmail || "") === pt.email ? "selected" : ""}>${esc(pt.name)} (${esc(pt.email)})</option>`).join("")}
+          </select></label>
+          ` : `
+          <div style="font-size:11px; color:#60a5fa; grid-column:1 / -1;">🤝 Mặt hàng này thuộc quyền quản lý của bạn (<b>${esc(currentUser.email)}</b>).</div>
+          `}
           <label>Huy hiệu / Badge (Góc ảnh)<input name="badge" maxlength="50" placeholder="Ví dụ: DISCORD / NITRO BOOST" value="${esc(p.badge || "")}"></label>
           <label>Ảnh minh họa (Icon)<select name="image">
             <option value="assets/nitro.svg" ${p.image === "assets/nitro.svg" ? "selected" : ""}>Biểu tượng Nitro (Sấm sét)</option>
@@ -678,16 +829,24 @@ window.initAdminPricing = (() => {
     }
 
     $("#catalog-editor").innerHTML = `<form id="product-create-form" class="pricing-card promotion-form">
-      <div class="promotion-title"><h3>+ Thêm mặt hàng mới vào cửa hàng</h3><button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button></div>
+      <div class="promotion-title"><h3>+ Thêm ${isPartner ? "dịch vụ mới" : "mặt hàng mới"}</h3><button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button></div>
       <div class="pricing-form-grid">
         <label>Tên mặt hàng *<input name="name" required maxlength="100" placeholder="Ví dụ: Spotify Premium, Canva Pro..."></label>
         <label>Danh mục / Hạng mục *<select name="category" required id="product-category-select">
           ${categoriesList.map(c => `<option value="${esc(c.id)}" ${c.id === "entertainment" ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
-          <option value="__custom__">+ Nhập hạng mục mới...</option>
+          ${!isPartner ? '<option value="__custom__">+ Nhập hạng mục mới...</option>' : ''}
         </select></label>
         <div id="new-cat-inline-wrap" style="display:none; grid-column:1 / -1; margin-top:-6px;">
           <label style="color:var(--accent);">Tên hạng mục mới cần tạo *<input name="newCategoryName" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa..."></label>
         </div>
+        ${!isPartner ? `
+        <label>Đối tác sở hữu (tùy chọn)<select name="partnerEmail">
+          <option value="">-- Cửa hàng chính (VNL Admin) --</option>
+          ${partnersList.map(pt => `<option value="${esc(pt.email)}">${esc(pt.name)} (${esc(pt.email)})</option>`).join("")}
+        </select></label>
+        ` : `
+        <div style="font-size:11px; color:#60a5fa; grid-column:1 / -1;">🤝 Mặt hàng này sẽ được đăng bán dưới thương hiệu đối tác của bạn (<b>${esc(currentUser.email)}</b>).</div>
+        `}
         <label>Huy hiệu / Badge (Góc ảnh)<input name="badge" maxlength="50" placeholder="Ví dụ: MUSIC / VIP, DESIGN / PRO..."></label>
         <label>Ảnh minh họa (Icon)<select name="image">
           <option value="assets/nitro.svg">Biểu tượng Nitro (Sấm sét)</option>
@@ -1133,6 +1292,17 @@ window.initAdminPricing = (() => {
         await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
         notify(`Đã thêm hạng mục "${catName}"!`);
         openCategoriesManager();
+      } else if (form.id === "partner-create-form") {
+        const data = new FormData(form);
+        const email = (data.get("email") || "").trim().toLowerCase();
+        const name = (data.get("name") || "").trim();
+        const password = (data.get("password") || "").trim();
+        await api("/api/admin/partners", {
+          method: "POST",
+          body: JSON.stringify({ email, name, password, isActive: 1 }),
+        });
+        notify(`Đã cấp quyền đối tác thành công cho ${email}!`);
+        $("#catalog-editor").replaceChildren();
       } else if (form.id === "product-create-form") {
         const data = new FormData(form);
         const name = data.get("name").trim();
@@ -1150,13 +1320,16 @@ window.initAdminPricing = (() => {
         const badge = data.get("badge").trim();
         const description = data.get("description").trim();
         const image = data.get("image") || "assets/nitro.svg";
+        const partnerEmail = currentUser.role === "partner"
+          ? currentUser.email
+          : ((data.get("partnerEmail") || "").trim() || null);
         const variantName = (data.get("variantName") || "").trim();
         const variantPrice = data.get("variantPrice") ? Number(data.get("variantPrice")) : null;
         const deliveryType = data.get("deliveryType") || "gift";
         const variantNote = (data.get("variantNote") || "").trim();
         const variants = variantName && variantPrice !== null ? [{ name: variantName, price: variantPrice, deliveryType, note: variantNote }] : [];
-        await api("/api/admin/products", { method: "POST", body: JSON.stringify({ name, category, badge, description, image, variants }) });
-        notify("Đã thêm mặt hàng mới.");
+        await api("/api/admin/products", { method: "POST", body: JSON.stringify({ name, category, badge, description, image, partnerEmail, variants }) });
+        notify(currentUser.role === "partner" ? "Đã đăng dịch vụ mới thành công!" : "Đã thêm mặt hàng mới.");
         $("#catalog-editor").replaceChildren();
       } else if (form.id === "product-edit-form") {
         const data = new FormData(form);
@@ -1176,9 +1349,12 @@ window.initAdminPricing = (() => {
         const badge = data.get("badge").trim();
         const description = data.get("description").trim();
         const image = data.get("image") || "assets/nitro.svg";
+        const partnerEmail = currentUser.role === "partner"
+          ? currentUser.email
+          : ((data.get("partnerEmail") || "").trim() || null);
         await api("/api/admin/products/" + productId, {
           method: "PUT",
-          body: JSON.stringify({ name, category, badge, description, image }),
+          body: JSON.stringify({ name, category, badge, description, image, partnerEmail }),
         });
         notify("Đã cập nhật thông tin mặt hàng.");
         $("#catalog-editor").replaceChildren();
@@ -1599,6 +1775,41 @@ window.initAdminPricing = (() => {
             notify(rule.enabled ? "Đã tắt ưu đãi." : "Đã bật ưu đãi theo lịch.");
           } catch (error) { notify(error.message); }
           finally { button.disabled = false; }
+        }
+        if (button.hasAttribute("data-partner-new")) openPartnerEditor();
+        if (button.dataset.partnerToggle) {
+          const pId = button.dataset.partnerToggle;
+          const target = partnersList.find(x => x.id === pId);
+          if (!target) return;
+          button.disabled = true;
+          try {
+            await api(`/api/admin/partners/${pId}/toggle`, {
+              method: "PATCH",
+              body: JSON.stringify({ isActive: !target.isActive }),
+            });
+            notify(target.isActive ? "Đã khóa quyền đối tác." : "Đã mở khóa đối tác.");
+            await load();
+          } catch (err) {
+            notify(err.message);
+          } finally {
+            button.disabled = false;
+          }
+        }
+        if (button.dataset.partnerDelete) {
+          const pId = button.dataset.partnerDelete;
+          const pName = button.dataset.name || "đối tác";
+          const pEmail = button.dataset.email || "";
+          if (!confirm(`Bạn có chắc chắn muốn gỡ quyền đối tác của ${pName} (${pEmail})?\nTài khoản đối tác sẽ bị hủy bỏ và phiên đăng nhập sẽ kết thúc.`)) return;
+          button.disabled = true;
+          try {
+            await api(`/api/admin/partners/${pId}`, { method: "DELETE" });
+            notify("Đã gỡ quyền đối tác thành công.");
+            await load();
+          } catch (err) {
+            notify(err.message);
+          } finally {
+            button.disabled = false;
+          }
         }
       });
     }

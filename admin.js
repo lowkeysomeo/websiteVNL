@@ -63,19 +63,115 @@
     return data;
   }
 
+  let loginMode = "admin";
+  const tabLoginAdmin = document.querySelector("#tab-login-admin");
+  const tabLoginPartner = document.querySelector("#tab-login-partner");
+  const loginAdminFields = document.querySelector("#login-admin-fields");
+  const loginPartnerFields = document.querySelector("#login-partner-fields");
+  const partnerEmailInput = document.querySelector("#admin-partner-email-input");
+  const partnerPasswordInput = document.querySelector("#admin-partner-password-input");
+  const loginSubmitBtn = document.querySelector("#admin-login-submit-btn");
+  const loginHint = document.querySelector("#admin-login-hint");
+  const userBadge = document.querySelector("#admin-user-badge");
+
+  function setLoginMode(mode) {
+    loginMode = mode;
+    loginError.hidden = true;
+    if (mode === "partner") {
+      tabLoginPartner.classList.add("active");
+      tabLoginAdmin.classList.remove("active");
+      loginAdminFields.style.display = "none";
+      loginPartnerFields.style.display = "block";
+      if (passwordInput) passwordInput.required = false;
+      if (partnerEmailInput) partnerEmailInput.required = true;
+      if (partnerPasswordInput) partnerPasswordInput.required = true;
+      if (loginSubmitBtn) loginSubmitBtn.textContent = "Đăng nhập Đối tác 🤝";
+      if (loginHint) loginHint.textContent = "Dành cho đối tác đăng nhập để bán và quản lý dịch vụ của mình.";
+      partnerEmailInput?.focus();
+    } else {
+      tabLoginAdmin.classList.add("active");
+      tabLoginPartner.classList.remove("active");
+      loginAdminFields.style.display = "block";
+      loginPartnerFields.style.display = "none";
+      if (passwordInput) passwordInput.required = true;
+      if (partnerEmailInput) partnerEmailInput.required = false;
+      if (partnerPasswordInput) partnerPasswordInput.required = false;
+      if (loginSubmitBtn) loginSubmitBtn.textContent = "Đăng nhập Quản trị 👑";
+      if (loginHint) loginHint.textContent = "Dành cho quản trị viên quản lý đơn hàng, giá bán và các chương trình ưu đãi.";
+      passwordInput?.focus();
+    }
+  }
+
+  tabLoginAdmin?.addEventListener("click", () => setLoginMode("admin"));
+  tabLoginPartner?.addEventListener("click", () => setLoginMode("partner"));
+
   function showLogin() {
     loginScreen.hidden = false;
     adminApp.hidden = true;
-    passwordInput.value = "";
+    if (passwordInput) passwordInput.value = "";
+    if (partnerPasswordInput) partnerPasswordInput.value = "";
     loginError.hidden = true;
   }
 
-  function showDashboard() {
+  function showDashboard(user = null) {
+    const role = user?.role || sessionStorage.getItem("vnl_admin_role") || "admin";
+    const email = user?.email || sessionStorage.getItem("vnl_admin_email") || "";
+    const name = user?.name || sessionStorage.getItem("vnl_admin_name") || "";
+
     loginScreen.hidden = true;
     adminApp.hidden = false;
+
+    const brandTitle = document.querySelector("#admin-brand-title");
+    const brandSubtitle = document.querySelector("#admin-brand-subtitle");
+    const annCard = document.querySelector(".admin-announcement-card");
+
+    const ordersBtn = document.querySelector('[data-admin-view="orders"]');
+    const pricesBtn = document.querySelector('[data-admin-view="prices"]');
+    const depositsBtn = document.querySelector('[data-admin-view="deposits"]');
+    const campaignsBtn = document.querySelector('[data-admin-view="campaigns"]');
+    const couponsBtn = document.querySelector('[data-admin-view="coupons"]');
+    const guideBtn = document.querySelector('[data-admin-view="guide"]');
+    const partnersBtn = document.querySelector('[data-admin-view="partners"]');
+
+    if (role === "partner") {
+      if (brandTitle) brandTitle.innerHTML = 'VietNam Legacy <span>ĐỐI TÁC</span>';
+      if (brandSubtitle) brandSubtitle.textContent = 'Quản lý đơn hàng & dịch vụ của bạn';
+      if (userBadge) {
+        userBadge.innerHTML = `<span class="user-badge-role partner">🤝 Đối tác: <b>${escapeHtml(name || email)}</b></span>`;
+      }
+      if (annCard) annCard.hidden = true;
+
+      if (ordersBtn) ordersBtn.textContent = "📦 Đơn hàng của tôi";
+      if (pricesBtn) pricesBtn.textContent = "🏷️ Dịch vụ của tôi";
+      if (depositsBtn) depositsBtn.hidden = true;
+      if (campaignsBtn) campaignsBtn.hidden = true;
+      if (couponsBtn) couponsBtn.hidden = true;
+      if (guideBtn) guideBtn.hidden = true;
+      if (partnersBtn) partnersBtn.hidden = true;
+    } else {
+      if (brandTitle) brandTitle.innerHTML = 'VietNam Legacy <span>ADMIN</span>';
+      if (brandSubtitle) brandSubtitle.textContent = 'Đơn hàng · Giá bán · Ưu đãi';
+      if (userBadge) {
+        userBadge.innerHTML = `<span class="user-badge-role admin">👑 Quản trị viên</span>`;
+      }
+      if (annCard) annCard.hidden = false;
+
+      if (ordersBtn) ordersBtn.textContent = "Đơn hàng & thông báo";
+      if (pricesBtn) pricesBtn.textContent = "Giá sản phẩm";
+      if (depositsBtn) depositsBtn.hidden = false;
+      if (campaignsBtn) campaignsBtn.hidden = false;
+      if (couponsBtn) couponsBtn.hidden = false;
+      if (guideBtn) guideBtn.hidden = false;
+      if (partnersBtn) partnersBtn.hidden = false;
+    }
+
     loadOrders();
-    loadAnnouncement();
-    window.initAdminPricing({ api, notify });
+    if (role === "admin") {
+      loadAnnouncement();
+    }
+    if (window.initAdminPricing) {
+      window.initAdminPricing({ api, notify, user: { role, email, name } });
+    }
   }
 
   async function checkAuthAndInit() {
@@ -84,11 +180,17 @@
       return;
     }
     try {
-      await api("/api/admin/orders?limit=1");
-      showDashboard();
+      const me = await api("/api/admin/me");
+      sessionStorage.setItem("vnl_admin_role", me.user?.role || "admin");
+      sessionStorage.setItem("vnl_admin_email", me.user?.email || "");
+      sessionStorage.setItem("vnl_admin_name", me.user?.name || "");
+      showDashboard(me.user);
     } catch {
       adminKey = "";
       sessionStorage.removeItem("vnl_admin_key");
+      sessionStorage.removeItem("vnl_admin_role");
+      sessionStorage.removeItem("vnl_admin_email");
+      sessionStorage.removeItem("vnl_admin_name");
       showLogin();
     }
   }
@@ -96,17 +198,35 @@
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     loginError.hidden = true;
-    const password = passwordInput.value.trim();
-    if (!password) return;
 
     try {
-      await api("/api/admin/auth", {
+      let payload = {};
+      if (loginMode === "partner") {
+        const email = partnerEmailInput.value.trim();
+        const password = partnerPasswordInput.value.trim();
+        if (!email || !password) {
+          throw new Error("Vui lòng nhập đầy đủ Gmail và mật khẩu đối tác.");
+        }
+        payload = { email, password };
+      } else {
+        const password = passwordInput.value.trim();
+        if (!password) {
+          throw new Error("Vui lòng nhập mật khẩu quản trị viên.");
+        }
+        payload = { password };
+      }
+
+      const res = await api("/api/admin/auth", {
         method: "POST",
-        body: JSON.stringify({ password }),
+        body: JSON.stringify(payload),
       });
-      adminKey = password;
+
+      adminKey = res.adminKey;
       sessionStorage.setItem("vnl_admin_key", adminKey);
-      showDashboard();
+      sessionStorage.setItem("vnl_admin_role", res.role || "admin");
+      sessionStorage.setItem("vnl_admin_email", res.email || "");
+      sessionStorage.setItem("vnl_admin_name", res.name || "");
+      showDashboard(res);
     } catch (err) {
       loginError.textContent = err.message;
       loginError.hidden = false;
@@ -116,6 +236,9 @@
   logoutBtn.addEventListener("click", () => {
     adminKey = "";
     sessionStorage.removeItem("vnl_admin_key");
+    sessionStorage.removeItem("vnl_admin_role");
+    sessionStorage.removeItem("vnl_admin_email");
+    sessionStorage.removeItem("vnl_admin_name");
     showLogin();
   });
 

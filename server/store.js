@@ -1,5 +1,6 @@
 import { quoteOrder } from "./pricing.js";
 import { randomUUID, randomBytes } from "node:crypto";
+import { passwordHash, digest, equal } from "./security.js";
 export { openStore } from "./database.js";
 
 export async function balance(db, userId) {
@@ -274,11 +275,21 @@ export async function getUserOrders(db, userId) {
   }));
 }
 
-// Admin order view: Full credentials only visible to admin
+// Admin order view: Full credentials only visible to admin or item partner
 export async function getAdminOrders(
   db,
-  { status, limit = 50, offset = 0 } = {},
+  { status, partnerEmail, limit = 50, offset = 0 } = {},
 ) {
+  let partnerProductIds = null;
+  if (partnerEmail) {
+    try {
+      const products = await db.prepare("SELECT id FROM custom_products WHERE LOWER(partner_email) = ?").all(partnerEmail.toLowerCase());
+      partnerProductIds = new Set((products || []).map(p => p.id));
+    } catch {
+      partnerProductIds = new Set();
+    }
+  }
+
   let query =
     "SELECT o.*, op.snapshot_json AS pricing_json FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id";
   const params = [];
@@ -289,10 +300,10 @@ export async function getAdminOrders(
     query += " WHERE o.status = ?";
     params.push(status);
   }
-  query += " ORDER BY o.created_at DESC LIMIT ? OFFSET ?";
-  params.push(limit, offset);
+  query += " ORDER BY o.created_at DESC";
 
-  return (await db.prepare(query).all(...params)).map((row) => ({
+  const allRows = await db.prepare(query).all(...params);
+  let orders = allRows.map((row) => ({
     id: row.id,
     pricing: row.pricing_json ? JSON.parse(row.pricing_json) : null,
     userId: row.user_id,
@@ -312,9 +323,15 @@ export async function getAdminOrders(
     createdAt: row.created_at,
     completedAt: row.completed_at,
   }));
+
+  if (partnerProductIds) {
+    orders = orders.filter(o => o.items && o.items.some(it => partnerProductIds.has(it.productId)));
+  }
+
+  return orders.slice(offset, offset + limit);
 }
 
-export async function updateAdminOrder(db, orderId, { status, claimLink }) {
+export async function updateAdminOrder(db, orderId, { status, claimLink }, partnerEmail = null) {
   const order = await db
     .prepare("SELECT * FROM orders WHERE id = ?")
     .get(orderId);
@@ -323,6 +340,20 @@ export async function updateAdminOrder(db, orderId, { status, claimLink }) {
     error.status = 404;
     throw error;
   }
+
+  if (partnerEmail) {
+    let partnerProductIds = new Set();
+    try {
+      const products = await db.prepare("SELECT id FROM custom_products WHERE LOWER(partner_email) = ?").all(partnerEmail.toLowerCase());
+      partnerProductIds = new Set((products || []).map(p => p.id));
+    } catch {}
+    let items = [];
+    try { items = JSON.parse(order.items_json); } catch {}
+    if (!items.some(it => partnerProductIds.has(it.productId))) {
+      throw Object.assign(new Error("Bạn không có quyền quản lý đơn hàng này."), { status: 403 });
+    }
+  }
+
   const nextStatus = status || order.status;
   // Đơn đã hoàn tiền không mở lại để tránh trừ ví và dùng mã thêm lần nữa.
   if (order.status === "cancelled" && nextStatus !== "cancelled") {
@@ -1037,6 +1068,185 @@ export async function toggleShoppingGuideStatus(db, id, isActive, now = Date.now
     .prepare("UPDATE shopping_guides SET is_active = ?, updated_at = ? WHERE id = ?")
     .run(isActive ? 1 : 0, now, guideId);
   return { success: true, id: guideId, isActive: Boolean(isActive) };
+}
+
+export async function listPartners(db) {
+  let rows = [];
+  try {
+    rows = await db.prepare(
+      `SELECT p.*, u.email as user_email
+       FROM partners p
+       JOIN users u ON u.id = p.user_id
+       ORDER BY p.created_at DESC`
+    ).all();
+  } catch {
+    return [];
+  }
+
+  let customProducts = [];
+  try {
+    customProducts = await db.prepare("SELECT id, partner_email FROM custom_products").all();
+  } catch {}
+  const productsByPartner = new Map();
+  for (const cp of customProducts) {
+    if (cp.partner_email) {
+      const email = cp.partner_email.toLowerCase();
+      productsByPartner.set(email, (productsByPartner.get(email) || 0) + 1);
+    }
+  }
+
+  // Calculate order counts & revenue
+  let orders = [];
+  try {
+    orders = await db.prepare("SELECT id, items_json, total, status FROM orders").all();
+  } catch {}
+  const ordersByPartner = new Map();
+  const revenueByPartner = new Map();
+
+  for (const o of orders) {
+    let items = [];
+    try { items = JSON.parse(o.items_json); } catch {}
+    const seenPartners = new Set();
+    for (const item of items) {
+      const prod = customProducts.find(p => p.id === item.productId);
+      if (prod && prod.partner_email) {
+        const email = prod.partner_email.toLowerCase();
+        seenPartners.add(email);
+        if (o.status === "completed") {
+          const itemTotal = (item.unitPrice || 0) * (item.quantity || 1);
+          revenueByPartner.set(email, (revenueByPartner.get(email) || 0) + itemTotal);
+        }
+      }
+    }
+    for (const email of seenPartners) {
+      ordersByPartner.set(email, (ordersByPartner.get(email) || 0) + 1);
+    }
+  }
+
+  return rows.map(r => {
+    const email = r.email.toLowerCase();
+    return {
+      id: r.id,
+      userId: r.user_id,
+      email: r.email,
+      name: r.name,
+      isActive: Boolean(r.is_active),
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      productCount: productsByPartner.get(email) || 0,
+      orderCount: ordersByPartner.get(email) || 0,
+      totalRevenue: revenueByPartner.get(email) || 0,
+    };
+  });
+}
+
+export async function savePartner(db, { email, name, password, isActive = true }, now = Date.now()) {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  if (!cleanEmail || cleanEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    throw Object.assign(new Error("Email đối tác không hợp lệ."), { status: 400 });
+  }
+  const cleanName = String(name || "").trim();
+  if (!cleanName || cleanName.length < 2 || cleanName.length > 100) {
+    throw Object.assign(new Error("Tên đối tác phải từ 2 đến 100 ký tự."), { status: 400 });
+  }
+
+  return db.transaction(async (tx) => {
+    let user = await tx.prepare("SELECT * FROM users WHERE LOWER(email) = ?").get(cleanEmail);
+    if (!user) {
+      const pass = String(password || "").trim();
+      if (!pass || pass.length < 6) {
+        throw Object.assign(new Error("Mật khẩu khởi tạo cho đối tác tối thiểu 6 ký tự."), { status: 400 });
+      }
+      const hashed = await passwordHash(pass);
+      const userId = randomUUID();
+      await tx.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)")
+        .run(userId, cleanEmail, hashed, now);
+      user = { id: userId, email: cleanEmail };
+    } else {
+      if (password && String(password).trim().length >= 6) {
+        const hashed = await passwordHash(String(password).trim());
+        await tx.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashed, user.id);
+      }
+    }
+
+    const partnerId = randomUUID();
+    await tx.prepare(
+      `INSERT INTO partners (id, user_id, email, name, is_active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(email) DO UPDATE SET
+         name = excluded.name,
+         is_active = excluded.is_active,
+         updated_at = excluded.updated_at`
+    ).run(partnerId, user.id, cleanEmail, cleanName, isActive ? 1 : 0, now, now);
+
+    const partner = await tx.prepare("SELECT * FROM partners WHERE LOWER(email) = ?").get(cleanEmail);
+    return {
+      id: partner.id,
+      userId: user.id,
+      email: partner.email,
+      name: partner.name,
+      isActive: Boolean(partner.is_active),
+      createdAt: partner.created_at,
+      updatedAt: partner.updated_at,
+    };
+  });
+}
+
+export async function togglePartnerStatus(db, partnerId, isActive, now = Date.now()) {
+  const partner = await db.prepare("SELECT * FROM partners WHERE id = ?").get(partnerId);
+  if (!partner) throw Object.assign(new Error("Không tìm thấy đối tác."), { status: 404 });
+  await db.prepare("UPDATE partners SET is_active = ?, updated_at = ? WHERE id = ?").run(isActive ? 1 : 0, now, partnerId);
+  if (!isActive) {
+    await db.prepare("DELETE FROM admin_tokens WHERE user_id = ?").run(partner.user_id);
+  }
+  return { id: partnerId, isActive: Boolean(isActive) };
+}
+
+export async function deletePartner(db, partnerId) {
+  const partner = await db.prepare("SELECT * FROM partners WHERE id = ?").get(partnerId);
+  if (!partner) throw Object.assign(new Error("Không tìm thấy đối tác."), { status: 404 });
+  await db.transaction(async (tx) => {
+    await tx.prepare("DELETE FROM partners WHERE id = ?").run(partnerId);
+    await tx.prepare("DELETE FROM admin_tokens WHERE user_id = ?").run(partner.user_id);
+    await tx.prepare("UPDATE custom_products SET partner_email = NULL WHERE LOWER(partner_email) = ?").run(partner.email.toLowerCase());
+  });
+  return { id: partnerId, deleted: true };
+}
+
+export async function createAdminToken(db, userId, role = "partner", now = Date.now()) {
+  const rawToken = "vnl_ptn_" + randomBytes(24).toString("hex");
+  const tokenHash = digest(rawToken);
+  const expiresAt = now + 30 * 24 * 3600 * 1000;
+  await db.prepare("INSERT INTO admin_tokens (token_hash, user_id, role, expires_at) VALUES (?, ?, ?, ?)")
+    .run(tokenHash, userId, role, expiresAt);
+  return rawToken;
+}
+
+export async function getAdminUserFromToken(db, token, masterAdminPassword, now = Date.now()) {
+  if (!token) return null;
+  if (masterAdminPassword && equal(token, masterAdminPassword)) {
+    return { role: "admin", email: "admin@vietnamlegacy.com", name: "Quản trị viên" };
+  }
+  const tokenHash = digest(token);
+  try {
+    const row = await db.prepare(
+      `SELECT t.user_id, t.role, t.expires_at, u.email, p.name as partner_name, p.is_active as partner_active
+       FROM admin_tokens t
+       JOIN users u ON u.id = t.user_id
+       LEFT JOIN partners p ON LOWER(p.email) = LOWER(u.email)
+       WHERE t.token_hash = ? AND t.expires_at > ?`
+    ).get(tokenHash, now);
+    if (!row) return null;
+    if (row.partner_active === 0) return null;
+    return {
+      role: row.role || "partner",
+      userId: row.user_id,
+      email: row.email,
+      name: row.partner_name || row.email,
+    };
+  } catch {
+    return null;
+  }
 }
 
 

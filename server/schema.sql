@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS custom_products (
   features_json TEXT,
   detail TEXT,
   service INTEGER NOT NULL DEFAULT 0,
+  partner_email TEXT,
   is_active INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
@@ -156,6 +157,25 @@ CREATE TABLE IF NOT EXISTS catalog_item_overrides (
   data_json TEXT NOT NULL,
   updated_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS partners (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  email TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS partners_email ON partners(email);
+
+CREATE TABLE IF NOT EXISTS admin_tokens (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  role TEXT NOT NULL DEFAULT 'partner',
+  expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS admin_tokens_expiry ON admin_tokens(expires_at);
 
 
 
