@@ -88,3 +88,38 @@ CREATE TABLE IF NOT EXISTS order_pricing (
   snapshot_json TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS order_pricing_coupon ON order_pricing(coupon_id);
+
+CREATE TABLE IF NOT EXISTS custom_products (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  badge TEXT,
+  description TEXT,
+  image TEXT,
+  features_json TEXT,
+  detail TEXT,
+  service INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS custom_variants (
+  id TEXT NOT NULL,
+  product_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  price INTEGER NOT NULL CHECK(price BETWEEN 0 AND 1000000000),
+  delivery_type TEXT NOT NULL DEFAULT 'gift',
+  note TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY(product_id, id)
+);
+
+CREATE TABLE IF NOT EXISTS catalog_item_status (
+  item_key TEXT PRIMARY KEY,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  updated_at INTEGER NOT NULL
+);
+

@@ -642,3 +642,27 @@ body {
 
 .announcement-feedback { min-height:18px; margin:10px 0; font-size:12px; line-height:1.6; color:#a7e8bd; }
 .announcement-feedback.is-error { color:#ffaca4; }
+
+/* Product and Variant Management Controls */
+.product-manage-card.is-inactive { opacity: 0.75; border-style: dashed; border-color: #59434a; }
+.product-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+.product-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.product-title-row h3 { margin: 0; }
+.product-desc-snippet { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
+.product-card-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.status-badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+.status-badge.active { color: #90e6bb; background: rgba(144, 230, 187, 0.12); border: 1px solid rgba(144, 230, 187, 0.3); }
+.status-badge.disabled { color: #ffaca4; background: rgba(255, 172, 164, 0.12); border: 1px solid rgba(255, 172, 164, 0.3); }
+.status-badge.custom { color: #d3b4fb; background: rgba(211, 180, 251, 0.12); border: 1px solid rgba(211, 180, 251, 0.3); }
+.status-badge.disabled-sm { font-size: 9px; padding: 1px 5px; color: #ffaca4; background: rgba(255, 172, 164, 0.12); }
+.status-badge.custom-sm { font-size: 9px; padding: 1px 5px; color: #d3b4fb; background: rgba(211, 180, 251, 0.12); }
+.price-variant.is-inactive { opacity: 0.6; }
+.price-variant.is-inactive strong { text-decoration: line-through; }
+.variant-meta { min-width: 0; }
+.variant-name-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.variant-controls { display: flex; align-items: center; gap: 6px; }
+.btn-danger { color: #ffaca4 !important; border-color: rgba(255, 172, 164, 0.35) !important; }
+.btn-danger:hover { background: rgba(255, 172, 164, 0.15) !important; }
+.btn-xs { padding: 6px 10px !important; font-size: 11px !important; line-height: 1 !important; border-radius: 6px !important; }
+.empty-variants-hint { padding: 14px 0; font-size: 12px; color: var(--muted); font-style: italic; margin: 0; }
+

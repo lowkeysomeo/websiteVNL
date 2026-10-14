@@ -13,7 +13,20 @@ import {
   getAnnouncement,
   saveAnnouncement,
 } from "./store.js";
-import { getCatalog, quoteOrder, savePrices, listPromotions, savePromotion, setPromotionEnabled } from "./pricing.js";
+import {
+  getCatalog,
+  quoteOrder,
+  savePrices,
+  listPromotions,
+  savePromotion,
+  setPromotionEnabled,
+  createCustomProduct,
+  addCustomVariant,
+  toggleProductStatus,
+  deleteProduct,
+  toggleVariantStatus,
+  deleteVariant,
+} from "./pricing.js";
 import {
   digest,
   token,
@@ -372,14 +385,55 @@ export function createApp(db, config) {
         }
         if (req.method === "GET" && route === "/api/admin/pricing") {
           requireAdmin(req);
-          return json(200, { products: await getCatalog(db), promotions: await listPromotions(db) });
+          return json(200, { products: await getCatalog(db, Date.now(), true), promotions: await listPromotions(db) });
         }
         if (req.method === "PUT" && route === "/api/admin/prices") {
           requireAdmin(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
           await savePrices(db, body.prices);
-          return json(200, { products: await getCatalog(db) });
+          return json(200, { products: await getCatalog(db, Date.now(), true) });
+        }
+        if (req.method === "POST" && route === "/api/admin/products") {
+          requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const product = await createCustomProduct(db, body);
+          return json(201, { product });
+        }
+        const productToggleMatch = route.match(/^\/api\/admin\/products\/([a-z0-9_-]+)\/toggle$/);
+        if (req.method === "PATCH" && productToggleMatch) {
+          requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          return json(200, await toggleProductStatus(db, productToggleMatch[1], Boolean(body.isActive)));
+        }
+        const productMatch = route.match(/^\/api\/admin\/products\/([a-z0-9_-]+)$/);
+        if (req.method === "DELETE" && productMatch) {
+          requireAdmin(req);
+          sameOrigin(req);
+          return json(200, await deleteProduct(db, productMatch[1]));
+        }
+        const variantAddMatch = route.match(/^\/api\/admin\/products\/([a-z0-9_-]+)\/variants$/);
+        if (req.method === "POST" && variantAddMatch) {
+          requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const variant = await addCustomVariant(db, variantAddMatch[1], body);
+          return json(201, { variant });
+        }
+        const variantToggleMatch = route.match(/^\/api\/admin\/products\/([a-z0-9_-]+)\/variants\/([a-z0-9_-]+)\/toggle$/);
+        if (req.method === "PATCH" && variantToggleMatch) {
+          requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          return json(200, await toggleVariantStatus(db, variantToggleMatch[1], variantToggleMatch[2], Boolean(body.isActive)));
+        }
+        const variantMatch = route.match(/^\/api\/admin\/products\/([a-z0-9_-]+)\/variants\/([a-z0-9_-]+)$/);
+        if (req.method === "DELETE" && variantMatch) {
+          requireAdmin(req);
+          sameOrigin(req);
+          return json(200, await deleteVariant(db, variantMatch[1], variantMatch[2]));
         }
         const promotionMatch = route.match(/^\/api\/admin\/promotions\/([a-f0-9-]{36})$/);
         if ((req.method === "POST" && route === "/api/admin/promotions") || (req.method === "PUT" && promotionMatch)) {
