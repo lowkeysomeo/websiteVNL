@@ -123,3 +123,13 @@ CREATE TABLE IF NOT EXISTS catalog_item_status (
   updated_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS payment_settings (
+  id TEXT PRIMARY KEY,
+  bank_code TEXT NOT NULL DEFAULT '',
+  bank_gateway TEXT NOT NULL DEFAULT '',
+  account_number TEXT NOT NULL DEFAULT '',
+  account_name TEXT NOT NULL DEFAULT '',
+  is_active INTEGER NOT NULL DEFAULT 1,
+  updated_at INTEGER NOT NULL
+);
+

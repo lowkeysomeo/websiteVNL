@@ -407,3 +407,253 @@ export async function saveAnnouncement(
 
   return await getAnnouncement(db);
 }
+
+export async function getBankSettings(db, config = {}) {
+  let row = null;
+  try {
+    row = await db
+      .prepare("SELECT * FROM payment_settings WHERE id = 'primary'")
+      .get();
+  } catch {
+    // If table doesn't exist yet
+  }
+
+  const fallback = config.bank || {};
+  const isFallbackLive = config.paymentsMode === "live";
+
+  if (row) {
+    const bankCode = (row.bank_code || fallback.code || "").trim();
+    const bankGateway = (row.bank_gateway || fallback.gateway || "").trim();
+    const accountNumber = (row.account_number || fallback.accountNumber || "").trim();
+    const accountName = (row.account_name || fallback.accountName || "").trim();
+    const isActive = Boolean(row.is_active);
+    const enabled = isActive && Boolean(bankCode && accountNumber && accountName && bankGateway);
+
+    return {
+      enabled,
+      isActive,
+      bank: {
+        code: bankCode,
+        gateway: bankGateway,
+        accountNumber,
+        accountName,
+      },
+      updatedAt: row.updated_at,
+    };
+  }
+
+  const hasFallbackBank = Boolean(
+    fallback.code && fallback.accountNumber && fallback.accountName && fallback.gateway,
+  );
+  return {
+    enabled: isFallbackLive && hasFallbackBank,
+    isActive: isFallbackLive && hasFallbackBank,
+    bank: {
+      code: fallback.code || "",
+      gateway: fallback.gateway || "",
+      accountNumber: fallback.accountNumber || "",
+      accountName: fallback.accountName || "",
+    },
+    updatedAt: 0,
+  };
+}
+
+export async function saveBankSettings(db, data = {}, now = Date.now()) {
+  const bankCode = String(data.bankCode || "").trim().toUpperCase();
+  const bankGateway = String(data.bankGateway || "").trim();
+  const accountNumber = String(data.accountNumber || "").trim().replace(/\s+/g, "");
+  const accountName = String(data.accountName || "").trim().toUpperCase();
+  const isActive = data.isActive ? 1 : 0;
+
+  if (isActive) {
+    if (!bankCode || !/^[A-Za-z0-9]{2,20}$/.test(bankCode)) {
+      const err = new Error(
+        "Mã ngân hàng (VietQR code/BIN) không hợp lệ (từ 2 đến 20 ký tự, ví dụ: MB, VCB, TCB, ICB, 970422).",
+      );
+      err.status = 400;
+      throw err;
+    }
+    if (!accountNumber || !/^\d{4,32}$/.test(accountNumber)) {
+      const err = new Error(
+        "Số tài khoản ngân hàng phải gồm từ 4 đến 32 chữ số.",
+      );
+      err.status = 400;
+      throw err;
+    }
+    if (!accountName || accountName.length < 2 || accountName.length > 80) {
+      const err = new Error(
+        "Vui lòng nhập tên chủ tài khoản (in hoa không dấu).",
+      );
+      err.status = 400;
+      throw err;
+    }
+    if (!bankGateway || bankGateway.length < 2 || bankGateway.length > 80) {
+      const err = new Error(
+        "Vui lòng nhập tên ngân hàng (ví dụ: MB Bank, Vietcombank...).",
+      );
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  await db
+    .prepare(
+      `INSERT INTO payment_settings (id, bank_code, bank_gateway, account_number, account_name, is_active, updated_at)
+       VALUES ('primary', ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         bank_code = excluded.bank_code,
+         bank_gateway = excluded.bank_gateway,
+         account_number = excluded.account_number,
+         account_name = excluded.account_name,
+         is_active = excluded.is_active,
+         updated_at = excluded.updated_at`,
+    )
+    .run(bankCode, bankGateway, accountNumber, accountName, isActive, now);
+
+  return {
+    enabled: Boolean(
+      isActive && bankCode && accountNumber && accountName && bankGateway,
+    ),
+    isActive: Boolean(isActive),
+    bank: {
+      code: bankCode,
+      gateway: bankGateway,
+      accountNumber,
+      accountName,
+    },
+    updatedAt: now,
+  };
+}
+
+export async function getAdminDeposits(
+  db,
+  { status = "all", search = "", limit = 100 } = {},
+) {
+  let query = `
+    SELECT d.id, d.user_id, d.code, d.amount, d.status, d.created_at, d.expires_at, d.credited_at,
+           u.email AS user_email
+    FROM deposits d
+    JOIN users u ON u.id = d.user_id
+  `;
+  const conditions = [];
+  const params = [];
+  const now = Date.now();
+
+  if (status && status !== "all") {
+    if (status === "expired") {
+      conditions.push(
+        "(d.status = 'expired' OR (d.status = 'pending' AND d.expires_at < ?))",
+      );
+      params.push(now);
+    } else if (status === "pending") {
+      conditions.push("d.status = 'pending' AND d.expires_at >= ?");
+      params.push(now);
+    } else {
+      conditions.push("d.status = ?");
+      params.push(status);
+    }
+  }
+
+  if (search) {
+    const term = `%${search.trim().toUpperCase()}%`;
+    const termRaw = `%${search.trim().toLowerCase()}%`;
+    conditions.push("(UPPER(d.code) LIKE ? OR LOWER(u.email) LIKE ?)");
+    params.push(term, termRaw);
+  }
+
+  if (conditions.length > 0) {
+    query += " WHERE " + conditions.join(" AND ");
+  }
+
+  query += " ORDER BY d.created_at DESC LIMIT ?";
+  params.push(Math.min(Math.max(Number(limit) || 50, 1), 200));
+
+  const rows = await db.prepare(query).all(...params);
+  return rows.map((r) => ({
+    id: r.id,
+    userId: r.user_id,
+    userEmail: r.user_email,
+    code: r.code,
+    amount: r.amount,
+    status:
+      r.status === "pending" && r.expires_at < now ? "expired" : r.status,
+    createdAt: r.created_at,
+    expiresAt: r.expires_at,
+    creditedAt: r.credited_at,
+  }));
+}
+
+export async function manualCreditDeposit(db, depositId, now = Date.now()) {
+  return db.transaction(async (tx) => {
+    const deposit = await tx
+      .prepare("SELECT * FROM deposits WHERE id = ?")
+      .get(depositId);
+    if (!deposit) {
+      const err = new Error("Không tìm thấy yêu cầu nạp.");
+      err.status = 404;
+      throw err;
+    }
+    if (deposit.status === "credited") {
+      const err = new Error("Yêu cầu nạp này đã được cộng tiền vào ví.");
+      err.status = 409;
+      throw err;
+    }
+
+    const transactionId = `MANUAL-${now}-${randomBytes(4).toString("hex")}`;
+    const reference = `MANUAL-${deposit.code}`;
+
+    await tx
+      .prepare(
+        "INSERT INTO bank_events (transaction_id, reference, deposit_id, amount, outcome, received_at) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      .run(transactionId, reference, deposit.id, deposit.amount, "credited", now);
+
+    await tx
+      .prepare(
+        "INSERT INTO wallet_ledger (id, user_id, deposit_id, transaction_id, amount, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        randomUUID(),
+        deposit.user_id,
+        deposit.id,
+        transactionId,
+        deposit.amount,
+        now,
+      );
+
+    await tx
+      .prepare(
+        "UPDATE deposits SET status = 'credited', credited_at = ? WHERE id = ?",
+      )
+      .run(now, deposit.id);
+
+    return {
+      success: true,
+      depositId: deposit.id,
+      code: deposit.code,
+      amount: deposit.amount,
+      status: "credited",
+      creditedAt: now,
+    };
+  });
+}
+
+export async function cancelDeposit(db, depositId, now = Date.now()) {
+  const deposit = await db
+    .prepare("SELECT * FROM deposits WHERE id = ?")
+    .get(depositId);
+  if (!deposit) {
+    const err = new Error("Không tìm thấy yêu cầu nạp.");
+    err.status = 404;
+    throw err;
+  }
+  if (deposit.status === "credited") {
+    const err = new Error("Không thể hủy yêu cầu nạp đã cộng tiền vào ví.");
+    err.status = 400;
+    throw err;
+  }
+  await db
+    .prepare("UPDATE deposits SET status = 'expired' WHERE id = ?")
+    .run(deposit.id);
+  return { success: true, depositId: deposit.id, status: "expired" };
+}

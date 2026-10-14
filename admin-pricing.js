@@ -1,20 +1,48 @@
-// Giao diện giá và ưu đãi dùng chung phiên đăng nhập của trang quản trị.
+// Giao diện giá, ưu đãi và nạp tiền QR dùng chung phiên đăng nhập của trang quản trị.
 window.initAdminPricing = (() => {
-  let api, notify, products = [], promotions = [], currentView = "orders", initialized = false, loaded = false;
+  let api, notify, products = [], promotions = [], bankSettings = { bank: {}, isActive: false }, depositsList = [], depositFilter = "all", depositSearch = "", currentView = "orders", initialized = false, loaded = false;
   const $ = (selector) => document.querySelector(selector);
   const money = n => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const statuses = { active: "Đang áp dụng", scheduled: "Sắp diễn ra", expired: "Đã kết thúc", disabled: "Đã tắt", exhausted: "Hết lượt dùng" };
+  const depositStatusLabels = { pending: "Chờ chuyển khoản", credited: "Đã cộng tiền", review: "Cần đối soát", expired: "Hết hạn / Hủy" };
   const formatDate = value => value == null ? "Không giới hạn" : new Date(value).toLocaleString("vi-VN");
   const inputDate = value => value == null ? "" : new Date(value - new Date(value).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+  const VIETNAM_BANKS = [
+    { code: "MB", gateway: "MB Bank", name: "MB Bank (Ngân hàng Quân Đội)" },
+    { code: "VCB", gateway: "Vietcombank", name: "Vietcombank (Ngoại Thương Việt Nam)" },
+    { code: "TCB", gateway: "Techcombank", name: "Techcombank (Kỹ Thương Việt Nam)" },
+    { code: "ICB", gateway: "VietinBank", name: "VietinBank (Công Thương Việt Nam)" },
+    { code: "ACB", gateway: "ACB", name: "ACB (Á Châu)" },
+    { code: "BIDV", gateway: "BIDV", name: "BIDV (Đầu tư & Phát triển)" },
+    { code: "VPB", gateway: "VPBank", name: "VPBank (Việt Nam Thịnh Vượng)" },
+    { code: "TPB", gateway: "TPBank", name: "TPBank (Tiên Phong)" },
+    { code: "VBA", gateway: "Agribank", name: "Agribank (Nông Nghiệp & PTNT)" },
+    { code: "STB", gateway: "Sacombank", name: "Sacombank (Sài Gòn Thương Tín)" },
+    { code: "HDB", gateway: "HDBank", name: "HDBank (Phát triển TP.HCM)" },
+    { code: "OCB", gateway: "OCB", name: "OCB (Phương Đông)" },
+    { code: "MSB", gateway: "MSB", name: "MSB (Hàng Hải Việt Nam)" },
+    { code: "SHB", gateway: "SHB", name: "SHB (Sài Gòn - Hà Nội)" },
+    { code: "VIB", gateway: "VIB", name: "VIB (Quốc Tế Việt Nam)" },
+    { code: "SEAB", gateway: "SeABank", name: "SeABank (Đông Nam Á)" },
+    { code: "CAKE", gateway: "Cake by VPBank", name: "Cake by VPBank" },
+    { code: "TIMO", gateway: "Timo", name: "Timo by BanViet" },
+  ];
 
   async function load() {
     const panel = $("#admin-pricing-view");
     try {
-      const data = await api("/api/admin/pricing");
+      const [pricingData, bankData, depositsData] = await Promise.all([
+        api("/api/admin/pricing"),
+        api("/api/admin/bank").catch(() => ({ settings: { bank: {}, isActive: false } })),
+        api("/api/admin/deposits?limit=100").catch(() => ({ deposits: [] })),
+      ]);
       loaded = true;
-      products = data.products;
-      promotions = data.promotions;
+      products = pricingData.products;
+      promotions = pricingData.promotions;
+      bankSettings = bankData.settings || { bank: {}, isActive: false };
+      depositsList = depositsData.deposits || [];
       render();
     } catch (error) {
       panel.innerHTML = `<p class="admin-error-msg" role="alert">${esc(error.message)}</p><button type="button" class="button secondary" data-pricing-reload>Tải lại dữ liệu</button>`;
@@ -98,6 +126,141 @@ window.initAdminPricing = (() => {
         </div>
         <p class="pricing-form-message" role="status"></p>
       </form>`;
+      return;
+    }
+    if (currentView === "deposits") {
+      const filtered = depositsList.filter(d => {
+        if (depositFilter !== "all" && d.status !== depositFilter) return false;
+        if (depositSearch) {
+          const matchCode = d.code.toLowerCase().includes(depositSearch);
+          const matchEmail = (d.userEmail || "").toLowerCase().includes(depositSearch);
+          if (!matchCode && !matchEmail) return false;
+        }
+        return true;
+      });
+
+      const bank = bankSettings.bank || {};
+      const previewQrUrl = (bank.code && bank.accountNumber)
+        ? `https://img.vietqr.io/image/${encodeURIComponent(bank.code)}-${encodeURIComponent(bank.accountNumber)}-compact2.png?amount=50000&addInfo=VNLTEST&accountName=${encodeURIComponent(bank.accountName || "")}`
+        : "";
+
+      panel.innerHTML = `
+        <header class="pricing-heading">
+          <div>
+            <span class="pricing-eyebrow">THANH TOÁN & VÍ TIỀN</span>
+            <h2>Nạp tiền bằng QR Ngân hàng (VietQR)</h2>
+            <p>Cài đặt tài khoản ngân hàng nhận tiền, cấp mã VietQR tự động và quản lý duyệt cộng tiền vào ví cho khách hàng.</p>
+          </div>
+          <div class="pricing-actions">
+            <button type="button" class="button secondary" data-deposits-reload>Làm mới ↻</button>
+          </div>
+        </header>
+
+        <div id="catalog-editor"></div>
+
+        <section class="pricing-card bank-config-card">
+          <div class="card-header-row">
+            <div>
+              <h3>🏦 Thông tin Tài khoản Nhận & Bật/Tắt QR</h3>
+              <p>Khách hàng quét mã VietQR trên ứng dụng ngân hàng sẽ tự động điền đúng Số tài khoản, Ngân hàng, Số tiền và Nội dung nạp tiền.</p>
+            </div>
+            <div class="announcement-toggle-group">
+              <label class="switch-label">
+                <input type="checkbox" id="bank-active-toggle" ${bankSettings.isActive ? "checked" : ""} aria-label="Bật nạp tiền QR" />
+                <span class="switch-slider"></span>
+              </label>
+              <span id="bank-status-text" class="${bankSettings.isActive ? "status-active" : "status-inactive"}">
+                ${bankSettings.isActive ? "Đang bật nạp QR" : "Đang tắt nạp QR"}
+              </span>
+            </div>
+          </div>
+
+          <form id="admin-bank-form" class="bank-form-layout">
+            <div class="bank-form-fields">
+              <label>
+                Chọn nhanh ngân hàng phổ biến
+                <select id="bank-preset-select">
+                  <option value="">-- Chọn ngân hàng để tự điền mã và tên --</option>
+                  ${VIETNAM_BANKS.map(b => `<option value="${b.code}" ${b.code === bank.code ? "selected" : ""}>${esc(b.name)}</option>`).join("")}
+                </select>
+              </label>
+
+              <div class="pricing-form-grid">
+                <label>
+                  Mã ngân hàng VietQR (BIN hoặc Code)
+                  <input name="bankCode" required placeholder="VD: MB, VCB, TCB, ICB, ACB, 970422..." value="${esc(bank.code || "")}" />
+                  <small>Mã chuẩn VietQR của ngân hàng (VD: MB, VCB, TCB, ICB) hoặc mã 6 số BIN.</small>
+                </label>
+                <label>
+                  Tên hiển thị ngân hàng
+                  <input name="bankGateway" required placeholder="VD: MB Bank, Vietcombank..." value="${esc(bank.gateway || "")}" />
+                  <small>Tên ngân hàng hiển thị cho khách hàng xem khi chọn nạp tiền.</small>
+                </label>
+              </div>
+
+              <div class="pricing-form-grid">
+                <label>
+                  Số tài khoản nhận tiền
+                  <input name="accountNumber" required pattern="\\d+" placeholder="VD: 0123456789" value="${esc(bank.accountNumber || "")}" />
+                  <small>Số tài khoản ngân hàng nhận tiền chuyển khoản (chỉ nhập số).</small>
+                </label>
+                <label>
+                  Tên chủ tài khoản (In hoa không dấu)
+                  <input name="accountName" required placeholder="VD: NGUYEN VAN A" value="${esc(bank.accountName || "")}" />
+                  <small>Tên người thụ hưởng như trên ứng dụng ngân hàng.</small>
+                </label>
+              </div>
+
+              <div class="bank-form-footer">
+                <p id="bank-form-message" class="pricing-form-message"></p>
+                <button type="submit" class="button primary">Lưu cấu hình ngân hàng 💾</button>
+              </div>
+            </div>
+
+            <div class="bank-qr-preview-box">
+              <h4>Xem trước mã QR của shop</h4>
+              <p>Mã thử nghiệm mẫu (50.000₫ · VNLTEST)</p>
+              ${previewQrUrl ? `
+                <div class="preview-qr-wrap">
+                  <img src="${esc(previewQrUrl)}" alt="VietQR Preview" width="180" height="230" />
+                </div>
+                <small class="preview-qr-note">Dùng app ngân hàng quét thử mã này để kiểm tra đúng tên và tài khoản!</small>
+              ` : `
+                <div class="preview-qr-placeholder">
+                  <span>📱</span>
+                  <p>Nhập thông tin ngân hàng và bấm "Lưu cấu hình" để hiển thị mã QR tại đây.</p>
+                </div>
+              `}
+            </div>
+          </form>
+        </section>
+
+        <section class="pricing-card deposit-history-card">
+          <div class="deposit-history-top">
+            <div>
+              <h3>📋 Danh sách Yêu cầu Nạp tiền</h3>
+              <p>Theo dõi các giao dịch nạp tiền qua QR. Bấm <strong>"Duyệt cộng tiền"</strong> để xác nhận và cộng ngay số dư vào ví cho khách.</p>
+            </div>
+          </div>
+
+          <div class="admin-controls deposit-controls">
+            <div class="admin-tabs deposit-filter-tabs" role="tablist">
+              <button class="admin-tab ${depositFilter === 'all' ? 'active' : ''}" data-deposit-filter="all">Tất cả (${depositsList.length})</button>
+              <button class="admin-tab ${depositFilter === 'pending' ? 'active' : ''}" data-deposit-filter="pending">Chờ chuyển (${depositsList.filter(d => d.status === 'pending').length})</button>
+              <button class="admin-tab ${depositFilter === 'credited' ? 'active' : ''}" data-deposit-filter="credited">Đã cộng tiền (${depositsList.filter(d => d.status === 'credited').length})</button>
+              <button class="admin-tab ${depositFilter === 'review' ? 'active' : ''}" data-deposit-filter="review">Cần đối soát (${depositsList.filter(d => d.status === 'review').length})</button>
+              <button class="admin-tab ${depositFilter === 'expired' ? 'active' : ''}" data-deposit-filter="expired">Hết hạn / Hủy (${depositsList.filter(d => d.status === 'expired').length})</button>
+            </div>
+            <div class="admin-search-group">
+              <input type="search" id="deposit-search-input" placeholder="Tìm theo mã nạp (VNL...), email khách..." value="${esc(depositSearch)}" />
+            </div>
+          </div>
+
+          <div class="deposits-table-wrap" id="deposit-cards-container">
+            ${renderDepositCardsHtml(filtered, bank)}
+          </div>
+        </section>
+      `;
       return;
     }
     const coupon = currentView === "coupons", kind = coupon ? "coupon" : "campaign";
@@ -205,9 +368,95 @@ window.initAdminPricing = (() => {
     $("#promotion-form [name=name]").focus();
   }
 
+  function renderDepositCardsHtml(filtered, bank) {
+    if (filtered.length === 0) {
+      return '<p class="admin-empty-text">Không có yêu cầu nạp tiền nào phù hợp với bộ lọc.</p>';
+    }
+    return `
+      <div class="deposit-cards-list">
+        ${filtered.map(d => {
+          const qrUrl = (bank.code && bank.accountNumber)
+            ? `https://img.vietqr.io/image/${encodeURIComponent(bank.code)}-${encodeURIComponent(bank.accountNumber)}-compact2.png?amount=${d.amount}&addInfo=${encodeURIComponent(d.code)}&accountName=${encodeURIComponent(bank.accountName || "")}`
+            : "";
+          return `
+            <div class="deposit-item-card status-${esc(d.status)}">
+              <div class="deposit-item-main">
+                <div class="deposit-item-header">
+                  <span class="deposit-code"><code>${esc(d.code)}</code></span>
+                  <span class="deposit-badge badge-${esc(d.status)}">${depositStatusLabels[d.status] || d.status}</span>
+                  <span class="deposit-date">${new Date(d.createdAt).toLocaleString("vi-VN")}</span>
+                </div>
+                <div class="deposit-item-details">
+                  <div class="deposit-user">
+                    <small>Khách hàng:</small>
+                    <strong>${esc(d.userEmail)}</strong>
+                  </div>
+                  <div class="deposit-amount">
+                    <small>Số tiền nạp:</small>
+                    <strong class="amount-val">${money(d.amount)}</strong>
+                  </div>
+                  ${d.creditedAt ? `
+                    <div class="deposit-credited">
+                      <small>Đã cộng lúc:</small>
+                      <span>${new Date(d.creditedAt).toLocaleString("vi-VN")}</span>
+                    </div>
+                  ` : `
+                    <div class="deposit-expires">
+                      <small>Hết hạn lúc:</small>
+                      <span>${new Date(d.expiresAt).toLocaleString("vi-VN")}</span>
+                    </div>
+                  `}
+                </div>
+              </div>
+              <div class="deposit-item-actions">
+                ${(d.status === "pending" || d.status === "review") ? `
+                  <button type="button" class="button primary btn-small btn-credit" data-deposit-credit="${esc(d.id)}" data-deposit-code="${esc(d.code)}" data-deposit-amount="${d.amount}">
+                    ✓ Duyệt cộng tiền
+                  </button>
+                  <button type="button" class="button secondary btn-small btn-danger" data-deposit-cancel="${esc(d.id)}">
+                    ✕ Hủy
+                  </button>
+                ` : ""}
+                ${qrUrl ? `
+                  <button type="button" class="button secondary btn-small" data-deposit-qr="${esc(d.id)}" data-qr-url="${esc(qrUrl)}" data-qr-code="${esc(d.code)}" data-qr-amount="${d.amount}">
+                    Xem QR ↗
+                  </button>
+                ` : ""}
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function openQrModal(qrUrl, code, amount) {
+    const editor = $("#catalog-editor");
+    if (!editor) return;
+    editor.innerHTML = `
+      <div class="admin-modal-overlay">
+        <div class="admin-modal-box">
+          <div class="admin-modal-header">
+            <h3>Mã VietQR: <code>${esc(code)}</code></h3>
+            <button type="button" class="button secondary btn-small" data-modal-close>Đóng ✕</button>
+          </div>
+          <div class="admin-modal-body">
+            <div class="preview-qr-wrap" style="display:block; margin: 0 auto; text-align: center;">
+              <img src="${esc(qrUrl)}" alt="VietQR" width="220" height="280" style="margin: 0 auto; display: block;" />
+            </div>
+            <p style="text-align: center; margin-top: 14px; font-size: 13px; color: var(--text);">
+              Số tiền: <strong style="color: var(--accent); font-size: 16px;">${money(amount)}</strong><br>
+              Nội dung chuyển khoản: <code style="font-size: 15px;">${esc(code)}</code>
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   async function submit(event) {
     const form = event.target;
-    if (!["admin-prices-form", "promotion-form", "product-create-form", "variant-create-form"].includes(form.id)) return;
+    if (!["admin-prices-form", "promotion-form", "product-create-form", "variant-create-form", "admin-bank-form"].includes(form.id)) return;
     event.preventDefault();
     const button = form.querySelector('[type="submit"]'), message = form.querySelector(".pricing-form-message");
     if (button.disabled) return;
@@ -218,6 +467,20 @@ window.initAdminPricing = (() => {
         const prices = [...form.querySelectorAll("[data-price-product]:not(:disabled)")].map(input => ({ productId: input.dataset.priceProduct, variantId: input.dataset.priceVariant, price: Number(input.value) }));
         await api("/api/admin/prices", { method: "PUT", body: JSON.stringify({ prices }) });
         notify("Đã lưu bảng giá sản phẩm.");
+      } else if (form.id === "admin-bank-form") {
+        const data = new FormData(form);
+        const isActive = $("#bank-active-toggle") ? $("#bank-active-toggle").checked : true;
+        const bankCode = (data.get("bankCode") || "").trim().toUpperCase();
+        const bankGateway = (data.get("bankGateway") || "").trim();
+        const accountNumber = (data.get("accountNumber") || "").trim().replace(/\s+/g, "");
+        const accountName = (data.get("accountName") || "").trim().toUpperCase();
+
+        const res = await api("/api/admin/bank", {
+          method: "PUT",
+          body: JSON.stringify({ bankCode, bankGateway, accountNumber, accountName, isActive }),
+        });
+        bankSettings = res.settings;
+        notify(isActive ? "Đã lưu thông tin ngân hàng và bật nạp QR." : "Đã lưu thông tin ngân hàng (đang tắt nạp QR).");
       } else if (form.id === "product-create-form") {
         const data = new FormData(form);
         const name = data.get("name").trim();
@@ -267,12 +530,87 @@ window.initAdminPricing = (() => {
       document.addEventListener("submit", submit);
       document.addEventListener("change", event => {
         if (event.target.matches('#promotion-form [name="type"]')) $("#promotion-form [name=value]").max = event.target.value === "percent" ? "100" : "1000000000";
+        if (event.target.id === "bank-preset-select") {
+          const selected = VIETNAM_BANKS.find(b => b.code === event.target.value);
+          if (selected) {
+            const codeInput = document.querySelector('#admin-bank-form [name="bankCode"]');
+            const nameInput = document.querySelector('#admin-bank-form [name="bankGateway"]');
+            if (codeInput) codeInput.value = selected.code;
+            if (nameInput) nameInput.value = selected.gateway;
+          }
+        }
+        if (event.target.id === "bank-active-toggle") {
+          const statusText = document.querySelector("#bank-status-text");
+          if (statusText) {
+            statusText.textContent = event.target.checked ? "Đang bật nạp QR" : "Đang tắt nạp QR";
+            statusText.className = event.target.checked ? "status-active" : "status-inactive";
+          }
+        }
+      });
+      document.addEventListener("input", event => {
+        if (event.target.id === "deposit-search-input") {
+          depositSearch = event.target.value.trim().toLowerCase();
+          const container = document.querySelector("#deposit-cards-container");
+          if (container) {
+            const filtered = depositsList.filter(d => {
+              if (depositFilter !== "all" && d.status !== depositFilter) return false;
+              if (depositSearch) {
+                const matchCode = d.code.toLowerCase().includes(depositSearch);
+                const matchEmail = (d.userEmail || "").toLowerCase().includes(depositSearch);
+                if (!matchCode && !matchEmail) return false;
+              }
+              return true;
+            });
+            container.innerHTML = renderDepositCardsHtml(filtered, bankSettings.bank || {});
+          }
+        }
       });
       document.addEventListener("click", async event => {
         const button = event.target.closest("button");
         if (!button) return;
         if (button.dataset.adminView) switchView(button.dataset.adminView);
         if (button.hasAttribute("data-pricing-reload")) await load();
+        if (button.hasAttribute("data-deposits-reload")) await load();
+        if (button.dataset.depositFilter) {
+          depositFilter = button.dataset.depositFilter;
+          render();
+        }
+        if (button.dataset.depositCredit) {
+          const dId = button.dataset.depositCredit;
+          const dCode = button.dataset.depositCode;
+          const dAmount = Number(button.dataset.depositAmount);
+          if (!confirm(`Xác nhận đã nhận đủ ${money(dAmount)} cho mã ${dCode}?\nTiền sẽ được cộng ngay lập tức vào ví của khách hàng.`)) return;
+          button.disabled = true;
+          try {
+            await api(`/api/admin/deposits/${dId}/credit`, { method: "POST" });
+            notify(`Đã duyệt và cộng ${money(dAmount)} vào ví thành công!`);
+            await load();
+          } catch (err) {
+            notify(err.message);
+          } finally {
+            button.disabled = false;
+          }
+        }
+        if (button.dataset.depositCancel) {
+          const dId = button.dataset.depositCancel;
+          if (!confirm("Bạn có chắc chắn muốn hủy yêu cầu nạp này?")) return;
+          button.disabled = true;
+          try {
+            await api(`/api/admin/deposits/${dId}/cancel`, { method: "POST" });
+            notify("Đã hủy yêu cầu nạp.");
+            await load();
+          } catch (err) {
+            notify(err.message);
+          } finally {
+            button.disabled = false;
+          }
+        }
+        if (button.dataset.depositQr) {
+          openQrModal(button.dataset.qrUrl, button.dataset.qrCode, Number(button.dataset.qrAmount));
+        }
+        if (button.hasAttribute("data-modal-close")) {
+          $("#catalog-editor").replaceChildren();
+        }
         if (button.hasAttribute("data-product-new")) openProductEditor();
         if (button.dataset.variantNew) openVariantEditor(button.dataset.variantNew);
         if (button.hasAttribute("data-catalog-close")) $("#catalog-editor").replaceChildren();

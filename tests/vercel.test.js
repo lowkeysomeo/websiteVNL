@@ -218,6 +218,32 @@ test("Vercel web handler serves admin-pricing.js asset and handles pricing APIs 
     const catalogData = await catalogRes.json();
     const nitro = catalogData.products.find((p) => p.id === "nitro");
     assert.equal(nitro.variants[0].price, Math.round(nitro.variants[0].basePrice * 0.85));
+
+    // 5. Admin bank configuration over libSQL
+    const bankPutRes = await endpoint.fetch(
+      new Request(origin + "/api/admin/bank", {
+        method: "PUT",
+        headers: adminHeaders,
+        body: JSON.stringify({
+          bankCode: "MB",
+          bankGateway: "MB Bank",
+          accountNumber: "123456789",
+          accountName: "TEST VERCEL",
+          isActive: true,
+        }),
+      }),
+    );
+    assert.equal(bankPutRes.status, 200);
+    const bankPutData = await bankPutRes.json();
+    assert.equal(bankPutData.settings.enabled, true);
+    assert.equal(bankPutData.settings.bank.code, "MB");
+
+    // 6. Public session reflects enabled bank top-up over libSQL
+    const sessionRes = await endpoint.fetch(new Request(origin + "/api/session"));
+    assert.equal(sessionRes.status, 200);
+    const sessionData = await sessionRes.json();
+    assert.equal(sessionData.paymentsEnabled, true);
+    assert.equal(sessionData.bank.code, "MB");
   } finally {
     db.close();
   }

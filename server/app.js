@@ -12,6 +12,11 @@ import {
   updateAdminOrder,
   getAnnouncement,
   saveAnnouncement,
+  getBankSettings,
+  saveBankSettings,
+  getAdminDeposits,
+  manualCreditDeposit,
+  cancelDeposit,
 } from "./store.js";
 import {
   getCatalog,
@@ -84,11 +89,12 @@ function depositView(row) {
 }
 
 export function createApp(db, config) {
-  function paymentDetails(deposit) {
+  function paymentDetails(deposit, activeBank) {
+    const bank = activeBank || config.bank;
     return {
       deposit: depositView(deposit),
-      bank: { ...config.bank },
-      qrUrl: `https://img.vietqr.io/image/${encodeURIComponent(config.bank.code)}-${encodeURIComponent(config.bank.accountNumber)}-compact2.png?${new URLSearchParams({ amount: String(deposit.amount), addInfo: deposit.code, accountName: config.bank.accountName })}`,
+      bank: { ...bank },
+      qrUrl: `https://img.vietqr.io/image/${encodeURIComponent(bank.code)}-${encodeURIComponent(bank.accountNumber)}-compact2.png?${new URLSearchParams({ amount: String(deposit.amount), addInfo: deposit.code, accountName: bank.accountName })}`,
     };
   }
   const allow = createLimiter();
@@ -181,25 +187,28 @@ export function createApp(db, config) {
         }
         if (req.method === "GET" && route === "/api/session") {
           const current = await session(req);
+          const bankSettings = await getBankSettings(db, config);
           return json(200, {
             user: current ? { email: current.email } : null,
             csrfToken: current?.csrf_token ?? null,
             balance: current ? await balance(db, current.user_id) : null,
-            paymentsEnabled: config.paymentsMode === "live",
+            paymentsEnabled: bankSettings.enabled,
             bank: {
-              name: config.bank.gateway,
-              accountNumber: config.bank.accountNumber,
-              accountName: config.bank.accountName,
+              code: bankSettings.bank.code,
+              name: bankSettings.bank.gateway,
+              accountNumber: bankSettings.bank.accountNumber,
+              accountName: bankSettings.bank.accountName,
             },
           });
         }
         if (req.method === "POST" && route === "/api/webhooks/sepay") {
-          if (config.paymentsMode !== "live")
+          const bankSettings = await getBankSettings(db, config);
+          if (!bankSettings.enabled && config.paymentsMode !== "live")
             throw fail(503, "Nạp tiền chưa được kích hoạt.");
           const raw = await readBody(req);
           if (!verifyWebhook(req.headers, raw, config.webhookSecret))
             throw fail(401, "Chữ ký webhook không hợp lệ.");
-          const result = await processTransfer(db, parse(raw), config.bank);
+          const result = await processTransfer(db, parse(raw), bankSettings.bank);
           return json(200, { success: true, outcome: result.outcome });
         }
         if (
@@ -309,7 +318,8 @@ export function createApp(db, config) {
         }
         if (req.method === "POST" && route === "/api/deposits") {
           const current = await protect(req);
-          if (config.paymentsMode !== "live")
+          const bankSettings = await getBankSettings(db, config);
+          if (!bankSettings.enabled)
             throw fail(503, "Shop chưa mở nạp tiền. Vui lòng quay lại sau.");
           if (!allow(`deposit:${current.user_id}`, 10, 3600000))
             throw fail(429, "Tối đa 10 yêu cầu nạp mỗi giờ.");
@@ -360,7 +370,7 @@ export function createApp(db, config) {
               now,
               deposit.expires_at,
             );
-          return json(201, paymentDetails(deposit));
+          return json(201, paymentDetails(deposit, bankSettings.bank));
         }
         const match = route.match(/^\/api\/deposits\/([a-f0-9-]{36})$/);
         if (req.method === "GET" && match) {
@@ -369,8 +379,9 @@ export function createApp(db, config) {
             .prepare("SELECT * FROM deposits WHERE id = ? AND user_id = ?")
             .get(match[1], current.user_id);
           if (!row) throw fail(404, "Không tìm thấy yêu cầu nạp.");
+          const bankSettings = await getBankSettings(db, config);
           return json(200, {
-            ...paymentDetails(row),
+            ...paymentDetails(row, bankSettings.bank),
             balance: await balance(db, current.user_id),
           });
         }
@@ -617,6 +628,44 @@ export function createApp(db, config) {
           if (typeof body.content !== "string" || typeof body.is_active !== "boolean") throw fail(400, "Nội dung hoặc trạng thái thông báo không hợp lệ.");
           const ann = await saveAnnouncement(db, body.content, body.is_active);
           return json(200, { success: true, announcement: ann });
+        }
+        if (req.method === "GET" && route === "/api/admin/bank") {
+          requireAdmin(req);
+          const settings = await getBankSettings(db, config);
+          return json(200, { success: true, settings });
+        }
+        if (req.method === "PUT" && route === "/api/admin/bank") {
+          requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const settings = await saveBankSettings(db, body);
+          return json(200, { success: true, settings });
+        }
+        if (req.method === "GET" && route === "/api/admin/deposits") {
+          requireAdmin(req);
+          const status = url.searchParams.get("status") || "all";
+          const search = url.searchParams.get("search") || "";
+          const limit = url.searchParams.get("limit") || 100;
+          const deposits = await getAdminDeposits(db, { status, search, limit });
+          return json(200, { success: true, deposits });
+        }
+        const adminDepositCreditMatch = route.match(
+          /^\/api\/admin\/deposits\/([a-f0-9-]{36})\/credit$/,
+        );
+        if (req.method === "POST" && adminDepositCreditMatch) {
+          requireAdmin(req);
+          sameOrigin(req);
+          const result = await manualCreditDeposit(db, adminDepositCreditMatch[1]);
+          return json(200, result);
+        }
+        const adminDepositCancelMatch = route.match(
+          /^\/api\/admin\/deposits\/([a-f0-9-]{36})\/cancel$/,
+        );
+        if (req.method === "POST" && adminDepositCancelMatch) {
+          requireAdmin(req);
+          sameOrigin(req);
+          const result = await cancelDeposit(db, adminDepositCancelMatch[1]);
+          return json(200, result);
         }
         throw fail(404, "Không tìm thấy chức năng.");
       }
