@@ -127,6 +127,110 @@ const productDialog = document.querySelector("#product-dialog");
 const checkoutDialog = document.querySelector("#checkout-dialog");
 const infoDialog = document.querySelector("#info-dialog");
 let toastTimer;
+// Giá hiển thị và bản tính thanh toán được lấy từ cùng một nguồn trên máy chủ.
+let catalogReady = false;
+let checkoutQuote = null;
+let checkoutQuoteRequest = 0;
+let checkoutBusy = false;
+let checkoutBalance = null;
+let appliedCoupon = "";
+
+function variantPriceHtml(variant) {
+  if (!catalogReady) return '<span class="price-loading">Đang tải giá...</span>';
+  return `${variant.basePrice > variant.price ? `<del class="original-price">${money(variant.basePrice)}</del>` : ""}${money(variant.price)}${variant.sale ? `<small class="sale-caption">${escapeHtml(variant.sale.name)}</small>` : ""}`;
+}
+
+async function refreshCatalog() {
+  try {
+    const response = await fetch("/api/catalog", { cache: "no-store" });
+    if (!response.ok) throw new Error();
+    const data = await response.json();
+    const changed = !catalogReady || JSON.stringify(data.products) !== JSON.stringify(products);
+    products.splice(0, products.length, ...data.products);
+    catalogReady = true;
+    document.querySelector("#catalog-price-status").hidden = true;
+    if (changed) {
+      renderProducts();
+      if (cartDialog.open) renderCart();
+    }
+  } catch {
+    const status = document.querySelector("#catalog-price-status");
+    status.hidden = false;
+    status.textContent = "Chưa cập nhật được giá từ cửa hàng. Vui lòng tải lại trang hoặc thử lại sau.";
+  }
+}
+
+function checkoutItems() {
+  return (currentDirectItem ? [currentDirectItem] : state.cart).map(({ productId, variantId, quantity }) => ({ productId, variantId, quantity }));
+}
+
+function syncCheckoutControls() {
+  document.querySelector("#checkout-submit-btn").disabled = checkoutBusy || !checkoutQuote;
+  document.querySelector("#coupon-apply").disabled = checkoutBusy;
+  document.querySelector("#coupon-remove").disabled = checkoutBusy;
+  document.querySelector("#checkout-coupon").disabled = checkoutBusy;
+}
+
+function paintCheckoutQuote(quote) {
+  document.querySelector("#checkout-subtotal").textContent = money(quote.subtotal);
+  document.querySelector("#checkout-sale-discount").textContent = "−" + money(quote.saleDiscount);
+  document.querySelector("#checkout-coupon-discount").textContent = "−" + money(quote.couponDiscount);
+  document.querySelector("#checkout-total").textContent = money(quote.total);
+  const message = document.querySelector("#coupon-message");
+  message.textContent = quote.coupon ? `Đã áp dụng ${quote.coupon.code}: tiết kiệm ${money(quote.couponDiscount)}.` : "Mỗi đơn áp dụng một mã giảm giá.";
+  message.classList.remove("is-error");
+  document.querySelector("#coupon-remove").hidden = !quote.coupon;
+  if (checkoutBalance != null) {
+    const alert = document.querySelector("#checkout-wallet-alert");
+    alert.hidden = checkoutBalance >= quote.total;
+    alert.textContent = `Số dư ví ${money(checkoutBalance)}, cần thanh toán ${money(quote.total)}. Vui lòng nạp thêm tiền.`;
+  }
+}
+
+async function requestCheckoutQuote(code = appliedCoupon) {
+  const request = ++checkoutQuoteRequest;
+  checkoutQuote = null;
+  syncCheckoutControls();
+  const message = document.querySelector("#coupon-message");
+  message.textContent = "Đang kiểm tra giá và ưu đãi...";
+  try {
+    const response = await fetch("/api/quote", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: checkoutItems(), couponCode: code }) });
+    const data = await response.json();
+    if (request !== checkoutQuoteRequest) return null;
+    if (!response.ok) throw new Error(data.error || "Chưa kiểm tra được giá thanh toán.");
+    checkoutQuote = data.quote;
+    appliedCoupon = data.quote.coupon?.code || "";
+    document.querySelector("#checkout-coupon").value = appliedCoupon;
+    paintCheckoutQuote(checkoutQuote);
+    return checkoutQuote;
+  } catch (error) {
+    if (request !== checkoutQuoteRequest) return null;
+    message.textContent = error.message;
+    message.classList.add("is-error");
+    document.querySelector("#checkout-total").textContent = "—";
+    document.querySelector("#coupon-remove").hidden = !code;
+    return null;
+  } finally { if (request === checkoutQuoteRequest) syncCheckoutControls(); }
+}
+
+document.querySelector("#coupon-apply").addEventListener("click", () => {
+  if (!checkoutBusy) requestCheckoutQuote(document.querySelector("#checkout-coupon").value.trim());
+});
+document.querySelector("#coupon-remove").addEventListener("click", () => {
+  if (!checkoutBusy) requestCheckoutQuote("");
+});
+document.querySelector("#checkout-coupon").addEventListener("input", () => {
+  ++checkoutQuoteRequest;
+  checkoutQuote = null;
+  syncCheckoutControls();
+  document.querySelector("#coupon-message").textContent = "Bấm Áp dụng để kiểm tra mã hoặc Bỏ mã để tiếp tục.";
+  document.querySelector("#coupon-remove").hidden = false;
+});
+document.querySelector("#checkout-coupon").addEventListener("keydown", event => {
+  if (event.key === "Enter") { event.preventDefault(); document.querySelector("#coupon-apply").click(); }
+});
+
+
 
 function notify(message) {
   const toast = document.querySelector("#toast");
@@ -181,7 +285,7 @@ function visibleProducts() {
     return matchesCategory && matchesSearch && matchesFavorites;
   });
   const price = (product) =>
-    product.service ? Infinity : product.variants[0].price;
+    product.service ? Infinity : Math.min(...product.variants.map(variant => variant.price));
   if (state.sort === "price-asc") list.sort((a, b) => price(a) - price(b));
   if (state.sort === "price-desc")
     list.sort((a, b) => {
@@ -201,7 +305,7 @@ function renderProducts() {
       const favorite = state.favorites.includes(product.id);
       const price = product.service
         ? "Liên hệ"
-        : money(product.variants[0].price);
+        : variantPriceHtml(product.variants.reduce((lowest, variant) => variant.price < lowest.price ? variant : lowest));
       return `<article class="product-card" data-product="${product.id}">
       <div class="product-media">
         <button class="product-open" data-detail="${product.id}" aria-label="Xem chi tiết ${product.name}"><img src="${product.image}" alt="Minh họa ${product.name}" loading="lazy" width="350" height="210"></button>
@@ -214,13 +318,13 @@ function renderProducts() {
         <p class="product-description">${product.description}</p>
         <ul class="product-features">${product.features.map((feature) => `<li>${icon("check")}<span>${feature}</span></li>`).join("")}</ul>
         <div class="product-bottom">
-          <div><span class="price-label">${product.service ? "BÁO GIÁ THEO YÊU CẦU" : "GIÁ MẪU TỪ"}</span><span class="price ${product.service ? "service-price" : ""}">${price}</span></div>
+          <div><span class="price-label">${product.service ? "BÁO GIÁ THEO YÊU CẦU" : "GIÁ TỪ"}</span><span class="price ${product.service ? "service-price" : ""}">${price}</span></div>
           ${
             product.service
               ? `<button class="add-button" data-detail="${product.id}">Tư vấn ${icon("arrow")}</button>`
               : `<div class="product-card-actions">
-                  <button class="add-button" data-add="${product.id}" title="Thêm vào giỏ hàng">${icon("bag")} Thêm giỏ</button>
-                  <button class="buy-button" data-buy="${product.id}" title="Mua trực tiếp không cần giỏ">Mua ngay ⚡</button>
+                  <button class="add-button" data-add="${product.id}" ${catalogReady ? "" : "disabled"} title="Thêm vào giỏ hàng">${icon("bag")} Thêm giỏ</button>
+                  <button class="buy-button" data-buy="${product.id}" ${catalogReady ? "" : "disabled"} title="Mua trực tiếp không cần giỏ">Mua ngay ⚡</button>
                 </div>`
           }
         </div>
@@ -258,6 +362,7 @@ function resetFilters() {
 function showProduct(id, isDirectBuy = false) {
   const product = getProduct(id);
   if (!product) return;
+  if (!product.service && !catalogReady) return notify("Đang tải giá sản phẩm, vui lòng thử lại.");
   const first = product.variants[0];
   document.querySelector("#product-detail").innerHTML = `
     <div class="detail-layout">
@@ -277,7 +382,7 @@ function showProduct(id, isDirectBuy = false) {
             : `
           <label for="variant">Chọn gói sản phẩm</label>
           <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name} — ${money(variant.price)}</option>`).join("")}</select>
-          <div class="detail-price" id="detail-price">${money(first.price)}</div>
+          <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
           <div class="detail-actions">
             <button class="button secondary" id="detail-add">${icon("bag")} Thêm giỏ</button>
             <button class="button primary detail-buy-btn" id="detail-buy">Mua ngay ⚡</button>
@@ -290,9 +395,7 @@ function showProduct(id, isDirectBuy = false) {
   if (!product.service) {
     const select = document.querySelector("#variant");
     select.addEventListener("change", () => {
-      document.querySelector("#detail-price").textContent = money(
-        getVariant(product, select.value).price,
-      );
+      document.querySelector("#detail-price").innerHTML = variantPriceHtml(getVariant(product, select.value));
     });
     document.querySelector("#detail-add").addEventListener("click", () => {
       addToCart(id, select.value);
@@ -309,6 +412,7 @@ function showProduct(id, isDirectBuy = false) {
 function buyNowDirect(productId, variantId) {
   const product = getProduct(productId);
   if (!product || product.service) return;
+  if (!catalogReady) return notify("Chưa tải được giá từ cửa hàng.");
   const variant = variantId
     ? getVariant(product, variantId)
     : product.variants[0];
@@ -331,6 +435,7 @@ function buyNowDirect(productId, variantId) {
 function addToCart(productId, variantId) {
   const product = getProduct(productId);
   if (!product || product.service) return;
+  if (!catalogReady) return notify("Chưa tải được giá từ cửa hàng.");
   const variant = variantId
     ? getVariant(product, variantId)
     : product.variants[0];
@@ -339,7 +444,7 @@ function addToCart(productId, variantId) {
     (item) => item.productId === productId && item.variantId === variant.id,
   );
   if (existing?.quantity >= 10)
-    return notify("Tối đa 10 gói cùng loại trong một đơn mẫu.");
+    return notify("Tối đa 10 gói cùng loại trong một đơn.");
   if (existing) existing.quantity += 1;
   else state.cart.push({ productId, variantId: variant.id, quantity: 1 });
   saveState();
@@ -372,12 +477,19 @@ function renderCart() {
     </div>`;
       })
       .join("") +
-    `<div class="cart-total"><span>Tổng giá trị mẫu</span><strong>${money(cartTotal())}</strong></div><p class="muted">Giá minh họa. Chưa kết nối thanh toán.</p><button class="button primary full-width" id="start-checkout">Tiếp tục đặt hàng thử ${icon("arrow")}</button>`;
+    `<div class="cart-total"><span>Tạm tính sau ưu đãi</span><strong>${money(cartTotal())}</strong></div><p class="muted">Bạn có thể nhập mã giảm giá ở bước thanh toán.</p><button class="button primary full-width" id="start-checkout">Tiếp tục thanh toán ${icon("arrow")}</button>`;
 }
 
 let currentDirectItem = null;
 
 async function startCheckout(directItem = null) {
+  if (checkoutBusy) return;
+  ++checkoutQuoteRequest;
+  checkoutQuote = null;
+  checkoutBalance = null;
+  appliedCoupon = "";
+  document.querySelector("#checkout-coupon").value = "";
+  document.querySelector("#coupon-remove").hidden = true;
   currentDirectItem = directItem;
   const items = directItem ? [directItem] : state.cart;
   if (!items.length) return;
@@ -439,12 +551,13 @@ async function startCheckout(directItem = null) {
 
   if (balanceEl) balanceEl.textContent = "Đang kiểm tra...";
   if (alertEl) alertEl.hidden = true;
-  if (submitBtn) submitBtn.disabled = false;
+  if (submitBtn) submitBtn.disabled = true;
 
   try {
     const res = await fetch("/api/session", { credentials: "same-origin" });
     const sess = await res.json();
     if (sess.user) {
+      checkoutBalance = sess.balance || 0;
       if (balanceEl) balanceEl.textContent = money(sess.balance || 0);
       const emailInput = document.querySelector('#checkout-form [name="email"]');
       if (emailInput && !emailInput.value) emailInput.value = sess.user.email;
@@ -467,6 +580,7 @@ async function startCheckout(directItem = null) {
   }
 
   checkoutDialog.showModal();
+  await requestCheckoutQuote("");
 }
 
 function showInfo(title, body) {
@@ -560,6 +674,7 @@ async function showOrders() {
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
               <span class="muted" style="font-size:11px;">Thanh toán: Ví VietNam Legacy</span>
               <strong class="order-total" style="color:var(--accent); font-size:15px;">${money(order.total)}</strong>
+              ${order.pricing?.coupon ? `<small class="order-discount-note">Mã ${escapeHtml(order.pricing.coupon.code)} · Giảm ${money(order.pricing.couponDiscount)}</small>` : ""}
             </div>
           </article>
         `;
@@ -770,6 +885,8 @@ document
   .querySelector("#checkout-form")
   .addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (checkoutBusy || !checkoutQuote) return;
+    const confirmedFingerprint = checkoutQuote.fingerprint;
     const itemsToOrder = currentDirectItem
       ? [currentDirectItem]
       : state.cart.map((item) => {
@@ -848,7 +965,8 @@ document
       }
     }
 
-    submitBtn.disabled = true;
+    checkoutBusy = true;
+    syncCheckoutControls();
     submitBtn.textContent = "Đang xử lý...";
 
     try {
@@ -869,9 +987,11 @@ document
         );
       }
 
-      const total = currentDirectItem
-        ? currentDirectItem.price * currentDirectItem.quantity
-        : cartTotal();
+      checkoutBalance = session.balance || 0;
+      const latestQuote = await requestCheckoutQuote(appliedCoupon);
+      if (!latestQuote) throw new Error("Hãy kiểm tra lại giá hoặc mã giảm giá trước khi thanh toán.");
+      if (latestQuote.fingerprint !== confirmedFingerprint) throw new Error("Giá hoặc ưu đãi đã thay đổi. Tổng mới đã hiện trên đơn; hãy kiểm tra rồi bấm xác nhận lại.");
+      const total = latestQuote.total;
 
       if ((session.balance || 0) < total) {
         throw new Error(
@@ -885,6 +1005,8 @@ document
         email,
         note,
         paymentMethod: "wallet",
+        couponCode: appliedCoupon,
+        quoteFingerprint: latestQuote.fingerprint,
         items: itemsToOrder.map((item) => ({
           productId: item.productId,
           variantId: item.variantId,
@@ -908,6 +1030,7 @@ document
 
       const resData = await orderRes.json();
       if (!orderRes.ok) {
+        if (orderRes.status === 409 || orderRes.status === 400) await requestCheckoutQuote(appliedCoupon);
         throw new Error(resData.error || "Không thể tạo đơn hàng.");
       }
 
@@ -949,7 +1072,8 @@ document
       alert(err.message);
       notify(err.message);
     } finally {
-      submitBtn.disabled = false;
+      checkoutBusy = false;
+      syncCheckoutControls();
       submitBtn.innerHTML = 'Xác nhận thanh toán <span data-icon="arrow"></span>';
       paintIcons();
     }
@@ -965,6 +1089,9 @@ document
 paintIcons();
 updateCounts();
 renderProducts();
+refreshCatalog();
+setInterval(() => { if (!document.hidden) refreshCatalog(); }, 60000);
+window.addEventListener("focus", refreshCatalog);
 closeMenu();
 window.matchMedia("(max-width: 760px)").addEventListener("change", closeMenu);
 
@@ -972,50 +1099,64 @@ window.matchMedia("(max-width: 760px)").addEventListener("change", closeMenu);
 /* ==========================================================================
    LIVE MARQUEE ANNOUNCEMENT TICKER (SYNCED PC & MOBILE)
    ========================================================================== */
-async function initAnnouncement() {
+function initAnnouncement() {
   const banner = document.querySelector("#announcement-bar");
   const track = document.querySelector("#announcement-track");
   const contentEl = document.querySelector("#announcement-content");
   const duplicateEl = document.querySelector("#announcement-content-duplicate");
   if (!banner || !track || !contentEl || !duplicateEl) return;
 
-  async function fetchAndApplyAnnouncement() {
+  let requestId = 0;
+  let previous = null;
+  async function refreshAnnouncement() {
+    const current = ++requestId;
     try {
-      const res = await fetch("/api/announcement");
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data && data.announcement) {
-        const { content, is_active } = data.announcement;
-        if (!is_active || !content) {
-          banner.style.display = "none";
-          return;
-        }
-        banner.style.display = "flex";
-        contentEl.textContent = content;
-        duplicateEl.textContent = content;
-
-        const speedMultiplier = window.innerWidth < 760 ? 0.32 : 0.24;
-        const duration = Math.max(20, Math.min(65, content.length * speedMultiplier));
-        track.style.animationDuration = `${duration}s`;
-      }
+      const response = await fetch("/api/announcement", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      // Một phản hồi cũ không được ghi đè thông báo vừa lưu.
+      if (current !== requestId || !data.announcement) return;
+      const { content, is_active } = data.announcement;
+      const next = JSON.stringify([content, Boolean(is_active)]);
+      if (next === previous) return;
+      previous = next;
+      banner.style.display = is_active && content ? "flex" : "none";
+      contentEl.textContent = content || "";
+      duplicateEl.textContent = content || "";
+      const speed = window.innerWidth < 760 ? 0.32 : 0.24;
+      track.style.animationDuration = `${Math.max(20, Math.min(65, (content || "").length * speed))}s`;
+      // Chạy lại từ đầu để khách đọc được nội dung mới ngay khi thông báo đổi.
+      track.getAnimations?.().forEach(animation => { animation.currentTime = 0; });
     } catch {
-      // Retain fallback announcement on error or demo
+      // Mất mạng tạm thời thì giữ nội dung gần nhất, thử lại ở lần đồng bộ tiếp theo.
     }
   }
 
-  await fetchAndApplyAnnouncement();
-
-  setInterval(fetchAndApplyAnnouncement, 35000);
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) fetchAndApplyAnnouncement();
+  if (typeof BroadcastChannel === "function") {
+    try {
+      const channel = new BroadcastChannel("vnl-announcements");
+      channel.addEventListener("message", refreshAnnouncement);
+    } catch { /* Trình duyệt không hỗ trợ kênh chung thì dùng sự kiện lưu trữ. */ }
+  }
+  window.addEventListener("storage", event => {
+    if (event.key === "vnl-announcement-updated") refreshAnnouncement();
   });
+  window.addEventListener("focus", refreshAnnouncement);
+  window.addEventListener("pageshow", refreshAnnouncement);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshAnnouncement();
+  });
+  setInterval(() => { if (!document.hidden) refreshAnnouncement(); }, 15000);
+  refreshAnnouncement();
 }
+
 
 /* ==========================================================================
    ULTRA-SMOOTH INERTIA SCROLL ENGINE & NAVIGATION
    ========================================================================== */
 class SmoothInertiaScroll {
   constructor() {
+    this.enabled = false;
     if (window.matchMedia("(hover: none), (pointer: coarse)").matches) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
@@ -1031,6 +1172,7 @@ class SmoothInertiaScroll {
     this.render = this.render.bind(this);
     this.updateBounds = this.updateBounds.bind(this);
 
+    this.enabled = true;
     this.init();
   }
 
@@ -1143,6 +1285,7 @@ class SmoothInertiaScroll {
   }
 
   scrollTo(targetY) {
+    if (!this.enabled) return;
     this.updateBounds();
     this.targetY = Math.max(0, Math.min(targetY, this.maxScroll));
     if (!this.isScrolling) {
@@ -1189,10 +1332,12 @@ function smoothScrollTo(target, offset = 85) {
     targetY = target.getBoundingClientRect().top + window.scrollY - offset;
   }
 
-  if (window.__smoothScroll) {
+  // Chỉ gọi bộ cuộn khi đã khởi tạo; mobile và giảm chuyển động dùng cuộn chuẩn.
+  if (window.__smoothScroll?.enabled) {
     window.__smoothScroll.scrollTo(targetY);
   } else {
-    window.scrollTo({ top: targetY, behavior: "smooth" });
+    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    window.scrollTo({ top: Math.max(0, targetY), behavior });
   }
 }
 
@@ -1259,7 +1404,7 @@ function initScrollReveal() {
 function observeScrollReveal() {
   if (!revealObserver) return;
   const elements = document.querySelectorAll(
-    ".hero, .benefits, .section-heading, .catalog-controls, .product-card:not(.revealed), .bottom-banner, footer",
+    ".section-heading, .catalog-controls, .product-card:not(.revealed), .bottom-banner, footer",
   );
   elements.forEach((el, index) => {
     if (

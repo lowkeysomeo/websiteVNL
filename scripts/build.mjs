@@ -11,10 +11,13 @@ const files = [
   "app.js",
   "hero3d.js",
   "cursor.js",
+  "intro.js",
+  "local-entry.js",
   "wallet.js",
   "wallet.css",
   "admin.html",
   "admin.js",
+  "admin-pricing.js",
   "admin.css",
 ];
 for (const file of files)

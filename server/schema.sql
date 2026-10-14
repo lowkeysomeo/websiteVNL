@@ -67,3 +67,24 @@ CREATE TABLE IF NOT EXISTS site_announcements (
   updated_at INTEGER NOT NULL
 );
 
+
+CREATE TABLE IF NOT EXISTS product_prices (
+  product_id TEXT NOT NULL,
+  variant_id TEXT NOT NULL,
+  price INTEGER NOT NULL CHECK(price BETWEEN 0 AND 1000000000),
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY(product_id, variant_id)
+);
+CREATE TABLE IF NOT EXISTS promotions (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK(kind IN ('campaign','coupon')),
+  code TEXT UNIQUE,
+  rules_json TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS order_pricing (
+  order_id TEXT PRIMARY KEY REFERENCES orders(id),
+  coupon_id TEXT REFERENCES promotions(id),
+  snapshot_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS order_pricing_coupon ON order_pricing(coupon_id);

@@ -480,7 +480,7 @@ main {
   color: #554740;
 }
 .hero {
-  min-height: 340px;
+  min-height: 200px;
   border: 1px solid #3e282c;
   border-radius: 14px;
   display: grid;
@@ -2108,181 +2108,109 @@ form textarea {
    INTERACTIVE CURSOR & MOUSE EFFECTS
    ========================================================================== */
 
-/* 1. Ambient Background Spotlight Glow (Dịu nhẹ, vùng sáng nhỏ gọn) */
-.cursor-glow {
+/* Con trỏ kép và sao nhỏ: điểm nhấn vàng–tím, không phủ ánh sáng lên nền. */
+.cursor-dot, .cursor-ring {
   position: fixed;
   top: 0;
   left: 0;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
   pointer-events: none;
-  z-index: 9996;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(
-    circle at center,
-    rgba(255, 209, 92, 0.08) 0%,
-    rgba(192, 132, 252, 0.05) 38%,
-    rgba(239, 68, 68, 0.015) 55%,
-    transparent 70%
-  );
-  filter: blur(28px);
-  mix-blend-mode: screen;
+  border-radius: 50%;
   opacity: 0;
-  transition: opacity 0.35s ease;
-  will-change: transform, opacity;
+  transform: translate(-50%, -50%);
+  will-change: transform;
 }
-
-.cursor-glow.active {
-  opacity: 0.85;
-}
-
-/* 2. Precision Dual Cursor (Dot & Trailing Ring thanh mảnh, nhỏ gọn) */
 .cursor-dot {
-  position: fixed;
-  top: 0;
-  left: 0;
   width: 4px;
   height: 4px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 4px rgba(255, 209, 92, 0.55);
-  pointer-events: none;
   z-index: 9999;
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  transition: opacity 0.25s ease, transform 0.15s ease;
-  will-change: transform;
+  background: #ffd15c;
+  box-shadow: 0 0 5px rgba(255, 209, 92, 0.9), 0 0 12px rgba(192, 132, 252, 0.25);
+  transition: opacity 120ms ease, background-color 160ms ease;
 }
-
 .cursor-ring {
-  position: fixed;
-  top: 0;
-  left: 0;
   width: 18px;
   height: 18px;
-  border-radius: 50%;
-  border: 1.2px solid rgba(255, 209, 92, 0.45);
-  background: transparent;
-  pointer-events: none;
   z-index: 9998;
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  transition:
-    opacity 0.25s ease,
-    width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-    height 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-    background 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-  will-change: transform;
+  border: 1px solid rgba(255, 209, 92, 0.65);
+  background: rgba(255, 209, 92, 0.025);
+  transition: opacity 140ms ease, width 180ms ease, height 180ms ease,
+    border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
 }
-
-.cursor-dot.active,
-.cursor-ring.active {
-  opacity: 1;
-}
-
-/* Hovering over clickable items (nở nhẹ nhàng 26px, không chói) */
+.cursor-dot.active, .cursor-ring.active { opacity: 1; }
 .cursor-ring.hover {
-  width: 26px;
-  height: 26px;
-  border-color: rgba(255, 209, 92, 0.8);
-  background: rgba(255, 209, 92, 0.04);
-  box-shadow: 0 0 8px rgba(255, 209, 92, 0.16);
+  width: 30px;
+  height: 30px;
+  border-color: rgba(255, 231, 173, 0.85);
+  background: rgba(192, 132, 252, 0.07);
+  box-shadow: 0 0 14px rgba(255, 209, 92, 0.14), 0 0 22px rgba(192, 132, 252, 0.08);
 }
-
-.cursor-dot.hover {
-  transform: translate(-50%, -50%) scale(0.85);
-  background: #ffffff;
-}
-
-/* Mouse click state (tactile feedback) */
+.cursor-dot.hover { background: #fff1c7; }
 .cursor-ring.clicking {
-  width: 14px;
-  height: 14px;
-  background: rgba(255, 209, 92, 0.12);
-  border-color: #ffffff;
+  width: 11px;
+  height: 11px;
+  border-color: #fff1c7;
+  background: rgba(255, 209, 92, 0.15);
 }
-
-.cursor-dot.clicking {
-  transform: translate(-50%, -50%) scale(1.25);
-}
-
-/* 3. Sparkling Stardust Canvas */
+.cursor-dot.clicking { background: #fff; }
 .cursor-particles {
   position: fixed;
   inset: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
+  width: 100%;
+  height: 100%;
   z-index: 9997;
+  pointer-events: none;
+  opacity: 0;
 }
+.cursor-particles.active { opacity: 1; }
 
-/* Hiệu ứng con trỏ chuột cao cấp (Dual Precision Gold Cursor & Aura Ring) */
+/* Chỉ giấu con trỏ thật sau khi bộ con trỏ tùy biến đã sẵn sàng. */
 body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])),
-body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) * {
-  cursor: none !important;
+body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) * { cursor: none !important; }
+body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) input,
+body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) textarea,
+body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) [contenteditable]:not([contenteditable="false"]) { cursor: text !important; }
+body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) :disabled,
+body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) [aria-disabled="true"] { cursor: not-allowed !important; }
+body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) select { cursor: auto !important; }
+
+body.modal-open :is(.cursor-dot, .cursor-ring, .cursor-particles),
+body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
+  opacity: 0;
+  visibility: hidden;
 }
-  body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) input,
-  body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) textarea {
-    cursor: text !important;
-  }
 
-  /* Khôi phục con trỏ chuột bình thường khi mở bất kỳ modal / dialog nào */
-  body.modal-open,
-  body:has(dialog[open]),
-  dialog,
-  dialog::backdrop,
-  dialog * {
-    cursor: auto !important;
-  }
+/* Lớp mặt và đường viền nhận cùng tọa độ, không ngăn việc bấm sản phẩm. */
+.product-card.cursor-lit::before {
+  background: radial-gradient(220px circle at var(--mouse-x) var(--mouse-y),
+    rgba(255, 209, 92, 0.12), rgba(192, 132, 252, 0.06) 42%, transparent 75%);
+  opacity: 1;
+}
+.product-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  background: radial-gradient(150px circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
+    rgba(255, 209, 92, 0.9), rgba(192, 132, 252, 0.55) 45%, transparent 78%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.product-card.cursor-lit::after { opacity: 1; }
+@media (any-hover: none), (any-pointer: none) {
+  .cursor-dot, .cursor-ring, .cursor-particles { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cursor-ring { transition: opacity 120ms ease; }
+  .product-card::after { transition: none; }
+}
 
-  dialog button,
-  dialog a,
-  dialog select,
-  dialog .button,
-  dialog [data-close],
-  dialog .dialog-close,
-  dialog [role="button"],
-  dialog .icon-button,
-  body.modal-open button,
-  body.modal-open a,
-  body.modal-open select,
-  body:has(dialog[open]) button,
-  body:has(dialog[open]) a,
-  body:has(dialog[open]) select {
-    cursor: pointer !important;
-  }
-
-  dialog button:disabled,
-  body.modal-open button:disabled,
-  body:has(dialog[open]) button:disabled {
-    cursor: not-allowed !important;
-  }
-
-  dialog input,
-  dialog textarea,
-  body.modal-open input,
-  body.modal-open textarea,
-  body:has(dialog[open]) input,
-  body:has(dialog[open]) textarea {
-    cursor: text !important;
-  }
-
-  /* Ẩn con trỏ ảo khi dialog đang mở để không bị che khuất hoặc gây loạn hiển thị */
-  body.modal-open .cursor-dot,
-  body.modal-open .cursor-ring,
-  body.modal-open .cursor-glow,
-  body.modal-open .cursor-particles,
-  body:has(dialog[open]) .cursor-dot,
-  body:has(dialog[open]) .cursor-ring,
-  body:has(dialog[open]) .cursor-glow,
-  body:has(dialog[open]) .cursor-particles {
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-  }
 
 /* ==========================================================================
    SMOOTH SCROLL REVEAL ANIMATIONS
@@ -2386,15 +2314,45 @@ body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) * {
 /* ==========================================================================
    HARDWARE ACCELERATION & SCROLL PERFORMANCE
    ========================================================================== */
-.sidebar,
 .topbar,
-.cursor-glow,
-.cursor-dot,
-.cursor-ring,
-.cursor-particles,
 .scroll-top-button {
   transform: translateZ(0);
 }
+.sidebar { will-change: transform; }
 
 
 
+
+/* Dòng chữ mở từ dưới lên; không thay đổi chiều cao hoặc nội dung của bố cục. */
+#hero-title .intro-line,
+.hero-copy p .intro-line {
+  display: block;
+  overflow: hidden;
+  overflow: clip;
+  padding-block: 0.12em;
+  margin-block: -0.12em;
+}
+#hero-title .intro-line { color: var(--text); }
+#hero-title .intro-line-accent { color: var(--accent); }
+.intro-line-content { display: block; }
+.intro-word {
+  display: inline-block;
+  transform-origin: 0 100%;
+}
+
+
+/* Giá niêm yết, ưu đãi và mã giảm giá khi thanh toán. */
+.original-price { font-size:.7em; color:var(--muted); display:block; font-weight:400; margin-bottom:3px; }
+.sale-caption { display:block; font-size:10px; color:#a7e8bd; font-weight:500; margin-top:6px; }
+.checkout-coupon-box { background:#ffd15c06; border:1px solid var(--line); border-radius:10px; padding:16px; margin:20px 0; }
+.checkout-coupon-box>label { font-size:13px; font-weight:600; }
+.coupon-input-row { display:flex; gap:10px; margin-top:10px; }
+.coupon-input-row input { flex:1; min-width:0; text-transform:uppercase; }
+.coupon-input-row button { flex-shrink:0; }
+#coupon-message { font-size:12px; line-height:1.6; color:#a7e8bd; margin:12px 0 0; }
+#coupon-message.is-error,.pricing-load-error { color:#ffaca4; }
+.checkout-price-breakdown { display:grid; gap:10px; font-size:13px; color:var(--muted); margin-top:20px; }
+.checkout-price-breakdown>div { display:flex; justify-content:space-between; gap:12px; }
+.checkout-price-breakdown>div:not(:first-child)>span:last-child { color:#a7e8bd; }
+.order-discount-note { display:block; color:var(--muted); font-size:11px; line-height:1.6; margin-top:6px; }
+.price-loading { font-size:12px; color:var(--muted); }

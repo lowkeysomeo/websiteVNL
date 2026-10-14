@@ -4,7 +4,7 @@
 
 Cửa hàng và backend tài khoản/ví: đăng ký, đăng nhập bằng email và mật khẩu, xem số dư, tạo yêu cầu chuyển khoản, lịch sử nạp và webhook SePay tự động cộng tiền.
 
-**Hiện nạp tiền đang khóa (`PAYMENTS_MODE=disabled`). Chưa có kết nối SePay hoặc hosting và chưa xác nhận giao dịch ngân hàng thật.** Giao diện cửa hàng vẫn dùng bảng giá và đơn hàng thử; ví chưa được dùng để trừ tiền mua hàng.
+**Hiện nạp tiền đang khóa (`PAYMENTS_MODE=disabled`). Chưa có kết nối SePay hoặc hosting và chưa xác nhận giao dịch ngân hàng thật.** Cửa hàng đã có thanh toán đơn bằng số dư ví, quản lý giá và khuyến mãi trên trang admin. Kiểm thử sử dụng dữ liệu giả; nạp tiền thật vẫn khóa.
 
 ## Chạy trên máy
 
@@ -17,7 +17,7 @@ npm ci
 npm start
 ```
 
-Mở http://localhost:3000. Không mở `index.html` trực tiếp nếu muốn đăng ký/đăng nhập. Muốn chạy kiểm thử: `npm test` (dùng ngân hàng giả và cơ sở dữ liệu tạm; không tạo giao dịch tiền thật).
+Mở http://localhost:3000 khi dùng `npm start`. Để mở thuận tiện trên máy Windows, nhấp đúp `Mo-WebVNL.cmd` (hoặc chạy `npm run local`): website chạy ở http://127.0.0.1:3201 và tự mở trình duyệt. Khi nhấp đúp `index.html` hoặc `admin.html`, trang tự chuyển đến bản đang chạy trên cổng 3201 để đọc đúng dữ liệu đã lưu; sau khi khởi động lại máy, dùng `Mo-WebVNL.cmd` để bật lại máy chủ. Bản local này giữ nạp tiền thật ở trạng thái khóa. Muốn chạy kiểm thử: `npm test` (dùng ngân hàng giả và cơ sở dữ liệu tạm; không tạo giao dịch tiền thật).
 
 File `.env` chỉ lưu trên máy hoặc cấu hình bằng Variables của hosting; không đưa lên GitHub. `data/vnl.sqlite` lưu tài khoản, phiên đăng nhập và dữ liệu ví, không đưa lên GitHub.
 
@@ -77,7 +77,7 @@ Tài liệu chính thức: https://docs.sepay.vn/tich-hop-webhooks.html và http
 
 Mật khẩu lưu bằng scrypt với salt riêng; cookie phiên HttpOnly/SameSite, Secure khi chạy production. Các thao tác ví yêu cầu đúng origin và CSRF token. Phiên hết hạn sau 7 ngày. Truy vấn yêu cầu nạp kiểm tra chủ tài khoản. Secret, cơ sở dữ liệu và mã backend không được phục vụ như file tĩnh.
 
-Đã có giới hạn tốc độ đăng nhập và tạo yêu cầu, nhưng giới hạn trong bộ nhớ áp dụng cho một process. Hệ thống chưa có xác minh quyền sở hữu email, quên mật khẩu, 2FA, quản trị, đối soát thủ công, hoàn tiền hoặc thanh toán đơn hàng bằng ví. Cần bổ sung các luồng vận hành đó trước khi mở bán đầy đủ; đừng kích hoạt tiền thật chỉ để xem giao diện.
+Đã có giới hạn tốc độ đăng nhập và tạo yêu cầu, nhưng giới hạn trong bộ nhớ áp dụng cho một process. Đã có quản trị đơn hàng, thanh toán bằng ví và hủy đơn để hoàn số tiền đã trả. Hệ thống chưa có xác minh quyền sở hữu email, quên mật khẩu, 2FA hoặc đối soát ngân hàng thủ công. Cần bổ sung các luồng vận hành đó trước khi mở bán đầy đủ; đừng kích hoạt tiền thật chỉ để xem giao diện.
 
 ## Tệp chính
 
@@ -91,3 +91,19 @@ Mật khẩu lưu bằng scrypt với salt riêng; cookie phiên HttpOnly/SameSi
 - `tests/payments.test.js`: kiểm thử tiền/ví/tài khoản, chỉ dùng dữ liệu giả.
 
 Discord hỗ trợ: https://discord.gg/F3J7hWNRc4
+
+## Quản lý giá và ưu đãi
+
+Vào **/admin** bằng mật khẩu quản trị đang cấu hình trong `ADMIN_PASSWORD`. Các thay đổi được lưu trong SQLite của cửa hàng, không cần sửa `products.js` hay khởi động lại sau mỗi lần lưu.
+
+- **Giá sản phẩm:** chỉnh giá niêm yết từng gói bằng số tiền nguyên VND. Dịch vụ báo giá riêng vẫn liên hệ shop.
+- **Đợt giảm giá:** tạo, sửa, bật/tắt; giảm theo phần trăm hoặc số tiền trên mỗi gói; chọn sản phẩm và lịch bắt đầu/kết thúc. Không chọn sản phẩm nghĩa là áp dụng tất cả gói có giá. Khi trùng lịch, chọn mức giảm tốt nhất của từng gói, không cộng dồn các đợt.
+- **Mã giảm giá:** tạo/sửa mã, mức giảm, giá trị đơn tối thiểu, số tiền giảm tối đa, tổng lượt dùng, lượt mỗi khách và lịch áp dụng. Có thể cho phép hoặc tắt kết hợp với đợt giảm giá. Mỗi đơn dùng một mã; khách cần đăng nhập.
+- Điều kiện đơn tối thiểu tính sau ưu đãi sản phẩm. Mã giảm trên tổng các sản phẩm thuộc phạm vi đã chọn. Phần trăm được làm tròn xuống theo VND, số tiền cuối không âm.
+- Lịch dùng múi giờ thiết bị đang mở admin, lưu dưới dạng thời điểm UTC. Đúng thời điểm kết thúc là hết hiệu lực. Để trống ngày kết thúc hoặc giới hạn lượt là không giới hạn.
+- Lượt mã chỉ tính khi tạo đơn thành công, cùng giao dịch SQLite với đơn và khoản trừ ví. Hủy đơn trả lại lượt và hoàn đúng số đã thanh toán; đơn đã hủy không mở lại.
+- Giá và ưu đãi được máy chủ tính lại. Nếu khác bản khách đang xác nhận, giao diện yêu cầu kiểm tra tổng tiền rồi xác nhận lại. Đơn cũ giữ ảnh chụp giá và mã tại thời điểm mua, kể cả khi admin sửa mã sau đó.
+
+Tệp liên quan: `server/pricing.js`, `admin-pricing.js`, `tests/pricing.test.js`. Khi triển khai, cần đưa cả các tệp mới và `server/schema.sql` lên cùng phiên bản; các bảng được tạo tự động khi mở SQLite. Sao lưu dữ liệu trước khi cập nhật môi trường thật.
+
+Kiểm tra: `npm test` (23 bài), gồm giá giả từ trình duyệt, lịch ưu đãi, giới hạn lượt, hai khách dùng lượt cuối, hoàn tác khi ghi lỗi, lưu qua khởi động lại và các luồng ví/đơn hiện có. Bản kiểm tra giao diện dùng SQLite trong bộ nhớ và số dư giả.

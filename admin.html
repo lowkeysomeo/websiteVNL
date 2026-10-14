@@ -2,12 +2,14 @@
 <html lang="vi">
   <head>
     <meta charset="utf-8" />
+    <script src="local-entry.js?v=20261013" ></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>VietNam Legacy · Quản trị Đơn hàng</title>
+    <title>VietNam Legacy · Quản trị cửa hàng</title>
     <link rel="icon" type="image/png" href="assets/vnl-avatar.png" />
     <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="admin.css" />
-    <script src="admin.js" defer></script>
+    <link rel="stylesheet" href="admin.css?v=20261013-notice2" />
+    <script src="admin-pricing.js?v=20261013-pricing1" defer></script>
+    <script src="admin.js?v=20261013-notice2" defer></script>
   </head>
   <body>
     <!-- Login Screen -->
@@ -17,7 +19,7 @@
           <img src="assets/vnl-avatar.png" alt="VNL" width="48" height="48" />
           <div>
             <h1>VietNam <span>LEGACY</span></h1>
-            <p>Hệ thống Quản trị Đơn hàng (Nitro & Decor)</p>
+            <p>Quản lý cửa hàng VietNam Legacy</p>
           </div>
         </div>
         <form id="admin-login-form">
@@ -37,7 +39,7 @@
           </button>
         </form>
         <p class="admin-login-hint">
-          Chỉ dành riêng cho chủ shop VietNam Legacy để xem thông tin nạp tài khoản và gửi link claim.
+          Dành cho quản trị viên quản lý đơn hàng, giá bán và các chương trình ưu đãi.
         </p>
       </div>
     </div>
@@ -49,7 +51,7 @@
           <img src="assets/vnl-avatar.png" alt="VNL" width="36" height="36" />
           <div>
             <strong>VietNam Legacy <span>ADMIN</span></strong>
-            <small>Quản lý đơn hàng Nitro & Decor</small>
+            <small>Đơn hàng · Giá bán · Ưu đãi</small>
           </div>
         </div>
         <div class="admin-topbar-actions">
@@ -83,6 +85,14 @@
           </div>
         </section>
 
+        <nav class="admin-view-nav" aria-label="Mục quản trị">
+          <button type="button" data-admin-view="orders" class="active" aria-pressed="true">Đơn hàng & thông báo</button>
+          <button type="button" data-admin-view="prices" aria-pressed="false">Giá sản phẩm</button>
+          <button type="button" data-admin-view="campaigns" aria-pressed="false">Đợt giảm giá</button>
+          <button type="button" data-admin-view="coupons" aria-pressed="false">Mã giảm giá</button>
+        </nav>
+        <section id="admin-pricing-view" hidden aria-label="Giá và ưu đãi"></section>
+        <div id="admin-orders-view">
         <!-- Announcement Banner Control -->
         <section class="admin-announcement-card">
           <div class="admin-card-header">
@@ -92,7 +102,7 @@
             </div>
             <div class="announcement-toggle-group">
               <label class="switch-label">
-                <input type="checkbox" id="admin-announcement-active" checked />
+                <input type="checkbox" id="admin-announcement-active" aria-label="Hiển thị thông báo ngoài cửa hàng" checked />
                 <span class="switch-slider"></span>
               </label>
               <span id="admin-announcement-status-text" class="status-active">Bật hiển thị</span>
@@ -100,11 +110,13 @@
           </div>
           <div class="admin-announcement-form">
             <textarea
+              aria-label="Nội dung thông báo"
               id="admin-announcement-text"
               rows="2"
               placeholder="Nhập nội dung thông báo muốn chạy trên thanh đầu trang (ví dụ: 🔥 Khuyến mãi giảm giá 20% khi mua Nitro Boost hôm nay...)"
               maxlength="400"
             ></textarea>
+            <p id="admin-announcement-feedback" class="announcement-feedback" role="status" aria-live="polite"></p>
             <div class="admin-announcement-actions">
               <span class="char-counter" id="admin-announcement-counter">0 / 400 ký tự</span>
               <button class="button primary btn-small" id="admin-save-announcement-btn">
@@ -140,6 +152,7 @@
             <p class="admin-loading-text">Đang tải danh sách đơn hàng...</p>
           </div>
         </section>
+        </div>
       </main>
     </div>
 

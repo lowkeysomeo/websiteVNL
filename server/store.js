@@ -1,3 +1,4 @@
+import { quoteOrder } from "./pricing.js";
 import { randomUUID, randomBytes } from "node:crypto";
 export { openStore } from "./database.js";
 
@@ -120,8 +121,8 @@ export async function createOrder(db, orderData) {
     customerName,
     customerEmail,
     customerNote = "",
-    items,
-    total,
+    items: inputItems,
+    total: inputTotal,
     paymentMethod = "wallet",
     hasLogItems = 0,
     discordAccount = null,
@@ -131,7 +132,24 @@ export async function createOrder(db, orderData) {
     now = Date.now(),
   } = orderData;
 
-  return db.transaction(async (db) => {
+  return db.transaction(async (tx) => {
+    const pricing = orderData.requestItems
+      ? await quoteOrder(tx, orderData.requestItems, orderData.couponCode, userId, now)
+      : null;
+    if (
+      orderData.quoteFingerprint !== undefined &&
+      orderData.quoteFingerprint !== pricing?.fingerprint
+    ) {
+      throw Object.assign(
+        new Error(
+          "Giá hoặc ưu đãi đã thay đổi. Hãy kiểm tra lại tổng tiền trước khi xác nhận.",
+        ),
+        { status: 409 },
+      );
+    }
+    const items = pricing?.validatedItems ?? inputItems;
+    const total = pricing?.total ?? inputTotal;
+
     if (paymentMethod === "wallet") {
       if (!userId) {
         const error = new Error(
@@ -140,7 +158,7 @@ export async function createOrder(db, orderData) {
         error.status = 401;
         throw error;
       }
-      const currentBalance = await balance(db, userId);
+      const currentBalance = await balance(tx, userId);
       if (currentBalance < total) {
         const formattedBalance = new Intl.NumberFormat("vi-VN").format(
           currentBalance,
@@ -157,7 +175,7 @@ export async function createOrder(db, orderData) {
     const orderId = "VNL-" + randomBytes(4).toString("hex").toUpperCase();
     const initialStatus = paymentMethod === "wallet" ? "processing" : "pending";
 
-    await db
+    await tx
       .prepare(
         `INSERT INTO orders (
         id, user_id, customer_name, customer_email, customer_note,
@@ -184,7 +202,16 @@ export async function createOrder(db, orderData) {
         now,
       );
 
+    if (pricing) {
+      await tx
+        .prepare(
+          "INSERT INTO order_pricing (order_id, coupon_id, snapshot_json) VALUES (?, ?, ?)",
+        )
+        .run(orderId, pricing.coupon?.id ?? null, JSON.stringify(pricing));
+    }
+
     return {
+      pricing,
       id: orderId,
       userId,
       customerName,
@@ -201,16 +228,23 @@ export async function createOrder(db, orderData) {
   });
 }
 
+async function orderPricing(db, orderId) {
+  const row = await db
+    .prepare("SELECT snapshot_json FROM order_pricing WHERE order_id = ?")
+    .get(orderId);
+  return row ? JSON.parse(row.snapshot_json) : null;
+}
+
 // User-facing order history: NEVER returns discord_password or backup_codes
 export async function getUserOrders(db, userId) {
-  return (
-    await db
-      .prepare(
-        "SELECT id, customer_name, customer_email, customer_note, items_json, total, payment_method, has_log_items, server_invite, claim_link, status, created_at, completed_at FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 50",
-      )
-      .all(userId)
-  ).map((row) => ({
+  const rows = await db
+    .prepare(
+      "SELECT o.id, o.customer_name, o.customer_email, o.customer_note, o.items_json, o.total, o.payment_method, o.has_log_items, o.server_invite, o.claim_link, o.status, o.created_at, o.completed_at, op.snapshot_json AS pricing_json FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id WHERE o.user_id = ? ORDER BY o.created_at DESC LIMIT 50",
+    )
+    .all(userId);
+  return rows.map((row) => ({
     id: row.id,
+    pricing: row.pricing_json ? JSON.parse(row.pricing_json) : null,
     customerName: row.customer_name,
     customerEmail: row.customer_email,
     customerNote: row.customer_note,
@@ -231,20 +265,22 @@ export async function getAdminOrders(
   db,
   { status, limit = 50, offset = 0 } = {},
 ) {
-  let query = "SELECT * FROM orders";
+  let query =
+    "SELECT o.*, op.snapshot_json AS pricing_json FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id";
   const params = [];
   if (
     status &&
     ["pending", "processing", "completed", "cancelled"].includes(status)
   ) {
-    query += " WHERE status = ?";
+    query += " WHERE o.status = ?";
     params.push(status);
   }
-  query += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+  query += " ORDER BY o.created_at DESC LIMIT ? OFFSET ?";
   params.push(limit, offset);
 
   return (await db.prepare(query).all(...params)).map((row) => ({
     id: row.id,
+    pricing: row.pricing_json ? JSON.parse(row.pricing_json) : null,
     userId: row.user_id,
     customerName: row.customer_name,
     customerEmail: row.customer_email,
@@ -274,6 +310,13 @@ export async function updateAdminOrder(db, orderId, { status, claimLink }) {
     throw error;
   }
   const nextStatus = status || order.status;
+  // Đơn đã hoàn tiền không mở lại để tránh trừ ví và dùng mã thêm lần nữa.
+  if (order.status === "cancelled" && nextStatus !== "cancelled") {
+    throw Object.assign(
+      new Error("Đơn đã hủy không thể mở lại. Hãy tạo đơn mới."),
+      { status: 409 },
+    );
+  }
   if (
     !["pending", "processing", "completed", "cancelled"].includes(nextStatus)
   ) {
@@ -293,6 +336,7 @@ export async function updateAdminOrder(db, orderId, { status, claimLink }) {
 
   return {
     id: order.id,
+    pricing: await orderPricing(db, order.id),
     userId: order.user_id,
     customerName: order.customer_name,
     customerEmail: order.customer_email,
@@ -313,33 +357,23 @@ export async function updateAdminOrder(db, orderId, { status, claimLink }) {
 }
 
 export async function getAnnouncement(db) {
-  try {
-    const row = await db
-      .prepare(
-        "SELECT id, content, is_active, updated_at FROM site_announcements WHERE id = 'current'",
-      )
-      .get();
-    if (!row) {
-      return {
+  const row = await db
+    .prepare(
+      "SELECT id, content, is_active, updated_at FROM site_announcements WHERE id = 'current'",
+    )
+    .get();
+  return row
+    ? {
+        content: row.content,
+        is_active: Boolean(row.is_active),
+        updated_at: row.updated_at,
+      }
+    : {
         content:
           "🔥 Chào mừng bạn đến với VietNam Legacy! Shop cung cấp Discord Nitro Boost, Nitro Trial, Decor Gift/Log và Setup Server uy tín số 1 Việt Nam.",
-        is_active: 1,
-        updated_at: Date.now(),
+        is_active: true,
+        updated_at: 0,
       };
-    }
-    return {
-      content: row.content,
-      is_active: Boolean(row.is_active),
-      updated_at: row.updated_at,
-    };
-  } catch {
-    return {
-      content:
-        "🔥 Chào mừng bạn đến với VietNam Legacy! Shop cung cấp Discord Nitro Boost, Nitro Trial, Decor Gift/Log và Setup Server uy tín số 1 Việt Nam.",
-      is_active: 1,
-      updated_at: Date.now(),
-    };
-  }
 }
 
 export async function saveAnnouncement(
@@ -349,7 +383,13 @@ export async function saveAnnouncement(
   now = Date.now(),
 ) {
   const cleanContent = String(content ?? "").trim();
-  if (!cleanContent) {
+  if (cleanContent.length > 400) {
+    throw Object.assign(
+      new Error("Nội dung thông báo tối đa 400 ký tự."),
+      { status: 400 },
+    );
+  }
+  if (is_active && !cleanContent) {
     const error = new Error("Nội dung thông báo không được để trống.");
     error.status = 400;
     throw error;

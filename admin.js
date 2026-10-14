@@ -75,6 +75,7 @@
     adminApp.hidden = false;
     loadOrders();
     loadAnnouncement();
+    window.initAdminPricing({ api, notify });
   }
 
   async function checkAuthAndInit() {
@@ -169,9 +170,9 @@
     return allOrders.filter((order) => {
       // Status filter
       if (currentFilter === "processing") {
-        if (order.status !== "processing" && order.status !== "pending") return false;
+        if (order.status !== "processing" && order.status !== "cancelled" && order.status !== "pending") return false;
       } else if (currentFilter === "completed") {
-        if (order.status !== "completed") return false;
+        if (order.status !== "completed" && order.status !== "cancelled") return false;
       } else if (currentFilter === "cancelled") {
         if (order.status !== "cancelled") return false;
       }
@@ -335,15 +336,16 @@
             <div class="admin-order-footer">
               <div class="admin-order-total">
                 Thanh toán qua Ví: <strong>${money(order.total)}</strong>
+                ${order.pricing && (order.pricing.saleDiscount || order.pricing.couponDiscount) ? `<small class="order-discount-note">Giá gốc: ${money(order.pricing.subtotal)} · Ưu đãi: −${money(order.pricing.saleDiscount + order.pricing.couponDiscount)}${order.pricing.coupon ? ' · Mã ' + escapeHtml(order.pricing.coupon.code) : ''}</small>` : ''}
               </div>
               <div class="admin-action-buttons">
                 ${
-                  order.status !== "completed"
+                  order.status !== "completed" && order.status !== "cancelled"
                     ? `<button class="admin-status-btn btn-complete" data-action="set-status" data-status="completed" data-order-id="${order.id}">✅ Hoàn tất</button>`
                     : ""
                 }
                 ${
-                  order.status !== "processing"
+                  order.status !== "processing" && order.status !== "cancelled"
                     ? `<button class="admin-status-btn" data-action="set-status" data-status="processing" data-order-id="${order.id}">🔄 Đang nạp</button>`
                     : ""
                 }
@@ -463,6 +465,18 @@
   const announcementCounter = document.querySelector("#admin-announcement-counter");
   const saveAnnouncementBtn = document.querySelector("#admin-save-announcement-btn");
 
+  const announcementFeedback = document.querySelector("#admin-announcement-feedback");
+  let announcementChannel;
+  try {
+    if (typeof BroadcastChannel === "function") announcementChannel = new BroadcastChannel("vnl-announcements");
+  } catch { /* Vẫn đồng bộ qua localStorage hoặc lúc quay lại cửa hàng. */ }
+
+  function announcementStatus(message, error = false) {
+    if (!announcementFeedback) return;
+    announcementFeedback.textContent = message;
+    announcementFeedback.classList.toggle("is-error", error);
+  }
+
   function updateAnnouncementCounter() {
     if (!announcementTextarea || !announcementCounter) return;
     const len = announcementTextarea.value.length;
@@ -497,30 +511,46 @@
         updateAnnouncementStatusLabel();
       }
     } catch (err) {
-      console.warn("Could not load announcement:", err);
+      announcementStatus("Chưa tải được thông báo: " + err.message, true);
     }
   }
 
   if (saveAnnouncementBtn) {
     saveAnnouncementBtn.addEventListener("click", async () => {
       const content = announcementTextarea ? announcementTextarea.value.trim() : "";
-      if (!content) {
+      const enabled = announcementActive ? announcementActive.checked : true;
+      if (enabled && !content) {
+        announcementStatus("Vui lòng nhập nội dung trước khi bật thông báo.", true);
         notify("Vui lòng nhập nội dung thông báo.");
         announcementTextarea?.focus();
         return;
       }
       saveAnnouncementBtn.disabled = true;
       saveAnnouncementBtn.textContent = "Đang lưu...";
+      announcementStatus("Đang lưu thông báo...");
       try {
-        await api("/api/admin/announcement", {
+        const data = await api("/api/admin/announcement", {
           method: "POST",
           body: JSON.stringify({
             content,
-            is_active: announcementActive ? announcementActive.checked : true,
+            is_active: enabled,
           }),
         });
-        notify("Đã lưu và cập nhật thông báo thành công! ⚡");
+        announcementTextarea.value = data.announcement.content;
+        announcementActive.checked = Boolean(data.announcement.is_active);
+        updateAnnouncementCounter();
+        updateAnnouncementStatusLabel();
+        const savedAt = new Date(data.announcement.updated_at).toLocaleTimeString("vi-VN");
+        announcementStatus(data.announcement.is_active
+          ? "Đã lưu lúc " + savedAt + ". Thông báo đang bật; cửa hàng đã nhận cập nhật."
+          : "Đã lưu lúc " + savedAt + ". Thông báo đang tắt và được ẩn ngoài cửa hàng.");
+        try {
+          if (announcementChannel) announcementChannel.postMessage({ updated: true });
+          else localStorage.setItem("vnl-announcement-updated", String(Date.now()));
+        } catch { /* Cửa hàng vẫn lấy lại dữ liệu khi được mở hoặc trở lại. */ }
+        notify(data.announcement.is_active ? "Đã lưu và đăng thông báo." : "Đã lưu và ẩn thông báo.");
       } catch (err) {
+        announcementStatus("Chưa lưu được: " + err.message, true);
         notify("Lỗi khi lưu thông báo: " + err.message);
       } finally {
         saveAnnouncementBtn.disabled = false;

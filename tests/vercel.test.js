@@ -167,3 +167,59 @@ test("Vercel refuses local database fallback and accepts integration variable al
     else process.env.VERCEL = previous;
   }
 });
+
+test("Vercel web handler serves admin-pricing.js asset and handles pricing APIs over libSQL", async () => {
+  const db = adaptClient(createClient({ url: ":memory:" }));
+  const origin = "https://shop.example";
+  const config = {
+    origin,
+    production: true,
+    bank: { gateway: "VietinBank", accountNumber: "1234567890", code: "970415", accountName: "TEST" },
+    paymentsMode: "disabled",
+    adminPassword: "test-admin-vercel",
+  };
+  try {
+    await db.exec(await readFile(new URL("../server/schema.sql", import.meta.url), "utf8"));
+    const endpoint = webHandler(createApp(db, config).listeners("request")[0]);
+
+    // 1. Static asset: admin-pricing.js is accessible
+    const assetRes = await endpoint.fetch(new Request(origin + "/admin-pricing.js"));
+    assert.equal(assetRes.status, 200);
+    assert.match(assetRes.headers.get("content-type"), /javascript/);
+
+    // 2. Admin pricing endpoint
+    const adminHeaders = { "X-Admin-Key": config.adminPassword, Origin: origin, "Content-Type": "application/json" };
+    const pricingRes = await endpoint.fetch(new Request(origin + "/api/admin/pricing", { headers: adminHeaders }));
+    assert.equal(pricingRes.status, 200);
+    const pricingData = await pricingRes.json();
+    assert.ok(Array.isArray(pricingData.products));
+    assert.ok(Array.isArray(pricingData.promotions));
+
+    // 3. Admin create campaign
+    const promoRes = await endpoint.fetch(
+      new Request(origin + "/api/admin/promotions", {
+        method: "POST",
+        headers: adminHeaders,
+        body: JSON.stringify({
+          kind: "campaign",
+          name: "Vercel Launch Sale",
+          enabled: true,
+          type: "percent",
+          value: 15,
+          productIds: [],
+        }),
+      }),
+    );
+    assert.equal(promoRes.status, 201);
+
+    // 4. Public catalog reflects discount on libSQL
+    const catalogRes = await endpoint.fetch(new Request(origin + "/api/catalog"));
+    assert.equal(catalogRes.status, 200);
+    const catalogData = await catalogRes.json();
+    const nitro = catalogData.products.find((p) => p.id === "nitro");
+    assert.equal(nitro.variants[0].price, Math.round(nitro.variants[0].basePrice * 0.85));
+  } finally {
+    db.close();
+  }
+});
+
