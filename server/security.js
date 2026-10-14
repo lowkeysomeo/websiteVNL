@@ -28,35 +28,57 @@ export async function checkPassword(password, encoded) {
   const hash = await derive(password, salt, 64, passwordOptions);
   return equal(hash.toString("hex"), expected);
 }
-export function verifyWebhook(headers = {}, raw = Buffer.alloc(0), secret = "", now = Date.now(), queryToken = null) {
+export function verifyWebhook(
+  headers = {},
+  raw = Buffer.alloc(0),
+  secret = "",
+  now = Date.now(),
+  queryToken = null,
+) {
   if (!secret) return false;
   const cleanSecret = String(secret).trim();
   if (!cleanSecret) return false;
 
-  // 1. Check API Key in Authorization header (SePay default: "Authorization: Apikey <KEY>")
-  const authHeader = String(headers["authorization"] || headers["Authorization"] || "").trim();
+  // 1. Check API Key in Authorization header (case-insensitive prefix: Apikey, apikey, Bearer, bearer, or direct token)
+  const authHeader = String(
+    headers["authorization"] || headers["Authorization"] || "",
+  ).trim();
   if (authHeader) {
-    if (authHeader.startsWith("Apikey ")) {
-      const apiKey = authHeader.slice(7).trim();
-      if (equal(apiKey, cleanSecret)) return true;
-    }
-    if (authHeader.startsWith("Bearer ")) {
-      const token = authHeader.slice(7).trim();
-      if (equal(token, cleanSecret)) return true;
-    }
+    const authMatch = authHeader.match(/^(?:apikey|bearer|token)\s+(.+)$/i);
+    const tokenCandidate = authMatch ? authMatch[1].trim() : authHeader;
+    if (tokenCandidate && equal(tokenCandidate, cleanSecret)) return true;
   }
 
-  // 2. Check X-API-Key or X-Sepay-Api-Key headers
-  const xApiKey = String(headers["x-api-key"] || headers["x-sepay-api-key"] || headers["X-API-KEY"] || "").trim();
-  if (xApiKey && equal(xApiKey, cleanSecret)) return true;
+  // 2. Check X-API-Key, X-Sepay-Api-Key, or other common auth headers
+  const headerKeys = [
+    "x-api-key",
+    "x-sepay-api-key",
+    "x-api_key",
+    "apikey",
+    "api-key",
+    "secret",
+    "x-secret",
+    "x-webhook-secret",
+  ];
+  for (const k of headerKeys) {
+    const val = String(headers[k] || headers[k.toUpperCase()] || "").trim();
+    if (val && equal(val, cleanSecret)) return true;
+  }
 
-  // 3. Check Query token (URL: /api/payments/webhook?token=... or ?apiKey=...)
+  // 3. Check Query token (URL: /api/payments/webhook?token=... or ?apiKey=... or ?secret=...)
   if (queryToken && typeof queryToken === "string") {
     if (equal(queryToken.trim(), cleanSecret)) return true;
   }
 
   // 4. Check HMAC SHA-256 signature (SePay webhook with HMAC signature enabled)
-  const timestamp = headers["x-sepay-timestamp"];
+  const timestamp =
+    headers["x-sepay-timestamp"] ||
+    headers["X-SePay-Timestamp"] ||
+    headers["X-SEPAY-TIMESTAMP"];
+  const signature =
+    headers["x-sepay-signature"] ||
+    headers["X-SePay-Signature"] ||
+    headers["X-SEPAY-SIGNATURE"];
   if (
     typeof timestamp === "string" &&
     /^\d{10,11}$/.test(timestamp) &&
@@ -68,9 +90,28 @@ export function verifyWebhook(headers = {}, raw = Buffer.alloc(0), secret = "", 
         .update(timestamp + ".")
         .update(raw)
         .digest("hex");
-    if (equal(expected, headers["x-sepay-signature"] || "")) {
+    if (equal(expected, signature || "")) {
       return true;
     }
+  }
+
+  // 5. Check if payload itself contains the secret or apiKey
+  try {
+    if (raw && raw.length > 0) {
+      const parsed = JSON.parse(raw.toString("utf8"));
+      if (parsed && typeof parsed === "object") {
+        const bodySecret = String(
+          parsed.apiKey ||
+            parsed.api_key ||
+            parsed.secret ||
+            parsed.token ||
+            "",
+        ).trim();
+        if (bodySecret && equal(bodySecret, cleanSecret)) return true;
+      }
+    }
+  } catch {
+    // Ignore JSON parse errors for non-JSON or partial bodies
   }
 
   return false;

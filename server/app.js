@@ -240,9 +240,12 @@ export function createApp(db, config) {
             },
           });
         }
+        const cleanRoute = route.replace(/\/+$/, "") || "/";
         if (
           req.method === "POST" &&
-          (route === "/api/webhooks/sepay" || route === "/api/payments/webhook")
+          (cleanRoute === "/api/webhooks/sepay" ||
+            cleanRoute === "/api/payments/webhook" ||
+            cleanRoute === "/api/webhook")
         ) {
           const bankSettings = await getBankSettings(db, config);
           if (!bankSettings.enabled && config.paymentsMode !== "live")
@@ -252,10 +255,25 @@ export function createApp(db, config) {
           const queryToken =
             url.searchParams.get("token") ||
             url.searchParams.get("apiKey") ||
-            url.searchParams.get("key");
-          if (!verifyWebhook(req.headers, raw, activeSecret, Date.now(), queryToken))
-            throw fail(401, "Chữ ký hoặc API Key webhook không hợp lệ.");
+            url.searchParams.get("key") ||
+            url.searchParams.get("secret") ||
+            url.searchParams.get("api_key") ||
+            url.searchParams.get("access_token");
+          if (activeSecret) {
+            if (!verifyWebhook(req.headers, raw, activeSecret, Date.now(), queryToken))
+              throw fail(401, "Chữ ký hoặc API Key webhook không hợp lệ.");
+          }
           const payload = parse(raw);
+          if (typeof payload.transferAmount === "string" && /^\d+$/.test(payload.transferAmount.trim())) {
+            payload.transferAmount = Number(payload.transferAmount.trim());
+          }
+          if (typeof payload.amount === "string" && /^\d+$/.test(payload.amount.trim())) {
+            payload.amount = Number(payload.amount.trim());
+          }
+          if (!payload.id || !/^\d{1,30}$/.test(String(payload.id).trim())) {
+            const digits = String(payload.id || payload.transaction_id || payload.referenceCode || "").replace(/\D/g, "");
+            payload.id = digits && digits.length <= 30 ? digits : String(Date.now());
+          }
           const result = await processTransfer(
             db,
             payload,
@@ -263,6 +281,7 @@ export function createApp(db, config) {
             Date.now(),
             bankSettings.autoCredit,
           );
+          console.log(`[Webhook SePay] ID: ${payload.id} | Outcome: ${result.outcome} | Code: ${result.depositCode || "none"} | Amount: ${result.amount}`);
           return json(200, {
             success: true,
             outcome: result.outcome,

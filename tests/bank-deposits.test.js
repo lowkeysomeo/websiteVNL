@@ -485,3 +485,171 @@ test("Admin thử nghiệm tự động cộng tiền qua endpoint simulate", as
     await close();
   }
 });
+
+test("Tự động duyệt tiền nạp: VietinBank ICB alias, số tài khoản có dấu gạch ngang, nội dung có dấu tiếng Việt, URL trailing slash và tham số query apiKey", async () => {
+  const fixture = await createServerFixture();
+  const { base, close } = fixture;
+
+  try {
+    const testSecret = "vnl_sec_vietinbank_test_1234567890";
+    // 1. Cấu hình VietinBank (970415 / VietinBank / STK 999999573939)
+    await fetch(base + "/api/admin/bank", {
+      method: "PUT",
+      headers: {
+        Origin: origin,
+        "X-Admin-Key": adminPassword,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        bankCode: "970415",
+        bankGateway: "VietinBank",
+        accountNumber: "999999573939",
+        accountName: "LÂM TRẦN GIA HƯNG",
+        isActive: true,
+        autoCredit: true,
+        webhookSecret: testSecret,
+      }),
+    });
+
+    // 2. Khách nạp 100.000₫
+    const regRes = await fetch(base + "/api/auth/register", {
+      method: "POST",
+      headers: { Origin: origin, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "vietin-user@example.com",
+        password: "secure-password-123",
+      }),
+    });
+    const regJson = await regRes.json();
+    const cookie = regRes.headers.get("set-cookie").split(";")[0];
+
+    const depRes = await fetch(base + "/api/deposits", {
+      method: "POST",
+      headers: {
+        Origin: origin,
+        Cookie: cookie,
+        "X-CSRF-Token": regJson.csrfToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount: 100000 }),
+    });
+    const depJson = await depRes.json();
+    const depositCode = depJson.deposit.code;
+
+    // 3. SePay gửi Webhook với:
+    // - URL có trailing slash và tham số query ?secret=...
+    // - Header Authorization: apikey <key> (chữ thường)
+    // - gateway: "ICB" (SePay dùng ICB thay vì VietinBank)
+    // - accountNumber: "9999-9957-3939" (có dấu gạch ngang)
+    // - content có dấu tiếng Việt: "KH LÂM TRẦN GIA HƯNG CHUYỂN TIỀN VNL..."
+    const hookRes = await fetch(base + `/api/payments/webhook/?secret=${testSecret}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `apikey ${testSecret}`,
+      },
+      body: JSON.stringify({
+        id: "FT24010192839210",
+        gateway: "ICB",
+        accountNumber: "9999-9957-3939",
+        transferAmount: "100000",
+        content: `CHUYỂN KHOẢN TIỀN NẠP VÍ`,
+        description: `LÂM TRẦN GIA HƯNG NẠP TIỀN ${depositCode} TÀI KHOẢN KHÁCH`,
+        transferType: "in",
+      }),
+    });
+    assert.equal(hookRes.status, 200);
+    const hookData = await hookRes.json();
+    assert.equal(hookData.success, true);
+    assert.equal(hookData.outcome, "credited");
+    assert.equal(hookData.depositCode, depositCode);
+
+    // 4. Kiểm tra ví khách hàng -> tự động cộng 100.000₫
+    const walletRes = await fetch(base + "/api/wallet", {
+      headers: { Cookie: cookie },
+    });
+    const walletData = await walletRes.json();
+    assert.equal(walletData.balance, 100000);
+  } finally {
+    await close();
+  }
+});
+
+test("Tự động duyệt tiền nạp khi server chưa cài webhookSecret (không bị chặn 401)", async () => {
+  const fixture = await createServerFixture();
+  const { base, close } = fixture;
+
+  try {
+    // 1. Cấu hình ngân hàng MB nhưng webhookSecret để trống ("")
+    await fetch(base + "/api/admin/bank", {
+      method: "PUT",
+      headers: {
+        Origin: origin,
+        "X-Admin-Key": adminPassword,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        bankCode: "MB",
+        bankGateway: "MB Bank",
+        accountNumber: "0999888777",
+        accountName: "SHOP TEST",
+        isActive: true,
+        autoCredit: true,
+        webhookSecret: "",
+      }),
+    });
+
+    // 2. Khách nạp 50.000₫
+    const regRes = await fetch(base + "/api/auth/register", {
+      method: "POST",
+      headers: { Origin: origin, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "no-secret-user@example.com",
+        password: "secure-password-123",
+      }),
+    });
+    const regJson = await regRes.json();
+    const cookie = regRes.headers.get("set-cookie").split(";")[0];
+
+    const depRes = await fetch(base + "/api/deposits", {
+      method: "POST",
+      headers: {
+        Origin: origin,
+        Cookie: cookie,
+        "X-CSRF-Token": regJson.csrfToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount: 50000 }),
+    });
+    const depJson = await depRes.json();
+    const depositCode = depJson.deposit.code;
+
+    // 3. Webhook gửi tới không có secret/auth header -> Vẫn nhận và duyệt thành công!
+    const hookRes = await fetch(base + "/api/payments/webhook", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: "99887766",
+        gateway: "MB",
+        accountNumber: "0999888777",
+        amount: 50000,
+        content: `NAP TIEN ${depositCode}`,
+        transferType: "in",
+      }),
+    });
+    assert.equal(hookRes.status, 200);
+    const hookData = await hookRes.json();
+    assert.equal(hookData.success, true);
+    assert.equal(hookData.outcome, "credited");
+
+    // 4. Kiểm tra ví khách hàng -> đã có 50.000₫
+    const walletRes = await fetch(base + "/api/wallet", {
+      headers: { Cookie: cookie },
+    });
+    assert.equal((await walletRes.json()).balance, 50000);
+  } finally {
+    await close();
+  }
+});

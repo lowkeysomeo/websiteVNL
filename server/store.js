@@ -21,6 +21,120 @@ export async function balance(db, userId) {
   return depositSum - orderSpent;
 }
 
+const BANK_ALIASES = [
+  { bin: "970415", codes: ["icb", "ctg", "vietinbank", "vietin", "congthuong", "970415"] },
+  { bin: "970436", codes: ["vcb", "vietcombank", "vietcom", "ngoathuong", "970436"] },
+  { bin: "970422", codes: ["mb", "mbb", "mbbank", "quandoi", "970422"] },
+  { bin: "970407", codes: ["tcb", "techcombank", "techcom", "kythuong", "970407"] },
+  { bin: "970418", codes: ["bidv", "dautuvaphattrien", "970418"] },
+  { bin: "970416", codes: ["acb", "achau", "asiacommercial", "970416"] },
+  { bin: "970432", codes: ["vpb", "vpbank", "thinhvuong", "970432"] },
+  { bin: "970423", codes: ["tpb", "tpbank", "tienphong", "970423"] },
+  { bin: "970405", codes: ["vba", "agribank", "nongnghiep", "varb", "970405"] },
+  { bin: "970403", codes: ["stb", "sacombank", "saigonthuongtin", "970403"] },
+  { bin: "970437", codes: ["hdb", "hdbank", "phattrien", "970437"] },
+  { bin: "970441", codes: ["vib", "quocte", "970441"] },
+  { bin: "970443", codes: ["shb", "saigonhanoi", "970443"] },
+  { bin: "970448", codes: ["ocb", "phuongdong", "970448"] },
+  { bin: "970426", codes: ["msb", "hanghai", "maritimebank", "970426"] },
+  { bin: "970440", codes: ["seab", "seabank", "dongabank", "970440"] },
+  { bin: "970449", codes: ["lpb", "lpbank", "lienviet", "lienvietpostbank", "970449"] },
+  { bin: "970428", codes: ["nab", "namabank", "namachau", "970428"] },
+  { bin: "970431", codes: ["eib", "eximbank", "xuatnhapkhau", "970431"] },
+  { bin: "970438", codes: ["bvb", "baovietbank", "baoviet", "970438"] },
+  { bin: "970454", codes: ["vietcapital", "vietcapitalbank", "banviet", "bvbank", "970454"] },
+  { bin: "970429", codes: ["scb", "saigon", "970429"] },
+  { bin: "970452", codes: ["kienlong", "kienlongbank", "klb", "970452"] },
+  { bin: "970457", codes: ["woori", "wooribank", "970457"] },
+  { bin: "970458", codes: ["uob", "unitedoverseas", "970458"] },
+  { bin: "970462", codes: ["cake", "cakebyvpbank", "970462"] },
+  { bin: "970463", codes: ["ubank", "970463"] },
+  { bin: "970466", codes: ["timoplus", "timo", "970466"] },
+];
+
+function normalizeBankIdentifier(val) {
+  if (!val) return "";
+  return String(val)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toLowerCase();
+}
+
+export function isBankMatch(eventGateway, bankGateway, bankCode) {
+  if (!eventGateway || (!bankGateway && !bankCode)) return true;
+  const eg = normalizeBankIdentifier(eventGateway);
+  const bg = normalizeBankIdentifier(bankGateway);
+  const bc = normalizeBankIdentifier(bankCode);
+
+  if (bg && (eg === bg || eg.includes(bg) || bg.includes(eg))) return true;
+  if (bc && (eg === bc || eg.includes(bc) || bc.includes(eg))) return true;
+
+  for (const entry of BANK_ALIASES) {
+    const eventMatches = entry.codes.some(
+      (c) => eg === c || eg.includes(c) || c.includes(eg),
+    );
+    if (eventMatches) {
+      const bankMatches = entry.codes.some(
+        (c) =>
+          (bg && (bg === c || bg.includes(c) || c.includes(bg))) ||
+          (bc && (bc === c || bc.includes(c) || c.includes(bc))),
+      );
+      if (bankMatches) return true;
+    }
+  }
+
+  return false;
+}
+
+function extractDepositCode(event) {
+  const codes = new Set();
+  const explicit = String(event.code || "").toUpperCase().trim();
+  if (/^VNL[A-F0-9]{12}$/.test(explicit)) codes.add(explicit);
+
+  const fields = [
+    event.content,
+    event.description,
+    event.referenceCode,
+    event.reference,
+    event.orderCode,
+    event.order_code,
+    event.memo,
+    event.note,
+  ];
+
+  for (const field of fields) {
+    if (!field || typeof field !== "string") continue;
+    const upper = field.toUpperCase();
+    const stripped = upper
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/Đ/g, "D");
+
+    for (const match of stripped.matchAll(
+      /(?:^|[^A-Z0-9])(VNL[A-F0-9]{12})(?=$|[^A-Z0-9])/g,
+    )) {
+      codes.add(match[1]);
+    }
+  }
+
+  if (codes.size === 0) {
+    for (const field of fields) {
+      if (!field || typeof field !== "string") continue;
+      const stripped = field
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/Đ/g, "D");
+      for (const match of stripped.matchAll(/VNL[A-F0-9]{12}/g)) {
+        codes.add(match[0]);
+      }
+    }
+  }
+
+  return codes.size === 1 ? [...codes][0] : null;
+}
+
 // The event, ledger entry and deposit status commit together. A retry cannot add money twice.
 export async function processTransfer(db, event, bank, now = Date.now(), autoCredit = true) {
   const id = String(event.id ?? event.transaction_id ?? "");
@@ -41,22 +155,7 @@ export async function processTransfer(db, event, bank, now = Date.now(), autoCre
     typeof event.referenceCode === "string" && event.referenceCode.trim()
       ? event.referenceCode.trim().slice(0, 160)
       : (typeof event.reference === "string" && event.reference.trim() ? event.reference.trim().slice(0, 160) : null);
-  const codes = new Set();
-  const explicit = String(event.code || "").toUpperCase();
-  if (/^VNL[A-F0-9]{12}$/.test(explicit)) codes.add(explicit);
-  const contentStr = String(event.content || event.description || "").toUpperCase();
-  for (const match of contentStr.matchAll(/(?:^|[^A-Z0-9])(VNL[A-F0-9]{12})(?=$|[^A-Z0-9])/g))
-    codes.add(match[1]);
-  if (codes.size === 0) {
-    for (const match of contentStr.matchAll(/VNL[A-F0-9]{12}/g))
-      codes.add(match[0]);
-  }
-  const code = codes.size === 1 ? [...codes][0] : null;
-  const gateway = (value) =>
-    String(value || "")
-      .normalize("NFKC")
-      .replace(/[\s\-_]/g, "")
-      .toLowerCase();
+  const code = extractDepositCode(event);
   return db.transaction(async (db) => {
     const duplicate = await db
       .prepare(
@@ -70,18 +169,27 @@ export async function processTransfer(db, event, bank, now = Date.now(), autoCre
       ? await db.prepare("SELECT * FROM deposits WHERE code = ?").get(code)
       : null;
     let outcome = "unmatched";
-    const transferType = String(event.transferType || "in").toLowerCase();
+    const rawType = String(event.transferType || event.type || "in")
+      .trim()
+      .toLowerCase();
+    const isOutgoing = ["out", "outgoing", "debit", "d", "-"].includes(rawType);
 
-    const gatewayMatch = !bank.gateway || !event.gateway ||
-      gateway(event.gateway) === gateway(bank.gateway) ||
-      gateway(event.gateway).includes(gateway(bank.gateway)) ||
-      gateway(bank.gateway).includes(gateway(event.gateway)) ||
-      (bank.code && (gateway(event.gateway).includes(gateway(bank.code)) || gateway(bank.code).includes(gateway(event.gateway))));
+    const gatewayMatch = isBankMatch(event.gateway, bank.gateway, bank.code);
 
-    const accMatch = !bank.accountNumber || !event.accountNumber ||
-      String(event.accountNumber).trim() === String(bank.accountNumber).trim();
+    const cleanAcc = (s) => String(s || "").replace(/\D/g, "");
+    const eventAcc = cleanAcc(
+      event.accountNumber || event.account_number || event.subAccount,
+    );
+    const bankAcc = cleanAcc(bank.accountNumber);
+    const accMatch =
+      !bankAcc ||
+      !eventAcc ||
+      eventAcc === bankAcc ||
+      (eventAcc.length >= 6 &&
+        bankAcc.length >= 6 &&
+        (eventAcc.endsWith(bankAcc) || bankAcc.endsWith(eventAcc)));
 
-    if (transferType !== "in" && transferType !== "incoming") outcome = "outgoing";
+    if (isOutgoing) outcome = "outgoing";
     else if (!accMatch || !gatewayMatch)
       outcome = "wrong_account";
     else if (deposit) {

@@ -1668,6 +1668,7 @@ window.initAdminPricing = (() => {
           body: JSON.stringify({ bankCode, bankGateway, accountNumber, accountName, isActive, autoCredit, webhookSecret }),
         });
         bankSettings = res.settings;
+        render();
         notify(isActive ? "Đã lưu cấu hình ngân hàng & Webhook tự động cộng tiền!" : "Đã lưu thông tin ngân hàng (đang tắt nạp QR).");
       } else if (form.id === "category-add-form") {
         const data = new FormData(form);
