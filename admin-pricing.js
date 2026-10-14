@@ -1212,12 +1212,23 @@ window.initAdminPricing = (() => {
 
   async function submit(event) {
     const form = event.target;
-    if (!["admin-prices-form", "promotion-form", "product-create-form", "product-edit-form", "variant-create-form", "variant-edit-form", "admin-bank-form", "admin-guide-form"].includes(form.id)) return;
+    if (![
+      "admin-prices-form",
+      "promotion-form",
+      "product-create-form",
+      "product-edit-form",
+      "variant-create-form",
+      "variant-edit-form",
+      "admin-bank-form",
+      "admin-guide-form",
+      "category-add-form",
+      "partner-create-form",
+    ].includes(form.id)) return;
     event.preventDefault();
     const button = form.querySelector('[type="submit"]'), message = form.querySelector(".pricing-form-message");
     if (button.disabled) return;
     button.disabled = true;
-    message.textContent = "Đang lưu...";
+    if (message) message.textContent = "Đang lưu...";
     try {
       if (form.id === "admin-prices-form") {
         const prices = [...form.querySelectorAll("[data-price-product]:not(:disabled)")].map(input => ({ productId: input.dataset.priceProduct, variantId: input.dataset.priceVariant, price: Number(input.value) }));
@@ -1393,7 +1404,10 @@ window.initAdminPricing = (() => {
         notify("Đã lưu ưu đãi.");
       }
       await load();
-    } catch (error) { message.textContent = error.message; }
+    } catch (error) {
+      if (message) message.textContent = error.message;
+      else notify(error.message);
+    }
     finally { button.disabled = false; }
   }
 

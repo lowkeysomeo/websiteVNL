@@ -1134,8 +1134,11 @@ export async function listPartners(db) {
       createdAt: r.created_at,
       updatedAt: r.updated_at,
       productCount: productsByPartner.get(email) || 0,
+      productsCount: productsByPartner.get(email) || 0,
       orderCount: ordersByPartner.get(email) || 0,
+      ordersCount: ordersByPartner.get(email) || 0,
       totalRevenue: revenueByPartner.get(email) || 0,
+      revenue: revenueByPartner.get(email) || 0,
     };
   });
 }
