@@ -9,6 +9,7 @@ const storeConfig = {
 const categoryNames = {
   all: "Tất cả",
   discord: "Discord",
+  decor: "Profile Decor",
   entertainment: "Giải trí",
   creative: "Sáng tạo",
   services: "Dịch vụ Discord",
@@ -58,22 +59,39 @@ const products = [
     ],
   },
   {
-    id: "decor",
-    name: "Discord Decor",
-    category: "discord",
+    id: "decor-gift",
+    name: "Discord Decor Gift",
+    category: "decor",
+    image: "assets/decor.svg",
+    badge: "PROFILE / DECOR",
+    description: "Khung avatar và hiệu ứng hồ sơ Discord nhận qua link quà tặng chính chủ, không cần gửi mật khẩu.",
+    features: [
+      "Khung avatar & hiệu ứng trang trí hồ sơ",
+      "Nhận trực tiếp qua Link quà tặng (Gift)",
+      "An toàn 100%, không cần tài khoản mật khẩu",
+    ],
+    detail:
+      "Trang trí hồ sơ đại diện Discord độc đáo dạng quà tặng [Gift]. Bạn sẽ nhận được link claim quà tặng chính chủ để kích hoạt ngay vào tài khoản của mình mà không cần gửi tài khoản mật khẩu.",
+    variants: [
+      { id: "decor_gift_basic", name: "🎁 [Gift] Decor · Mẫu cơ bản", price: 49000, deliveryType: "gift", note: "Nhận link quà tặng, không cần tài khoản mật khẩu" },
+      { id: "decor_gift_collection", name: "🎁 [Gift] Decor · Bộ sưu tập", price: 99000, deliveryType: "gift", note: "Nhận link quà tặng, không cần tài khoản mật khẩu" },
+    ],
+  },
+  {
+    id: "decor-log",
+    name: "Discord Decor Log",
+    category: "decor",
     image: "assets/decor.svg",
     badge: "PROFILE / DECOR",
     description: "Một chút điểm nhấn để hồ sơ của bạn mang chất riêng với khung avatar và hiệu ứng hồ sơ.",
     features: [
       "Khung avatar & hiệu ứng trang trí hồ sơ",
-      "Chọn nhận Link Gift hoặc Nạp Acc (Log)",
-      "Bộ sưu tập đa dạng theo phong cách bạn thích",
+      "Shop đăng nhập nạp trực tiếp vào tài khoản (Log)",
+      "Bảo hành đầy đủ suốt thời hạn",
     ],
     detail:
-      "Trang trí hồ sơ đại diện Discord độc đáo. Mua dạng [Gift] bạn sẽ nhận được link claim quà tặng, hoặc mua dạng [Log] để shop nạp trực tiếp vào tài khoản.",
+      "Trang trí hồ sơ đại diện Discord độc đáo dạng nạp tài khoản [Log]. Shop sẽ đăng nhập nạp trực tiếp vào tài khoản của bạn để nhận mẫu decor với giá tốt nhất.",
     variants: [
-      { id: "decor_gift_basic", name: "🎁 [Gift] Decor · Mẫu cơ bản", price: 49000, deliveryType: "gift", note: "Nhận link quà tặng, không cần tài khoản mật khẩu" },
-      { id: "decor_gift_collection", name: "🎁 [Gift] Decor · Bộ sưu tập", price: 99000, deliveryType: "gift", note: "Nhận link quà tặng, không cần tài khoản mật khẩu" },
       { id: "decor_log_basic", name: "🔑 [Log] Decor · Mẫu cơ bản (Nạp Acc)", price: 39000, deliveryType: "log", note: "Shop đăng nhập nạp, cần Acc/Pass/3 mã dự phòng" },
       { id: "decor_log_collection", name: "🔑 [Log] Decor · Bộ sưu tập (Nạp Acc)", price: 79000, deliveryType: "log", note: "Shop đăng nhập nạp, cần Acc/Pass/3 mã dự phòng" },
     ],

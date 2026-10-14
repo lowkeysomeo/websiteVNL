@@ -157,6 +157,7 @@ window.initAdminPricing = (() => {
     const found = categoriesList.find(c => c.id === catId);
     if (found) return found.name;
     if (catId === "discord") return "Discord";
+    if (catId === "decor") return "Profile Decor";
     if (catId === "entertainment") return "Giải trí";
     if (catId === "creative") return "Sáng tạo";
     if (catId === "services") return "Dịch vụ Discord";

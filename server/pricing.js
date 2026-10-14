@@ -273,6 +273,7 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
 
 export const DEFAULT_CATEGORIES = [
   { id: "discord", name: "Discord", icon: "gamepad" },
+  { id: "decor", name: "Profile Decor", icon: "sparkles" },
   { id: "entertainment", name: "Giải trí", icon: "layers" },
   { id: "creative", name: "Sáng tạo", icon: "sparkles" },
   { id: "services", name: "Dịch vụ Discord", icon: "box" },

@@ -29,7 +29,10 @@ export function validateOrderItems(items, catalog = products) {
       throw error;
     }
 
-    const product = catalog.find((p) => p.id === item.productId);
+    let product = catalog.find((p) => p.id === item.productId);
+    if (!product && item.productId === "decor") {
+      product = catalog.find((p) => p.variants?.some((v) => v.id === item.variantId));
+    }
     if (!product || product.service) {
       const error = new Error(
         `Sản phẩm "${item.productId}" không tồn tại hoặc yêu cầu tư vấn riêng.`,

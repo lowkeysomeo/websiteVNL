@@ -403,3 +403,46 @@ test("Tùy chỉnh vị trí hiển thị mặt hàng và phân chia hạng mụ
   }
 });
 
+test("Mặt hàng Profile Decor: Tách thành 2 mặt hàng Decor Gift và Decor Log nằm cạnh nhau", async () => {
+  const db = await openStore(":memory:");
+  try {
+    const catalog = await getCatalog(db, Date.now(), false);
+    const decorGift = catalog.find((p) => p.id === "decor-gift");
+    const decorLog = catalog.find((p) => p.id === "decor-log");
+
+    assert(decorGift, "Mặt hàng Discord Decor Gift tồn tại");
+    assert(decorLog, "Mặt hàng Discord Decor Log tồn tại");
+
+    assert.equal(decorGift.badge, "PROFILE / DECOR");
+    assert.equal(decorLog.badge, "PROFILE / DECOR");
+    assert.equal(decorGift.category, "decor");
+    assert.equal(decorLog.category, "decor");
+
+    // Vị trí nằm liền kề nhau
+    const giftIdx = catalog.findIndex((p) => p.id === "decor-gift");
+    const logIdx = catalog.findIndex((p) => p.id === "decor-log");
+    assert.equal(Math.abs(giftIdx - logIdx), 1, "Hai mặt hàng Decor phải nằm liền kề cạnh nhau");
+
+    // Đặt đơn qua decor-gift
+    const quoteGift = await quoteOrder(db, [
+      { productId: "decor-gift", variantId: "decor_gift_basic", quantity: 1 },
+    ]);
+    assert.equal(quoteGift.total, 49000);
+
+    // Đặt đơn qua decor-log
+    const quoteLog = await quoteOrder(db, [
+      { productId: "decor-log", variantId: "decor_log_basic", quantity: 2 },
+    ]);
+    assert.equal(quoteLog.total, 78000);
+
+    // Đặt đơn tương thích ngược với productId = 'decor'
+    const quoteLegacy = await quoteOrder(db, [
+      { productId: "decor", variantId: "decor_log_collection", quantity: 1 },
+    ]);
+    assert.equal(quoteLegacy.total, 79000);
+  } finally {
+    db.close();
+  }
+});
+
+
