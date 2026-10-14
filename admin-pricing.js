@@ -847,6 +847,23 @@ window.initAdminPricing = (() => {
     $("#partner-create-form [name=email]").focus();
   }
 
+  function renderFeaturesPreviewHtml(text) {
+    const lines = String(text || "")
+      .split("\n")
+      .map(line => line.trim().replace(/^[✓\-\*]\s*/, ""))
+      .filter(Boolean)
+      .slice(0, 10);
+    if (!lines.length) {
+      return `<li style="font-size:12px; color:var(--muted); font-style:italic;">(Chưa có đặc điểm nào — nhập từng dòng ở ô trên để hiển thị)</li>`;
+    }
+    return lines.map(line => `
+      <li style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:var(--text); line-height:1.4;">
+        <span style="color:#22c55e; font-weight:bold; font-size:13px; line-height:1.2;">✓</span>
+        <span>${esc(line)}</span>
+      </li>
+    `).join("");
+  }
+
   function openProductEditor(productId = null) {
     const isPartner = currentUser.role === "partner";
     const standardImages = [
@@ -940,11 +957,45 @@ window.initAdminPricing = (() => {
               </div>
             </div>
           </div>
-          <label style="grid-column: 1 / -1;">Mô tả ngắn *<input name="description" required maxlength="300" value="${esc(p.description || "")}"></label>
+          <label style="grid-column: 1 / -1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span>Mô tả ngắn (Hiển thị ở thẻ mặt hàng ngoài trang chủ) *</span>
+              <span style="font-size:11px; color:var(--muted);">Tối đa 300 ký tự</span>
+            </div>
+            <input name="description" required maxlength="300" value="${esc(p.description || "")}">
+          </label>
+          <label style="grid-column: 1 / -1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span>Đoạn giới thiệu chi tiết (Mục văn bản đầu popup khi khách bấm xem)</span>
+              <span style="font-size:11px; color:var(--muted);">Hiển thị phần giới thiệu chi tiết mặt hàng</span>
+            </div>
+            <textarea name="detail" rows="3" maxlength="2000" style="width:100%; padding:8px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px; resize:vertical; font-family:inherit;" placeholder="Nhập đoạn văn bản giới thiệu chi tiết về mặt hàng khi khách bấm xem chi tiết...">${esc(p.detail || p.description || "")}</textarea>
+          </label>
+          <div style="grid-column: 1 / -1;">
+            <label>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span>Danh sách đặc điểm & cam kết (Mục dấu tích xanh ✓ trong popup)</span>
+                <span style="font-size:11px; color:var(--muted);">Mỗi dòng 1 đặc điểm (Tối đa 10 dòng)</span>
+              </div>
+              <textarea id="product-features-input" name="featuresText" rows="4" style="width:100%; padding:8px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px; resize:vertical; font-family:inherit;" placeholder="Nhập mỗi dòng một đặc điểm, ví dụ:&#10;Áp dụng cho mọi tài khoản Discord&#10;Chọn nhận Link Gift hoặc Nạp Acc (Log)&#10;Bảo hành đầy đủ suốt thời gian gói">${(p.features || []).map(f => String(f).replace(/^[✓\-\*]\s*/, "")).join("\n")}</textarea>
+            </label>
+            <div class="product-features-preview-box" style="margin-top:6px; background:#12080a; border:1px solid #382428; border-radius:8px; padding:10px 14px;">
+              <div style="font-size:11px; color:#c5b5ae; font-weight:600; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                <span>👁️ XEM TRƯỚC DANH SÁCH TÍCH XANH TRONG POPUP CỬA HÀNG:</span>
+              </div>
+              <ul id="product-features-live-preview" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:5px;">
+              </ul>
+            </div>
+          </div>
         </div>
         <p class="pricing-form-message" role="status"></p>
         <button class="button primary" type="submit">Lưu thay đổi mặt hàng</button>
       </form>`;
+      const fEditInput = $("#product-features-input");
+      const fEditPreview = $("#product-features-live-preview");
+      if (fEditInput && fEditPreview) {
+        fEditPreview.innerHTML = renderFeaturesPreviewHtml(fEditInput.value);
+      }
       $("#product-edit-form [name=name]").focus();
       return;
     }
@@ -1025,7 +1076,36 @@ window.initAdminPricing = (() => {
             </div>
           </div>
         </div>
-        <label style="grid-column: 1 / -1;">Mô tả ngắn *<input name="description" required maxlength="300" placeholder="Mô tả quyền lợi và tính năng của mặt hàng..."></label>
+        <label style="grid-column: 1 / -1;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Mô tả ngắn (Hiển thị ở thẻ mặt hàng ngoài trang chủ) *</span>
+            <span style="font-size:11px; color:var(--muted);">Tối đa 300 ký tự</span>
+          </div>
+          <input name="description" required maxlength="300" placeholder="Mô tả quyền lợi và tính năng của mặt hàng...">
+        </label>
+        <label style="grid-column: 1 / -1;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Đoạn giới thiệu chi tiết (Mục văn bản đầu popup khi khách bấm xem)</span>
+            <span style="font-size:11px; color:var(--muted);">Hiển thị phần giới thiệu chi tiết mặt hàng</span>
+          </div>
+          <textarea name="detail" rows="3" maxlength="2000" style="width:100%; padding:8px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px; resize:vertical; font-family:inherit;" placeholder="Giới thiệu chi tiết sản phẩm / dịch vụ, chế độ bảo hành và quy trình bàn giao..."></textarea>
+        </label>
+        <div style="grid-column: 1 / -1;">
+          <label>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span>Danh sách đặc điểm & cam kết (Mục dấu tích xanh ✓ trong popup)</span>
+              <span style="font-size:11px; color:var(--muted);">Mỗi dòng 1 đặc điểm (Tối đa 10 dòng)</span>
+            </div>
+            <textarea id="product-features-input" name="featuresText" rows="4" style="width:100%; padding:8px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px; resize:vertical; font-family:inherit;" placeholder="Nhập mỗi dòng một đặc điểm, ví dụ:&#10;Kích hoạt nhanh chóng và uy tín&#10;Bảo hành đầy đủ suốt thời hạn&#10;Hỗ trợ kỹ thuật 24/7">Bảo hành đầy đủ suốt thời hạn&#10;Kích hoạt nhanh chóng và uy tín</textarea>
+          </label>
+          <div class="product-features-preview-box" style="margin-top:6px; background:#12080a; border:1px solid #382428; border-radius:8px; padding:10px 14px;">
+            <div style="font-size:11px; color:#c5b5ae; font-weight:600; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+              <span>👁️ XEM TRƯỚC DANH SÁCH TÍCH XANH TRONG POPUP CỬA HÀNG:</span>
+            </div>
+            <ul id="product-features-live-preview" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:5px;">
+            </ul>
+          </div>
+        </div>
       </div>
       <fieldset class="promotion-scope" style="margin-top: 18px;">
         <legend>Gói bán đầu tiên (Tùy chọn)</legend>
@@ -1043,6 +1123,11 @@ window.initAdminPricing = (() => {
       <p class="pricing-form-message" role="status"></p>
       <button class="button primary" type="submit">Lưu và tạo mặt hàng</button>
     </form>`;
+    const fCreateInput = $("#product-features-input");
+    const fCreatePreview = $("#product-features-live-preview");
+    if (fCreateInput && fCreatePreview) {
+      fCreatePreview.innerHTML = renderFeaturesPreviewHtml(fCreateInput.value);
+    }
     $("#product-create-form [name=name]").focus();
   }
 
@@ -1508,6 +1593,11 @@ window.initAdminPricing = (() => {
         }
         const badge = data.get("badge").trim();
         const description = data.get("description").trim();
+        const detail = (data.get("detail") || "").trim() || description;
+        const featuresText = (data.get("featuresText") || "").trim();
+        const features = featuresText
+          ? featuresText.split("\n").map(s => s.trim().replace(/^[✓\-\*]\s*/, "")).filter(Boolean).slice(0, 10)
+          : [];
         const imagePreset = (data.get("imagePreset") || "").trim() || "assets/nitro.svg";
         let image = imagePreset;
         if (imagePreset === "__custom__") {
@@ -1523,7 +1613,7 @@ window.initAdminPricing = (() => {
         const deliveryType = data.get("deliveryType") || "gift";
         const variantNote = (data.get("variantNote") || "").trim();
         const variants = variantName && variantPrice !== null ? [{ name: variantName, price: variantPrice, deliveryType, note: variantNote }] : [];
-        await api("/api/admin/products", { method: "POST", body: JSON.stringify({ name, category, badge, description, image, partnerEmail, variants }) });
+        await api("/api/admin/products", { method: "POST", body: JSON.stringify({ name, category, badge, description, image, partnerEmail, variants, detail, features }) });
         notify(currentUser.role === "partner" ? "Đã đăng dịch vụ mới thành công!" : "Đã thêm mặt hàng mới.");
         $("#catalog-editor").replaceChildren();
       } else if (form.id === "product-edit-form") {
@@ -1549,6 +1639,11 @@ window.initAdminPricing = (() => {
         }
         const badge = data.get("badge").trim();
         const description = data.get("description").trim();
+        const detail = (data.get("detail") || "").trim() || description;
+        const featuresText = (data.get("featuresText") || "").trim();
+        const features = featuresText
+          ? featuresText.split("\n").map(s => s.trim().replace(/^[✓\-\*]\s*/, "")).filter(Boolean).slice(0, 10)
+          : [];
         const editImagePreset = (data.get("imagePreset") || "").trim() || "assets/nitro.svg";
         let editImage = editImagePreset;
         if (editImagePreset === "__custom__") {
@@ -1561,7 +1656,7 @@ window.initAdminPricing = (() => {
           : ((data.get("partnerEmail") || "").trim() || null);
         await api("/api/admin/products/" + productId, {
           method: "PUT",
-          body: JSON.stringify({ name, category, badge, description, image: editImage, partnerEmail }),
+          body: JSON.stringify({ name, category, badge, description, image: editImage, partnerEmail, detail, features }),
         });
         notify("Đã cập nhật thông tin mặt hàng.");
         $("#catalog-editor").replaceChildren();
@@ -1709,6 +1804,12 @@ window.initAdminPricing = (() => {
           const preview = document.querySelector("#product-image-live-preview");
           if (preview) {
             preview.src = event.target.value.trim() || "assets/nitro.svg";
+          }
+        }
+        if (event.target.id === "product-features-input") {
+          const preview = document.querySelector("#product-features-live-preview");
+          if (preview) {
+            preview.innerHTML = renderFeaturesPreviewHtml(event.target.value);
           }
         }
         if (event.target.id === "guide-video-input") {

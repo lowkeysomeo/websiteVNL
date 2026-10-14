@@ -116,7 +116,7 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
     assert.equal(forbiddenSimulate.status, 403, "Đối tác không được can thiệp duyệt tiền hay giả lập nạp");
 
     // -------------------------------------------------------------
-    // 5. Đối tác đăng sản phẩm & gói dịch vụ riêng của họ
+    // 5. Đối tác đăng sản phẩm & gói dịch vụ riêng của họ (kèm ảnh minh họa, đoạn giới thiệu chi tiết và danh sách đặc điểm tích xanh)
     // -------------------------------------------------------------
     const createProdRes = await fetch(origin + "/api/admin/products", {
       method: "POST",
@@ -126,6 +126,12 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
         category: "design",
         badge: "PARTNER / DESIGN",
         description: "Thiết kế banner chất lượng cao theo yêu cầu.",
+        detail: "Đoạn giới thiệu chi tiết về dịch vụ thiết kế banner của đối tác dành cho khách hàng xem popup.",
+        features: [
+          "Bàn giao file gốc PSD / AI chất lượng cao",
+          "Chỉnh sửa miễn phí không giới hạn 3 lần",
+          "Hỗ trợ hoàn thành trong vòng 24 giờ",
+        ],
         image: "https://i.imgur.com/partner-custom-banner.png",
         variants: [
           { name: "Gói Cơ Bản (1 Banner)", price: 50000, deliveryType: "gift" },
@@ -136,6 +142,12 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
     const createdProd = (await createProdRes.json()).product;
     assert.equal(createdProd.partnerEmail, "doitac@gmail.com", "Sản phẩm tự động gắn partner_email");
     assert.equal(createdProd.image, "https://i.imgur.com/partner-custom-banner.png", "Ảnh minh họa riêng của đối tác được lưu thành công");
+    assert.equal(createdProd.detail, "Đoạn giới thiệu chi tiết về dịch vụ thiết kế banner của đối tác dành cho khách hàng xem popup.");
+    assert.deepEqual(createdProd.features, [
+      "Bàn giao file gốc PSD / AI chất lượng cao",
+      "Chỉnh sửa miễn phí không giới hạn 3 lần",
+      "Hỗ trợ hoàn thành trong vòng 24 giờ",
+    ], "Đặc điểm tích xanh được lưu chính xác");
 
     // Thêm variant cho sản phẩm của mình
     const addVarRes = await fetch(origin + `/api/admin/products/${createdProd.id}/variants`, {
@@ -163,19 +175,60 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
     });
     assert.equal(badDeleteRes.status, 403, "Đối tác bị chặn xóa sản phẩm của Master Admin");
 
-    // Đối tác sửa sản phẩm của chính mình và cập nhật ảnh minh họa mới -> thành công
+    // Đối tác sửa sản phẩm của chính mình và cập nhật ảnh, detail, features mới -> thành công
     const goodEditRes = await fetch(origin + `/api/admin/products/${createdProd.id}`, {
       method: "PUT",
       headers: partnerHeaders,
       body: JSON.stringify({
         name: "Dịch Vụ Thiết Kế Banner Discord VIP",
         description: "Mô tả mới của đối tác.",
+        detail: "Nội dung chi tiết mới sau khi cập nhật bởi đối tác.",
+        featuresText: "✓ Bàn giao file gốc PSD / AI chất lượng cao (Update)\n- Bảo hành bản quyền thiết kế trọn đời",
         image: "https://i.imgur.com/partner-custom-banner-updated.png",
       }),
     });
     assert.equal(goodEditRes.status, 200);
     const editedProd = (await goodEditRes.json()).product;
     assert.equal(editedProd.image, "https://i.imgur.com/partner-custom-banner-updated.png", "Ảnh minh họa được cập nhật thành công");
+    assert.equal(editedProd.detail, "Nội dung chi tiết mới sau khi cập nhật bởi đối tác.");
+    assert.deepEqual(editedProd.features, [
+      "Bàn giao file gốc PSD / AI chất lượng cao (Update)",
+      "Bảo hành bản quyền thiết kế trọn đời",
+    ], "Tính năng và tiền tố checkmark được làm sạch và lưu đúng");
+
+    // Master Admin tùy chỉnh detail và features cho mặt hàng mặc định (Nitro)
+    const adminEditNitroRes = await fetch(origin + "/api/admin/products/nitro", {
+      method: "PUT",
+      headers: adminHeaders,
+      body: JSON.stringify({
+        name: "Discord Nitro Boost VIP",
+        detail: "Gói Discord Nitro Boost cao cấp do Admin nâng cấp chi tiết.",
+        features: [
+          "Áp dụng cho mọi tài khoản Discord",
+          "Kích hoạt siêu tốc 30 giây",
+          "Bảo hành đầy đủ 100% thời gian",
+        ],
+      }),
+    });
+    assert.equal(adminEditNitroRes.status, 200);
+    const adminEditedNitro = (await adminEditNitroRes.json()).product;
+    assert.equal(adminEditedNitro.detail, "Gói Discord Nitro Boost cao cấp do Admin nâng cấp chi tiết.");
+    assert.deepEqual(adminEditedNitro.features, [
+      "Áp dụng cho mọi tài khoản Discord",
+      "Kích hoạt siêu tốc 30 giây",
+      "Bảo hành đầy đủ 100% thời gian",
+    ]);
+
+    // Kiểm tra catalog công khai trả về đúng detail và features cho cả sản phẩm đối tác và sản phẩm mặc định
+    const catalogRes = await fetch(origin + "/api/catalog");
+    assert.equal(catalogRes.status, 200);
+    const pubCatalog = (await catalogRes.json()).products;
+    const pubNitro = pubCatalog.find(p => p.id === "nitro");
+    assert.equal(pubNitro.detail, "Gói Discord Nitro Boost cao cấp do Admin nâng cấp chi tiết.");
+    assert.equal(pubNitro.features.length, 3);
+    const pubPartnerProd = pubCatalog.find(p => p.id === createdProd.id);
+    assert.equal(pubPartnerProd.detail, "Nội dung chi tiết mới sau khi cập nhật bởi đối tác.");
+    assert.equal(pubPartnerProd.features.length, 2);
 
     // -------------------------------------------------------------
     // 5.1. Quản lý hạng mục: Đối tác chỉ được tạo & xóa hạng mục của chính mình

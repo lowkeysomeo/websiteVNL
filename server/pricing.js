@@ -405,7 +405,7 @@ export async function createCustomProduct(db, body, now = Date.now(), partnerEma
   const category = String(body.category || "entertainment").trim();
   const description = String(body.description || "").trim().slice(0, 500);
   const badge = String(body.badge || "").trim().slice(0, 50) || category.toUpperCase();
-  const detail = String(body.detail || description).trim().slice(0, 2000);
+  const detail = String(body.detail !== undefined ? body.detail : description).trim().slice(0, 2000);
   const image = String(body.image || "").trim().slice(0, 500000) || "assets/nitro.svg";
   const service = body.service ? 1 : 0;
   const assignedPartnerEmail = (
@@ -422,27 +422,34 @@ export async function createCustomProduct(db, body, now = Date.now(), partnerEma
     id = `${baseSlug}-${randomUUID().slice(0, 6)}`;
   }
 
-  const features = Array.isArray(body.features) && body.features.length
-    ? body.features.map(f => String(f).trim()).filter(Boolean).slice(0, 6)
-    : [
-        "Bảo hành đầy đủ suốt thời hạn",
-        "Kích hoạt nhanh chóng và uy tín",
-      ];
+  let features = [];
+  if (Array.isArray(body.features)) {
+    features = body.features.map(f => String(f).trim().replace(/^[✓\-\*]\s*/, "")).filter(Boolean).slice(0, 10);
+  } else if (typeof body.featuresText === "string" || typeof body.features === "string") {
+    const raw = typeof body.featuresText === "string" ? body.featuresText : body.features;
+    features = raw.split("\n").map(f => f.trim().replace(/^[✓\-\*]\s*/, "")).filter(Boolean).slice(0, 10);
+  }
+  if (!features.length) {
+    features = [
+      "Bảo hành đầy đủ suốt thời hạn",
+      "Kích hoạt nhanh chóng và uy tín",
+    ];
+  }
 
   await db.prepare(`INSERT INTO custom_products (id, name, category, badge, description, image, features_json, detail, service, partner_email, is_active, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`).run(
-    id, name, category, badge, description, image, JSON.stringify(features), detail, service, assignedPartnerEmail, now, now
+    id, name, category, badge, description, image, JSON.stringify(features), detail, service, assignedPartnerEmail, effectiveNow, effectiveNow
   );
 
   if (Array.isArray(body.variants)) {
     for (const v of body.variants) {
       if (v && v.name && v.price != null) {
-        await addCustomVariant(db, id, v, now);
+        await addCustomVariant(db, id, v, effectiveNow);
       }
     }
   }
 
-  return (await getCatalog(db, now, true)).find(p => p.id === id);
+  return (await getCatalog(db, effectiveNow, true)).find(p => p.id === id);
 }
 
 export async function addCustomVariant(db, productId, body, now = Date.now(), caller = null) {
@@ -498,21 +505,35 @@ export async function updateProduct(db, productId, body, now = Date.now(), calle
   const category = String(body.category || "entertainment").trim();
   const description = String(body.description || "").trim().slice(0, 500);
   const badge = String(body.badge || "").trim().slice(0, 50) || category.toUpperCase();
-  const detail = String(body.detail || description).trim().slice(0, 2000);
+  const detail = String(body.detail !== undefined ? body.detail : (body.description || "")).trim().slice(0, 2000);
   const image = String(body.image || "").trim().slice(0, 500000) || "assets/nitro.svg";
+
+  let features = undefined;
+  if (Array.isArray(body.features)) {
+    features = body.features.map(f => String(f).trim().replace(/^[✓\-\*]\s*/, "")).filter(Boolean).slice(0, 10);
+  } else if (typeof body.featuresText === "string" || typeof body.features === "string") {
+    const raw = typeof body.featuresText === "string" ? body.featuresText : body.features;
+    features = raw.split("\n").map(f => f.trim().replace(/^[✓\-\*]\s*/, "")).filter(Boolean).slice(0, 10);
+  }
 
   const custom = await db.prepare("SELECT * FROM custom_products WHERE id = ?").get(productId);
   if (custom) {
     const nextPartnerEmail = effectiveCaller && effectiveCaller.role === "admin" && body.partnerEmail !== undefined
       ? (body.partnerEmail ? String(body.partnerEmail).trim().toLowerCase() : null)
       : custom.partner_email;
-    await db.prepare(`UPDATE custom_products SET name = ?, category = ?, badge = ?, description = ?, image = ?, detail = ?, partner_email = ?, updated_at = ? WHERE id = ?`)
-      .run(name, category, badge, description, image, detail, nextPartnerEmail, effectiveNow, productId);
+    const nextFeaturesJson = features !== undefined ? JSON.stringify(features) : custom.features_json;
+    await db.prepare(`UPDATE custom_products SET name = ?, category = ?, badge = ?, description = ?, image = ?, detail = ?, features_json = ?, partner_email = ?, updated_at = ? WHERE id = ?`)
+      .run(name, category, badge, description, image, detail, nextFeaturesJson, nextPartnerEmail, effectiveNow, productId);
   } else {
     if (effectiveCaller && effectiveCaller.role === "partner") throw fail("Bạn chỉ có quyền quản lý mặt hàng của chính mình.", 403);
     const isDefault = products.some(p => p.id === productId);
     if (!isDefault) throw fail("Không tìm thấy mặt hàng.", 404);
-    const overrideData = { name, category, badge, description, image, detail };
+    const existingRow = await db.prepare("SELECT data_json FROM catalog_item_overrides WHERE item_key = ?").get("product:" + productId);
+    const existingData = existingRow ? JSON.parse(existingRow.data_json) : {};
+    const overrideData = { ...existingData, name, category, badge, description, image, detail };
+    if (features !== undefined) {
+      overrideData.features = features;
+    }
     await db.prepare(`INSERT INTO catalog_item_overrides (item_key, data_json, updated_at) VALUES (?, ?, ?)
       ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`)
       .run("product:" + productId, JSON.stringify(overrideData), effectiveNow);
