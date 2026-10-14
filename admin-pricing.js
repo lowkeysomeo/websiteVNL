@@ -296,7 +296,7 @@ window.initAdminPricing = (() => {
 
             <div class="bank-qr-preview-box">
               <h4>Xem trước mã QR của shop</h4>
-              <p>Mã thử nghiệm mẫu (50.000₫ · VNLTEST)</p>
+              <p>Mã QR quét thử (50.000₫ · VNLTEST)</p>
               ${previewQrUrl ? `
                 <div class="preview-qr-wrap">
                   <img src="${esc(previewQrUrl)}" alt="VietQR Preview" width="180" height="230" />

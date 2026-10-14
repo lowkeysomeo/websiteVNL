@@ -694,10 +694,10 @@ async function showOrders() {
   }
   showInfo(
     "Đơn hàng của tôi",
-    `<p class="muted">Đơn mẫu trên trình duyệt này:</p>${state.orders
+    `<p class="muted">Đơn hàng đã lưu trên thiết bị:</p>${state.orders
       .map(
         (order) => `
-    <article class="order-card"><div class="order-top"><strong>${escapeHtml(order.id)}</strong><span class="order-status-badge status-completed">Đơn mẫu</span></div><p style="font-size:11px;">${new Date(order.createdAt).toLocaleString("vi-VN")} · ${escapeHtml(order.name)}</p><ul>${order.items.map((item) => `<li>${escapeHtml(item.name)} — ${escapeHtml(item.variant)} × ${item.quantity}</li>`).join("")}</ul><strong class="order-total" style="color:var(--accent); font-size:15px;">${money(order.total)}</strong></article>
+    <article class="order-card"><div class="order-top"><strong>${escapeHtml(order.id)}</strong><span class="order-status-badge status-completed">Đã lưu</span></div><p style="font-size:11px;">${new Date(order.createdAt).toLocaleString("vi-VN")} · ${escapeHtml(order.name)}</p><ul>${order.items.map((item) => `<li>${escapeHtml(item.name)} — ${escapeHtml(item.variant)} × ${item.quantity}</li>`).join("")}</ul><strong class="order-total" style="color:var(--accent); font-size:15px;">${money(order.total)}</strong></article>
   `,
       )
       .join("")}`,
@@ -1098,10 +1098,10 @@ function handleAction(action) {
   if (action === "guide") {
     showGuideModal();
   }
-  if (action === "demo") {
+  if (action === "demo" || action === "about") {
     showInfo(
-      "Thông tin bản mẫu",
-      "<p>Giao diện tương tác cho VietNam Legacy. Hình minh họa, gói và giá được tạo để trình bày bố cục, chưa phải bảng giá bán thực tế.</p><p>Giỏ hàng, yêu thích và đơn thử lưu trong trình duyệt. Đơn thử chưa dùng số dư ví và chưa có giao hàng tự động. Tài khoản, ví và nạp tiền cần chạy qua máy chủ của shop.</p><p>Discord trong trang là link chính bạn cung cấp. Khi bán thật, shop cần bổ sung giá, điều kiện gói và chính sách hỗ trợ.</p>",
+      "Thông tin cửa hàng",
+      "<p><strong>VietNam Legacy</strong> — Không gian mua sắm Nitro, Decor, Boost Server và các dịch vụ giải trí, sáng tạo số uy tín hàng đầu.</p><p>Hệ thống hỗ trợ thanh toán an toàn qua Ví tài khoản VietNam Legacy và nạp tiền tự động bằng mã VietQR ngân hàng. Đơn hàng và link quà tặng được xử lý nhanh chóng, bảo mật tuyệt đối 100%.</p><p>Cần hỗ trợ, tư vấn gói dịch vụ hoặc bảo hành? Đội ngũ hỗ trợ của shop luôn sẵn sàng 24/7 trên máy chủ Discord chính thức.</p>",
     );
   }
 }
