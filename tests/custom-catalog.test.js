@@ -187,3 +187,101 @@ test("HTTP API Admin quản lý thêm/bỏ mặt hàng và gói", async () => {
     db.close();
   }
 });
+
+test("Admin có thể chỉnh sửa và xóa mặt hàng/gói mặc định (Discord Nitro Boost, vv)", async () => {
+  const db = await openStore(":memory:");
+  const config = readConfig({
+    PUBLIC_ORIGIN: "http://localhost:3000",
+    ADMIN_PASSWORD: "test-admin-catalog-edit",
+  });
+  const server = createApp(db, config);
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const adminHeaders = {
+    Origin: config.origin,
+    "Content-Type": "application/json",
+    "X-Admin-Key": config.adminPassword,
+  };
+
+  try {
+    // 1. Chỉnh sửa thông tin mặt hàng mặc định Nitro
+    const editProdRes = await fetch(origin + "/api/admin/products/nitro", {
+      method: "PUT",
+      headers: adminHeaders,
+      body: JSON.stringify({
+        name: "Discord Nitro Boost VIP",
+        category: "discord",
+        badge: "DISCORD / VIP NITRO",
+        description: "Mô tả mới đã được cập nhật bởi Admin.",
+      }),
+    });
+    assert.equal(editProdRes.status, 200);
+    const editedProd = (await editProdRes.json()).product;
+    assert.equal(editedProd.name, "Discord Nitro Boost VIP");
+    assert.equal(editedProd.badge, "DISCORD / VIP NITRO");
+    assert.equal(editedProd.description, "Mô tả mới đã được cập nhật bởi Admin.");
+
+    // Cửa hàng công khai thấy thông tin mới
+    const pubRes1 = await fetch(origin + "/api/catalog");
+    const nitroPub = (await pubRes1.json()).products.find(p => p.id === "nitro");
+    assert.equal(nitroPub.name, "Discord Nitro Boost VIP");
+    assert.equal(nitroPub.badge, "DISCORD / VIP NITRO");
+
+    // 2. Chỉnh sửa gói mặc định của Nitro
+    const editVarRes = await fetch(origin + "/api/admin/products/nitro/variants/boost_gift_1m", {
+      method: "PUT",
+      headers: adminHeaders,
+      body: JSON.stringify({
+        name: "🎁 [Gift] Nitro Boost · 1 tháng (Khuyến mãi)",
+        price: 89000,
+        deliveryType: "gift",
+        note: "Ghi chú mới cho gói 1 tháng",
+      }),
+    });
+    assert.equal(editVarRes.status, 200);
+    const editedVar = (await editVarRes.json()).variant;
+    assert.equal(editedVar.name, "🎁 [Gift] Nitro Boost · 1 tháng (Khuyến mãi)");
+    assert.equal(editedVar.price, 89000);
+    assert.equal(editedVar.note, "Ghi chú mới cho gói 1 tháng");
+
+    // Đặt đơn phản ánh giá mới
+    const quoteRes = await fetch(origin + "/api/quote", {
+      method: "POST",
+      headers: { Origin: config.origin, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: [{ productId: "nitro", variantId: "boost_gift_1m", quantity: 1 }],
+      }),
+    });
+    assert.equal(quoteRes.status, 200);
+    assert.equal((await quoteRes.json()).quote.total, 89000);
+
+    // 3. Xóa một gói mặc định của Nitro (ví dụ: boost_log_1y)
+    const delVarRes = await fetch(origin + "/api/admin/products/nitro/variants/boost_log_1y", {
+      method: "DELETE",
+      headers: adminHeaders,
+    });
+    assert.equal(delVarRes.status, 200);
+
+    const pubRes2 = await fetch(origin + "/api/catalog");
+    const nitroAfterDel = (await pubRes2.json()).products.find(p => p.id === "nitro");
+    assert(!nitroAfterDel.variants.some(v => v.id === "boost_log_1y"), "Gói boost_log_1y đã bị xóa hoàn toàn");
+
+    // Admin cũng không thấy gói đã xóa
+    const adminPricingRes = await fetch(origin + "/api/admin/pricing", { headers: adminHeaders });
+    const adminNitro = (await adminPricingRes.json()).products.find(p => p.id === "nitro");
+    assert(!adminNitro.variants.some(v => v.id === "boost_log_1y"), "Admin cũng không thấy gói đã xóa");
+
+    // 4. Xóa một mặt hàng mặc định (ví dụ: youtube)
+    const delProdRes = await fetch(origin + "/api/admin/products/youtube", {
+      method: "DELETE",
+      headers: adminHeaders,
+    });
+    assert.equal(delProdRes.status, 200);
+
+    const pubRes3 = await fetch(origin + "/api/catalog");
+    assert(!(await pubRes3.json()).products.some(p => p.id === "youtube"), "Mặt hàng youtube đã bị xóa khỏi catalog");
+  } finally {
+    server.close();
+    db.close();
+  }
+});

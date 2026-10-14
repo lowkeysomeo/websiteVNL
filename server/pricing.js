@@ -109,7 +109,13 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
   let statusMap = new Map();
   try {
     const statusRows = await db.prepare("SELECT * FROM catalog_item_status").all();
-    statusMap = new Map(statusRows.map(r => [r.item_key, r.is_active === 1]));
+    statusMap = new Map(statusRows.map(r => [r.item_key, r.is_active]));
+  } catch {}
+
+  let overridesMap = new Map();
+  try {
+    const overrideRows = await db.prepare("SELECT * FROM catalog_item_overrides").all();
+    overridesMap = new Map(overrideRows.map(r => [r.item_key, JSON.parse(r.data_json)]));
   } catch {}
 
   let customProducts = [];
@@ -127,45 +133,75 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
   const campaignRows = await db.prepare("SELECT * FROM promotions WHERE kind = 'campaign'").all();
   const campaigns = campaignRows.map(mapRule).filter(r => active(r, now));
 
-  const defaultList = products.map(p => {
-    const isProductActive = statusMap.has("product:" + p.id) ? statusMap.get("product:" + p.id) : true;
-    const standardVariants = (p.variants || []).map(v => {
-      const isVariantActive = statusMap.has("variant:" + p.id + ":" + v.id) ? statusMap.get("variant:" + p.id + ":" + v.id) : true;
-      const basePrice = overrides.get(`${p.id}:${v.id}`) ?? v.price;
-      let amount = 0, sale = null;
-      for (const rule of campaigns) {
-        const savings = applies(rule, p.id) ? discount(basePrice, rule) : 0;
-        if (savings > amount) { amount = savings; sale = { id: rule.id, name: rule.name, endsAt: rule.endsAt }; }
-      }
-      return { ...v, isCustom: false, isActive: isVariantActive, defaultPrice: v.price, basePrice, price: basePrice - amount, sale };
+  const defaultList = products
+    .filter(p => statusMap.get("product:" + p.id) !== -1)
+    .map(p => {
+      const pOverride = overridesMap.get("product:" + p.id) || {};
+      const mergedP = {
+        ...p,
+        ...pOverride,
+        id: p.id,
+      };
+      const isProductActive = statusMap.get("product:" + p.id) !== 0;
+
+      const standardVariants = (p.variants || [])
+        .filter(v => statusMap.get("variant:" + p.id + ":" + v.id) !== -1)
+        .map(v => {
+          const vOverride = overridesMap.get("variant:" + p.id + ":" + v.id) || {};
+          const mergedV = {
+            ...v,
+            ...vOverride,
+            id: v.id,
+          };
+          const isVariantActive = statusMap.get("variant:" + p.id + ":" + v.id) !== 0;
+          const basePrice = overrides.get(`${p.id}:${v.id}`) ?? (mergedV.price ?? v.price);
+          let amount = 0, sale = null;
+          for (const rule of campaigns) {
+            const savings = applies(rule, p.id) ? discount(basePrice, rule) : 0;
+            if (savings > amount) { amount = savings; sale = { id: rule.id, name: rule.name, endsAt: rule.endsAt }; }
+          }
+          return {
+            ...mergedV,
+            isCustom: false,
+            isActive: isVariantActive,
+            defaultPrice: mergedV.price ?? v.price,
+            basePrice,
+            price: basePrice - amount,
+            sale,
+          };
+        });
+
+      const addedVariants = customVariants
+        .filter(cv => cv.product_id === p.id)
+        .map(cv => {
+          const isVariantActive = cv.is_active === 1;
+          const basePrice = overrides.get(`${p.id}:${cv.id}`) ?? cv.price;
+          let amount = 0, sale = null;
+          for (const rule of campaigns) {
+            const savings = applies(rule, p.id) ? discount(basePrice, rule) : 0;
+            if (savings > amount) { amount = savings; sale = { id: rule.id, name: rule.name, endsAt: rule.endsAt }; }
+          }
+          return {
+            id: cv.id,
+            name: cv.name,
+            deliveryType: cv.delivery_type || "gift",
+            note: cv.note || "",
+            isCustom: true,
+            isActive: isVariantActive,
+            defaultPrice: cv.price,
+            basePrice,
+            price: basePrice - amount,
+            sale,
+          };
+        });
+
+      return {
+        ...mergedP,
+        isCustom: false,
+        isActive: isProductActive,
+        variants: [...standardVariants, ...addedVariants],
+      };
     });
-
-    const addedVariants = customVariants
-      .filter(cv => cv.product_id === p.id)
-      .map(cv => {
-        const isVariantActive = cv.is_active === 1;
-        const basePrice = overrides.get(`${p.id}:${cv.id}`) ?? cv.price;
-        let amount = 0, sale = null;
-        for (const rule of campaigns) {
-          const savings = applies(rule, p.id) ? discount(basePrice, rule) : 0;
-          if (savings > amount) { amount = savings; sale = { id: rule.id, name: rule.name, endsAt: rule.endsAt }; }
-        }
-        return {
-          id: cv.id,
-          name: cv.name,
-          deliveryType: cv.delivery_type || "gift",
-          note: cv.note || "",
-          isCustom: true,
-          isActive: isVariantActive,
-          defaultPrice: cv.price,
-          basePrice,
-          price: basePrice - amount,
-          sale,
-        };
-      });
-
-    return { ...p, isCustom: false, isActive: isProductActive, variants: [...standardVariants, ...addedVariants] };
-  });
 
   const customList = customProducts.map(cp => {
     const isProductActive = cp.is_active === 1;
@@ -305,20 +341,51 @@ export async function toggleProductStatus(db, productId, isActive, now = Date.no
   return { productId, isActive };
 }
 
-export async function deleteProduct(db, productId) {
+export async function updateProduct(db, productId, body, now = Date.now()) {
+  const name = String(body.name || "").trim();
+  if (!name || name.length > 100) throw fail("Tên mặt hàng cần từ 1 đến 100 ký tự.");
+  const category = String(body.category || "entertainment").trim();
+  const description = String(body.description || "").trim().slice(0, 500);
+  const badge = String(body.badge || "").trim().slice(0, 50) || category.toUpperCase();
+  const detail = String(body.detail || description).trim().slice(0, 2000);
+  const image = String(body.image || "").trim() || "assets/nitro.svg";
+
+  const custom = await db.prepare("SELECT * FROM custom_products WHERE id = ?").get(productId);
+  if (custom) {
+    await db.prepare(`UPDATE custom_products SET name = ?, category = ?, badge = ?, description = ?, image = ?, detail = ?, updated_at = ? WHERE id = ?`)
+      .run(name, category, badge, description, image, detail, now, productId);
+  } else {
+    const isDefault = products.some(p => p.id === productId);
+    if (!isDefault) throw fail("Không tìm thấy mặt hàng.", 404);
+    const overrideData = { name, category, badge, description, image, detail };
+    await db.prepare(`INSERT INTO catalog_item_overrides (item_key, data_json, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`)
+      .run("product:" + productId, JSON.stringify(overrideData), now);
+  }
+  return (await getCatalog(db, now, true)).find(p => p.id === productId);
+}
+
+export async function deleteProduct(db, productId, now = Date.now()) {
   const custom = await db.prepare("SELECT * FROM custom_products WHERE id = ?").get(productId);
   if (custom) {
     await db.transaction(async (tx) => {
       await tx.prepare("DELETE FROM custom_products WHERE id = ?").run(productId);
       await tx.prepare("DELETE FROM custom_variants WHERE product_id = ?").run(productId);
       await tx.prepare("DELETE FROM product_prices WHERE product_id = ?").run(productId);
+      await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("product:" + productId);
     });
     return { productId, deleted: true };
   } else {
     const isDefault = products.some(p => p.id === productId);
     if (!isDefault) throw fail("Không tìm thấy mặt hàng.", 404);
-    await toggleProductStatus(db, productId, false);
-    return { productId, hidden: true };
+    await db.transaction(async (tx) => {
+      await tx.prepare(`INSERT INTO catalog_item_status (item_key, is_active, updated_at) VALUES (?, ?, ?)
+        ON CONFLICT(item_key) DO UPDATE SET is_active = excluded.is_active, updated_at = excluded.updated_at`)
+        .run("product:" + productId, -1, now);
+      await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("product:" + productId);
+      await tx.prepare("DELETE FROM product_prices WHERE product_id = ?").run(productId);
+    });
+    return { productId, deleted: true };
   }
 }
 
@@ -338,17 +405,62 @@ export async function toggleVariantStatus(db, productId, variantId, isActive, no
   return { productId, variantId, isActive };
 }
 
-export async function deleteVariant(db, productId, variantId) {
+export async function updateVariant(db, productId, variantId, body, now = Date.now()) {
+  const name = String(body.name || "").trim();
+  if (!name || name.length > 100) throw fail("Tên gói sản phẩm cần từ 1 đến 100 ký tự.");
+  const price = integer(Number(body.price), 0, 1000000000, "Giá gói");
+  const deliveryType = ["gift", "log", "service"].includes(body.deliveryType) ? body.deliveryType : "gift";
+  const note = String(body.note || "").trim().slice(0, 200);
+
+  const custom = await db.prepare("SELECT * FROM custom_variants WHERE product_id = ? AND id = ?").get(productId, variantId);
+  if (custom) {
+    await db.transaction(async (tx) => {
+      await tx.prepare(`UPDATE custom_variants SET name = ?, price = ?, delivery_type = ?, note = ?, updated_at = ? WHERE product_id = ? AND id = ?`)
+        .run(name, price, deliveryType, note, now, productId, variantId);
+      await tx.prepare(`INSERT INTO product_prices (product_id, variant_id, price, updated_at) VALUES (?, ?, ?, ?)
+        ON CONFLICT(product_id, variant_id) DO UPDATE SET price = excluded.price, updated_at = excluded.updated_at`)
+        .run(productId, variantId, price, now);
+    });
+  } else {
+    const defaultProduct = products.find(p => p.id === productId);
+    const defaultVariant = defaultProduct?.variants?.some(v => v.id === variantId);
+    if (!defaultVariant) throw fail("Không tìm thấy gói sản phẩm.", 404);
+    const overrideData = { name, deliveryType, note, price };
+    await db.transaction(async (tx) => {
+      await tx.prepare(`INSERT INTO catalog_item_overrides (item_key, data_json, updated_at) VALUES (?, ?, ?)
+        ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`)
+        .run("variant:" + productId + ":" + variantId, JSON.stringify(overrideData), now);
+      await tx.prepare(`INSERT INTO product_prices (product_id, variant_id, price, updated_at) VALUES (?, ?, ?, ?)
+        ON CONFLICT(product_id, variant_id) DO UPDATE SET price = excluded.price, updated_at = excluded.updated_at`)
+        .run(productId, variantId, price, now);
+    });
+  }
+  const cat = await getCatalog(db, now, true);
+  const prod = cat.find(p => p.id === productId);
+  return prod?.variants?.find(v => v.id === variantId);
+}
+
+export async function deleteVariant(db, productId, variantId, now = Date.now()) {
   const custom = await db.prepare("SELECT * FROM custom_variants WHERE product_id = ? AND id = ?").get(productId, variantId);
   if (custom) {
     await db.transaction(async (tx) => {
       await tx.prepare("DELETE FROM custom_variants WHERE product_id = ? AND id = ?").run(productId, variantId);
       await tx.prepare("DELETE FROM product_prices WHERE product_id = ?").run(productId, variantId);
+      await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("variant:" + productId + ":" + variantId);
     });
     return { productId, variantId, deleted: true };
   } else {
-    await toggleVariantStatus(db, productId, variantId, false);
-    return { productId, variantId, hidden: true };
+    const defaultProduct = products.find(p => p.id === productId);
+    const defaultVariant = defaultProduct?.variants?.some(v => v.id === variantId);
+    if (!defaultVariant) throw fail("Không tìm thấy gói sản phẩm.", 404);
+    await db.transaction(async (tx) => {
+      await tx.prepare(`INSERT INTO catalog_item_status (item_key, is_active, updated_at) VALUES (?, ?, ?)
+        ON CONFLICT(item_key) DO UPDATE SET is_active = excluded.is_active, updated_at = excluded.updated_at`)
+        .run("variant:" + productId + ":" + variantId, -1, now);
+      await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("variant:" + productId + ":" + variantId);
+      await tx.prepare("DELETE FROM product_prices WHERE product_id = ? AND variant_id = ?").run(productId, variantId);
+    });
+    return { productId, variantId, deleted: true };
   }
 }
 

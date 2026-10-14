@@ -163,8 +163,9 @@ window.initAdminPricing = (() => {
                 </div>
                 <div class="product-card-actions">
                   <button type="button" class="button secondary btn-small" data-variant-new="${p.id}">+ Thêm gói</button>
+                  <button type="button" class="button secondary btn-small" data-product-edit="${p.id}" title="Chỉnh sửa thông tin mặt hàng">✏️ Sửa</button>
                   <button type="button" class="button secondary btn-small" data-product-toggle="${p.id}">${p.isActive ? "Bỏ bán (Ẩn)" : "Mở bán lại"}</button>
-                  ${p.isCustom ? `<button type="button" class="button secondary btn-small btn-danger" data-product-delete="${p.id}" title="Xóa mặt hàng này">Xóa</button>` : ""}
+                  <button type="button" class="button secondary btn-small btn-danger" data-product-delete="${p.id}" title="Xóa vĩnh viễn mặt hàng này">✕ Xóa</button>
                 </div>
               </div>
               <div class="variants-container">
@@ -173,6 +174,7 @@ window.initAdminPricing = (() => {
                     <div class="variant-meta">
                       <div class="variant-name-row">
                         <strong>${esc(v.name)}</strong>
+                        ${v.deliveryType === 'log' ? '<span class="status-badge log-sm">🔑 Log</span>' : v.deliveryType === 'service' ? '<span class="status-badge service-sm">🛠️ Service</span>' : '<span class="status-badge gift-sm">🎁 Gift</span>'}
                         ${v.isCustom ? '<span class="status-badge custom-sm">Tự tạo</span>' : ""}
                         ${v.isActive ? "" : '<span class="status-badge disabled-sm">Đã ẩn</span>'}
                       </div>
@@ -183,8 +185,9 @@ window.initAdminPricing = (() => {
                         <input type="number" min="0" max="1000000000" step="1" required value="${v.basePrice}" data-price-product="${p.id}" data-price-variant="${v.id}" aria-label="Giá ${esc(p.name + ' ' + v.name)}" ${v.isActive ? "" : "disabled"}>
                         <span>₫</span>
                       </span>
+                      <button type="button" class="button secondary btn-xs" data-variant-edit="${p.id}:${v.id}" title="Chỉnh sửa chi tiết gói này">✏️ Sửa</button>
                       <button type="button" class="button secondary btn-xs" data-variant-toggle="${p.id}:${v.id}" title="${v.isActive ? "Bỏ gói này khỏi cửa hàng" : "Mở lại gói này"}">${v.isActive ? "Ẩn" : "Hiện"}</button>
-                      ${v.isCustom ? `<button type="button" class="button secondary btn-xs btn-danger" data-variant-delete="${p.id}:${v.id}" title="Xóa gói này">✕</button>` : ""}
+                      <button type="button" class="button secondary btn-xs btn-danger" data-variant-delete="${p.id}:${v.id}" title="Xóa vĩnh viễn gói này">✕</button>
                     </div>
                   </div>
                 `).join("") : '<p class="empty-variants-hint">Chưa có gói sản phẩm nào. Bấm "+ Thêm gói" để tạo gói đầu tiên.</p>'}
@@ -482,7 +485,40 @@ window.initAdminPricing = (() => {
           <button class="button secondary btn-small" type="button" data-promotion-toggle="${p.id}">${p.enabled ? "Tắt ưu đãi" : "Bật ưu đãi"}</button></div></article>`).join("") : `<div class="pricing-empty"><span>${coupon ? "✦" : "◷"}</span><h3>${coupon ? "Chưa có mã giảm giá" : "Chưa có đợt giảm giá"}</h3><p>Tạo ưu đãi đầu tiên khi cửa hàng sẵn sàng.</p></div>`}</div>`;
   }
 
-  function openProductEditor() {
+  function openProductEditor(productId = null) {
+    if (productId) {
+      const p = products.find(x => x.id === productId);
+      if (!p) return;
+      $("#catalog-editor").innerHTML = `<form id="product-edit-form" class="pricing-card promotion-form" data-product-id="${p.id}">
+        <div class="promotion-title"><h3>✏️ Chỉnh sửa mặt hàng: ${esc(p.name)}</h3><button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button></div>
+        <div class="pricing-form-grid">
+          <label>Tên mặt hàng *<input name="name" required maxlength="100" value="${esc(p.name)}"></label>
+          <label>Danh mục *<select name="category" required>
+            <option value="discord" ${p.category === "discord" ? "selected" : ""}>Discord</option>
+            <option value="entertainment" ${p.category === "entertainment" ? "selected" : ""}>Giải trí & Premium</option>
+            <option value="creative" ${p.category === "creative" ? "selected" : ""}>Sáng tạo & Công cụ</option>
+            <option value="services" ${p.category === "services" ? "selected" : ""}>Setup Server & Bot</option>
+          </select></label>
+          <label>Huy hiệu / Badge (Góc ảnh)<input name="badge" maxlength="50" placeholder="Ví dụ: DISCORD / NITRO BOOST" value="${esc(p.badge || "")}"></label>
+          <label>Ảnh minh họa (Icon)<select name="image">
+            <option value="assets/nitro.svg" ${p.image === "assets/nitro.svg" ? "selected" : ""}>Biểu tượng Nitro (Sấm sét)</option>
+            <option value="assets/youtube.svg" ${p.image === "assets/youtube.svg" ? "selected" : ""}>Biểu tượng YouTube / Video</option>
+            <option value="assets/netflix.svg" ${p.image === "assets/netflix.svg" ? "selected" : ""}>Biểu tượng Phim ảnh / Rạp chiếu</option>
+            <option value="assets/capcut.svg" ${p.image === "assets/capcut.svg" ? "selected" : ""}>Biểu tượng Biên tập / Sáng tạo</option>
+            <option value="assets/decor.svg" ${p.image === "assets/decor.svg" ? "selected" : ""}>Biểu tượng Decor / Khung avatar</option>
+            <option value="assets/boost.svg" ${p.image === "assets/boost.svg" ? "selected" : ""}>Biểu tượng Boost Server</option>
+            <option value="assets/server.svg" ${p.image === "assets/server.svg" ? "selected" : ""}>Biểu tượng Server Discord</option>
+            <option value="assets/bot.svg" ${p.image === "assets/bot.svg" ? "selected" : ""}>Biểu tượng Custom Bot</option>
+          </select></label>
+          <label style="grid-column: 1 / -1;">Mô tả ngắn *<input name="description" required maxlength="300" value="${esc(p.description || "")}"></label>
+        </div>
+        <p class="pricing-form-message" role="status"></p>
+        <button class="button primary" type="submit">Lưu thay đổi mặt hàng</button>
+      </form>`;
+      $("#product-edit-form [name=name]").focus();
+      return;
+    }
+
     $("#catalog-editor").innerHTML = `<form id="product-create-form" class="pricing-card promotion-form">
       <div class="promotion-title"><h3>+ Thêm mặt hàng mới vào cửa hàng</h3><button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button></div>
       <div class="pricing-form-grid">
@@ -525,9 +561,31 @@ window.initAdminPricing = (() => {
     $("#product-create-form [name=name]").focus();
   }
 
-  function openVariantEditor(productId) {
+  function openVariantEditor(productId, variantId = null) {
     const product = products.find(p => p.id === productId);
     if (!product) return;
+    if (variantId) {
+      const v = product.variants?.find(x => x.id === variantId);
+      if (!v) return;
+      $("#catalog-editor").innerHTML = `<form id="variant-edit-form" class="pricing-card promotion-form" data-product-id="${productId}" data-variant-id="${variantId}">
+        <div class="promotion-title"><h3>✏️ Chỉnh sửa gói: ${esc(v.name)}</h3><button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button></div>
+        <div class="pricing-form-grid">
+          <label>Tên gói *<input name="name" required maxlength="100" value="${esc(v.name)}"></label>
+          <label>Giá niêm yết (VND) *<input name="price" type="number" min="0" max="1000000000" step="1000" required value="${v.basePrice ?? v.price}"></label>
+          <label>Hình thức nhận hàng<select name="deliveryType">
+            <option value="gift" ${v.deliveryType === "gift" ? "selected" : ""}>🎁 Link quà tặng (Gift)</option>
+            <option value="log" ${v.deliveryType === "log" ? "selected" : ""}>🔑 Đăng nhập nạp (Log)</option>
+            <option value="service" ${v.deliveryType === "service" ? "selected" : ""}>🛠️ Tư vấn riêng</option>
+          </select></label>
+          <label>Ghi chú gói<input name="note" placeholder="Ví dụ: Nhận link claim trực tiếp..." value="${esc(v.note || "")}"></label>
+        </div>
+        <p class="pricing-form-message" role="status"></p>
+        <button class="button primary" type="submit">Lưu gói sản phẩm</button>
+      </form>`;
+      $("#variant-edit-form [name=name]").focus();
+      return;
+    }
+
     $("#catalog-editor").innerHTML = `<form id="variant-create-form" class="pricing-card promotion-form" data-product-id="${productId}">
       <div class="promotion-title"><h3>+ Thêm gói bán cho: ${esc(product.name)}</h3><button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button></div>
       <div class="pricing-form-grid">
@@ -660,7 +718,7 @@ window.initAdminPricing = (() => {
 
   async function submit(event) {
     const form = event.target;
-    if (!["admin-prices-form", "promotion-form", "product-create-form", "variant-create-form", "admin-bank-form", "admin-guide-form"].includes(form.id)) return;
+    if (!["admin-prices-form", "promotion-form", "product-create-form", "product-edit-form", "variant-create-form", "variant-edit-form", "admin-bank-form", "admin-guide-form"].includes(form.id)) return;
     event.preventDefault();
     const button = form.querySelector('[type="submit"]'), message = form.querySelector(".pricing-form-message");
     if (button.disabled) return;
@@ -723,6 +781,20 @@ window.initAdminPricing = (() => {
         await api("/api/admin/products", { method: "POST", body: JSON.stringify({ name, category, badge, description, image, variants }) });
         notify("Đã thêm mặt hàng mới.");
         $("#catalog-editor").replaceChildren();
+      } else if (form.id === "product-edit-form") {
+        const data = new FormData(form);
+        const productId = form.dataset.productId;
+        const name = data.get("name").trim();
+        const category = data.get("category");
+        const badge = data.get("badge").trim();
+        const description = data.get("description").trim();
+        const image = data.get("image") || "assets/nitro.svg";
+        await api("/api/admin/products/" + productId, {
+          method: "PUT",
+          body: JSON.stringify({ name, category, badge, description, image }),
+        });
+        notify("Đã cập nhật thông tin mặt hàng.");
+        $("#catalog-editor").replaceChildren();
       } else if (form.id === "variant-create-form") {
         const data = new FormData(form);
         const productId = form.dataset.productId;
@@ -732,6 +804,20 @@ window.initAdminPricing = (() => {
         const note = (data.get("note") || "").trim();
         await api("/api/admin/products/" + productId + "/variants", { method: "POST", body: JSON.stringify({ name, price, deliveryType, note }) });
         notify("Đã thêm gói sản phẩm mới.");
+        $("#catalog-editor").replaceChildren();
+      } else if (form.id === "variant-edit-form") {
+        const data = new FormData(form);
+        const productId = form.dataset.productId;
+        const variantId = form.dataset.variantId;
+        const name = data.get("name").trim();
+        const price = Number(data.get("price"));
+        const deliveryType = data.get("deliveryType") || "gift";
+        const note = (data.get("note") || "").trim();
+        await api("/api/admin/products/" + productId + "/variants/" + variantId, {
+          method: "PUT",
+          body: JSON.stringify({ name, price, deliveryType, note }),
+        });
+        notify("Đã cập nhật gói sản phẩm.");
         $("#catalog-editor").replaceChildren();
       } else {
         const data = new FormData(form);
@@ -893,7 +979,12 @@ window.initAdminPricing = (() => {
           $("#catalog-editor").replaceChildren();
         }
         if (button.hasAttribute("data-product-new")) openProductEditor();
+        if (button.dataset.productEdit) openProductEditor(button.dataset.productEdit);
         if (button.dataset.variantNew) openVariantEditor(button.dataset.variantNew);
+        if (button.dataset.variantEdit) {
+          const [pId, vId] = button.dataset.variantEdit.split(":");
+          openVariantEditor(pId, vId);
+        }
         if (button.hasAttribute("data-catalog-close")) $("#catalog-editor").replaceChildren();
         if (button.dataset.productToggle) {
           button.disabled = true;

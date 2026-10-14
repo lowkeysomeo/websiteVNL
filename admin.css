@@ -602,9 +602,9 @@ body {
 .price-product-grid,.promotion-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
 .pricing-card { min-width:0; padding:24px; background:#1d1013; border:1px solid var(--line); border-radius:14px; }
 .pricing-card h3 { margin:0 0 18px; font-size:16px; }
-.price-variant { display:grid; grid-template-columns:minmax(0,1fr) 140px; gap:14px; align-items:center; font-size:12px; padding:16px 0; border-top:1px solid var(--line); }
+.price-variant { display:flex; justify-content:space-between; align-items:center; gap:14px; font-size:12px; padding:16px 0; border-top:1px solid var(--line); flex-wrap:wrap; }
 .price-variant small { display:block; color:var(--muted); font-size:11px; line-height:1.7; margin-top:6px; }
-.price-input-wrap { display:flex; align-items:center; gap:6px; }
+.price-input-wrap { display:flex; align-items:center; gap:6px; width:130px; flex-shrink:0; }
 .price-input-wrap input { width:100%; min-width:0; text-align:right; }
 .pricing-card input:not([type=checkbox]),.pricing-card select { background:#120a0c; border:1px solid #59434a; border-radius:7px; color:var(--text); font:inherit; padding:11px; width:100%; min-width:0; color-scheme:dark; }
 .pricing-card input:focus,.pricing-card select:focus { outline:2px solid var(--accent); outline-offset:2px; }
@@ -638,14 +638,14 @@ body {
 .pricing-empty>span { font-size:30px; color:var(--accent); }
 .pricing-empty h3 { color:var(--text); font-size:18px; }
 @media(max-width:850px) { .price-product-grid,.promotion-list { grid-template-columns:1fr; } }
-@media(max-width:540px) { .pricing-heading,.pricing-savebar { align-items:stretch; flex-direction:column; } .pricing-form-grid { grid-template-columns:1fr; } .pricing-card { padding:16px; } .price-variant { grid-template-columns:minmax(0,1fr) 115px; } .admin-view-nav button { padding:10px; font-size:12px; } }
+@media(max-width:540px) { .pricing-heading,.pricing-savebar { align-items:stretch; flex-direction:column; } .pricing-form-grid { grid-template-columns:1fr; } .pricing-card { padding:16px; } .price-variant { flex-direction:column; align-items:stretch; } .variant-controls { width:100%; justify-content:flex-end; } .admin-view-nav button { padding:10px; font-size:12px; } }
 
 .announcement-feedback { min-height:18px; margin:10px 0; font-size:12px; line-height:1.6; color:#a7e8bd; }
 .announcement-feedback.is-error { color:#ffaca4; }
 
 /* Product and Variant Management Controls */
 .product-manage-card.is-inactive { opacity: 0.75; border-style: dashed; border-color: #59434a; }
-.product-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+.product-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
 .product-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .product-title-row h3 { margin: 0; }
 .product-desc-snippet { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
@@ -656,11 +656,14 @@ body {
 .status-badge.custom { color: #d3b4fb; background: rgba(211, 180, 251, 0.12); border: 1px solid rgba(211, 180, 251, 0.3); }
 .status-badge.disabled-sm { font-size: 9px; padding: 1px 5px; color: #ffaca4; background: rgba(255, 172, 164, 0.12); }
 .status-badge.custom-sm { font-size: 9px; padding: 1px 5px; color: #d3b4fb; background: rgba(211, 180, 251, 0.12); }
+.status-badge.log-sm { font-size: 9px; padding: 1px 6px; color: #fb923c; background: rgba(249, 115, 22, 0.15); border: 1px solid rgba(249, 115, 22, 0.3); border-radius: 4px; }
+.status-badge.gift-sm { font-size: 9px; padding: 1px 6px; color: #4ade80; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 4px; }
+.status-badge.service-sm { font-size: 9px; padding: 1px 6px; color: #60a5fa; background: rgba(96, 165, 250, 0.15); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 4px; }
 .price-variant.is-inactive { opacity: 0.6; }
 .price-variant.is-inactive strong { text-decoration: line-through; }
-.variant-meta { min-width: 0; }
+.variant-meta { min-width: 0; flex: 1; }
 .variant-name-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.variant-controls { display: flex; align-items: center; gap: 6px; }
+.variant-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .btn-danger { color: #ffaca4 !important; border-color: rgba(255, 172, 164, 0.35) !important; }
 .btn-danger:hover { background: rgba(255, 172, 164, 0.15) !important; }
 .btn-xs { padding: 6px 10px !important; font-size: 11px !important; line-height: 1 !important; border-radius: 6px !important; }

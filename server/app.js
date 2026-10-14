@@ -28,7 +28,9 @@ import {
   savePromotion,
   setPromotionEnabled,
   createCustomProduct,
+  updateProduct,
   addCustomVariant,
+  updateVariant,
   toggleProductStatus,
   deleteProduct,
   toggleVariantStatus,
@@ -423,6 +425,13 @@ export function createApp(db, config) {
           return json(200, await toggleProductStatus(db, productToggleMatch[1], Boolean(body.isActive)));
         }
         const productMatch = route.match(/^\/api\/admin\/products\/([a-z0-9_-]+)$/);
+        if (req.method === "PUT" && productMatch) {
+          requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const product = await updateProduct(db, productMatch[1], body);
+          return json(200, { product });
+        }
         if (req.method === "DELETE" && productMatch) {
           requireAdmin(req);
           sameOrigin(req);
@@ -444,6 +453,13 @@ export function createApp(db, config) {
           return json(200, await toggleVariantStatus(db, variantToggleMatch[1], variantToggleMatch[2], Boolean(body.isActive)));
         }
         const variantMatch = route.match(/^\/api\/admin\/products\/([a-z0-9_-]+)\/variants\/([a-z0-9_-]+)$/);
+        if (req.method === "PUT" && variantMatch) {
+          requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const variant = await updateVariant(db, variantMatch[1], variantMatch[2], body);
+          return json(200, { variant });
+        }
         if (req.method === "DELETE" && variantMatch) {
           requireAdmin(req);
           sameOrigin(req);

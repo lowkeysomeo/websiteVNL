@@ -145,4 +145,11 @@ CREATE TABLE IF NOT EXISTS shopping_guides (
   updated_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS catalog_item_overrides (
+  item_key TEXT PRIMARY KEY,
+  data_json TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+
 
