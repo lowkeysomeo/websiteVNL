@@ -185,6 +185,8 @@ test("HTTP API Admin: Cấu hình ngân hàng, duyệt nạp thủ công và c�
     assert.equal(depositJson.bank.code, "MB");
     assert.ok(depositJson.qrUrl.includes("img.vietqr.io/image/MB-9999888877-compact2.png"));
     assert.ok(depositJson.qrUrl.includes("amount=100000"));
+    assert.equal(depositJson.transferContent, depositJson.deposit.code);
+    assert.equal(new URL(depositJson.qrUrl).searchParams.get("addInfo"), depositJson.deposit.code);
     assert.ok(depositJson.qrUrl.includes(depositJson.deposit.code));
 
     const depositId = depositJson.deposit.id;
@@ -535,6 +537,12 @@ test("Tự động duyệt tiền nạp: VietinBank ICB alias, số tài khoản
     });
     const depJson = await depRes.json();
     const depositCode = depJson.deposit.code;
+    assert.equal(depJson.transferContent, "SEVQR " + depositCode);
+    assert.equal(new URL(depJson.qrUrl).searchParams.get("addInfo"), depJson.transferContent);
+    const reloaded = await fetch(base + "/api/deposits/" + depJson.deposit.id, { headers: { Cookie: cookie } });
+    assert.equal((await reloaded.json()).transferContent, depJson.transferContent);
+    const bankResponse = await fetch(base + "/api/admin/bank", { headers: { "X-Admin-Key": adminPassword } });
+    assert.equal((await bankResponse.json()).settings.bank.transferPrefix, "SEVQR");
 
     // 3. SePay gửi Webhook với:
     // - URL có trailing slash và tham số query ?secret=...
@@ -554,8 +562,8 @@ test("Tự động duyệt tiền nạp: VietinBank ICB alias, số tài khoản
         gateway: "ICB",
         accountNumber: "9999-9957-3939",
         transferAmount: "100000",
-        content: `CHUYỂN KHOẢN TIỀN NẠP VÍ`,
-        description: `LÂM TRẦN GIA HƯNG NẠP TIỀN ${depositCode} TÀI KHOẢN KHÁCH`,
+        content: depJson.transferContent,
+        description: "Chuyen khoan",
         transferType: "in",
       }),
     });

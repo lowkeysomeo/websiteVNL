@@ -578,6 +578,7 @@ export async function getBankSettings(db, config = {}) {
       autoCredit,
       bank: {
         code: bankCode,
+        transferPrefix: isBankMatch("VietinBank", bankGateway, bankCode) ? "SEVQR" : "",
         gateway: bankGateway,
         accountNumber,
         accountName,
@@ -596,6 +597,7 @@ export async function getBankSettings(db, config = {}) {
     autoCredit: true,
     bank: {
       code: fallback.code || "",
+      transferPrefix: isBankMatch("VietinBank", fallback.gateway, fallback.code) ? "SEVQR" : "",
       gateway: fallback.gateway || "",
       accountNumber: fallback.accountNumber || "",
       accountName: fallback.accountName || "",

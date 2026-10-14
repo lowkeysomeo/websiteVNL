@@ -670,7 +670,7 @@ window.initAdminPricing = (() => {
 
       const bank = bankSettings.bank || {};
       const previewQrUrl = (bank.code && bank.accountNumber)
-        ? `https://img.vietqr.io/image/${encodeURIComponent(bank.code)}-${encodeURIComponent(bank.accountNumber)}-compact2.png?amount=50000&addInfo=VNLTEST&accountName=${encodeURIComponent(bank.accountName || "")}`
+        ? `https://img.vietqr.io/image/${encodeURIComponent(bank.code)}-${encodeURIComponent(bank.accountNumber)}-compact2.png?amount=50000&addInfo=${encodeURIComponent([bank.transferPrefix, "VNLTEST"].filter(Boolean).join(" "))}&accountName=${encodeURIComponent(bank.accountName || "")}`
         : "";
       const webhookUrl = typeof window !== "undefined" && window.location ? `${window.location.origin}/api/payments/webhook` : "/api/payments/webhook";
       const autoCredit = bankSettings.autoCredit !== false;
@@ -1333,8 +1333,9 @@ window.initAdminPricing = (() => {
     return `
       <div class="deposit-cards-list">
         ${filtered.map(d => {
+          const transferContent = [bank.transferPrefix, d.code].filter(Boolean).join(" ");
           const qrUrl = (bank.code && bank.accountNumber)
-            ? `https://img.vietqr.io/image/${encodeURIComponent(bank.code)}-${encodeURIComponent(bank.accountNumber)}-compact2.png?amount=${d.amount}&addInfo=${encodeURIComponent(d.code)}&accountName=${encodeURIComponent(bank.accountName || "")}`
+            ? `https://img.vietqr.io/image/${encodeURIComponent(bank.code)}-${encodeURIComponent(bank.accountNumber)}-compact2.png?amount=${d.amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bank.accountName || "")}`
             : "";
           return `
             <div class="deposit-item-card status-${esc(d.status)}">
@@ -1384,7 +1385,7 @@ window.initAdminPricing = (() => {
                   </button>
                 ` : ""}
                 ${qrUrl ? `
-                  <button type="button" class="button secondary btn-small" data-deposit-qr="${esc(d.id)}" data-qr-url="${esc(qrUrl)}" data-qr-code="${esc(d.code)}" data-qr-amount="${d.amount}">
+                  <button type="button" class="button secondary btn-small" data-deposit-qr="${esc(d.id)}" data-qr-url="${esc(qrUrl)}" data-qr-code="${esc(transferContent)}" data-qr-amount="${d.amount}">
                     Xem QR ↗
                   </button>
                 ` : ""}

@@ -109,10 +109,13 @@ function depositView(row) {
 export function createApp(db, config) {
   function paymentDetails(deposit, activeBank) {
     const bank = activeBank || config.bank;
+    // VietinBank chỉ gửi giao dịch về SePay khi nội dung có tiền tố SEVQR.
+    const transferContent = [bank.transferPrefix, deposit.code].filter(Boolean).join(" ");
     return {
       deposit: depositView(deposit),
       bank: { ...bank },
-      qrUrl: `https://img.vietqr.io/image/${encodeURIComponent(bank.code)}-${encodeURIComponent(bank.accountNumber)}-compact2.png?${new URLSearchParams({ amount: String(deposit.amount), addInfo: deposit.code, accountName: bank.accountName })}`,
+      transferContent,
+      qrUrl: `https://img.vietqr.io/image/${encodeURIComponent(bank.code)}-${encodeURIComponent(bank.accountNumber)}-compact2.png?${new URLSearchParams({ amount: String(deposit.amount), addInfo: transferContent, accountName: bank.accountName })}`,
     };
   }
   const allow = createLimiter();
