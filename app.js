@@ -744,7 +744,7 @@ async function showOrders() {
         if (order.claimLink) {
           claimSection = `
             <div class="order-claim-box">
-              <strong>🎁 Link Claim quà tặng Discord của bạn:</strong>
+              <strong>🎁 Link Claim quà tặng / Thông tin nhận hàng của bạn:</strong>
               <div class="claim-link-group">
                 <a href="${escapeHtml(order.claimLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(order.claimLink)}</a>
                 <button class="claim-copy-btn" data-copy-link="${escapeHtml(order.claimLink)}">Sao chép</button>
@@ -774,7 +774,7 @@ async function showOrders() {
         const itemsHtml = order.items
           .map(
             (item) =>
-              `<li>${escapeHtml(item.productName || item.name)} — ${escapeHtml(item.variantName || item.variant)} [${item.deliveryType === "log" ? "LOG" : "GIFT"}] × ${item.quantity} (${money(item.subtotal || item.price * item.quantity)})</li>`,
+              `<li>${escapeHtml(item.productName || item.name)} — ${escapeHtml(item.variantName || item.variant)} [${escapeHtml((item.deliveryType || "gift").toUpperCase())}] × ${item.quantity} (${money(item.subtotal || item.price * item.quantity)})</li>`,
           )
           .join("");
 

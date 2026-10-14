@@ -462,7 +462,7 @@ export async function addCustomVariant(db, productId, body, now = Date.now(), ca
   const name = String(body.name || "").trim();
   if (!name || name.length > 100) throw fail("Tên gói sản phẩm cần từ 1 đến 100 ký tự.");
   const price = integer(Number(body.price), 0, 1000000000, "Giá gói");
-  const deliveryType = ["gift", "log", "service"].includes(body.deliveryType) ? body.deliveryType : "gift";
+  const deliveryType = String(body.deliveryType || "gift").trim().slice(0, 50) || "gift";
   const note = String(body.note || "").trim().slice(0, 200);
 
   let baseSlug = slugify(name) || "pkg";
@@ -593,7 +593,7 @@ export async function updateVariant(db, productId, variantId, body, now = Date.n
   const name = String(body.name || "").trim();
   if (!name || name.length > 100) throw fail("Tên gói sản phẩm cần từ 1 đến 100 ký tự.");
   const price = integer(Number(body.price), 0, 1000000000, "Giá gói");
-  const deliveryType = ["gift", "log", "service"].includes(body.deliveryType) ? body.deliveryType : "gift";
+  const deliveryType = String(body.deliveryType || "gift").trim().slice(0, 50) || "gift";
   const note = String(body.note || "").trim().slice(0, 200);
 
   const custom = await db.prepare("SELECT * FROM custom_variants WHERE product_id = ? AND id = ?").get(productId, variantId);

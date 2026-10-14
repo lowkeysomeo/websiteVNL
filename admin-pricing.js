@@ -241,6 +241,64 @@ window.initAdminPricing = (() => {
     return iconVal;
   }
 
+  const DELIVERY_TYPE_PRESETS = [
+    { value: "gift", label: "🎁 Link quà tặng (Gift)", badge: "🎁 Gift", class: "gift-sm" },
+    { value: "log", label: "🔑 Đăng nhập nạp (Log / Cần tài khoản)", badge: "🔑 Log", class: "log-sm" },
+    { value: "key", label: "🗝️ Gửi mã / Key kích hoạt (Key / Code)", badge: "🗝️ Key", class: "key-sm" },
+    { value: "account", label: "👤 Cấp tài khoản tạo sẵn (Acc cấp sẵn)", badge: "👤 Acc", class: "acc-sm" },
+    { value: "invite", label: "✉️ Mời qua Email / Gia đình (Invite link)", badge: "✉️ Invite", class: "invite-sm" },
+    { value: "bot", label: "🤖 Nạp tự động qua Bot (Bot Command)", badge: "🤖 Bot", class: "bot-sm" },
+    { value: "file", label: "📁 Gửi file / Tài liệu tải về (File download)", badge: "📁 File", class: "file-sm" },
+    { value: "service", label: "🛠️ Tư vấn riêng / Liên hệ trao đổi", badge: "🛠️ Service", class: "service-sm" },
+  ];
+
+  const QUICK_DELIVERY_SUGGESTIONS = [
+    "🗝️ Key bản quyền",
+    "👤 Acc cấp sẵn",
+    "✉️ Mời Email",
+    "🤖 Bot nạp tự động",
+    "📁 File tải về",
+    "🌐 Link web kích hoạt",
+    "🎫 Ticket Discord",
+    "📦 Giao qua Zalo/Telegram",
+  ];
+
+  function getDeliveryBadgeInfo(type) {
+    const preset = DELIVERY_TYPE_PRESETS.find(p => p.value === type);
+    if (preset) return { label: preset.badge, class: preset.class };
+    if (!type || type === "gift") return { label: "🎁 Gift", class: "gift-sm" };
+    return { label: `📦 ${type}`, class: "custom-delivery-sm" };
+  }
+
+  function renderDeliveryTypeFieldHtml(currentDeliveryType = "gift") {
+    const isKnown = DELIVERY_TYPE_PRESETS.some(p => p.value === currentDeliveryType);
+    const isCustom = Boolean(currentDeliveryType && !isKnown);
+    const selectedPreset = isCustom ? "__custom__" : (currentDeliveryType || "gift");
+
+    return `
+      <label>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <span>Hình thức nhận hàng *</span>
+          <span style="font-size:11px; color:var(--muted);">Có sẵn hoặc tự chỉnh riêng</span>
+        </div>
+        <select name="deliveryPreset" class="delivery-type-select">
+          ${DELIVERY_TYPE_PRESETS.map(p => `<option value="${p.value}" ${selectedPreset === p.value ? "selected" : ""}>${p.label}</option>`).join("")}
+          <option value="__custom__" ${isCustom ? "selected" : ""}>✨ + Tự nhập hình thức nhận quà / nhận hàng riêng...</option>
+        </select>
+      </label>
+      <div class="custom-delivery-wrap" style="${isCustom ? 'display:block;' : 'display:none;'} grid-column:1 / -1; margin-top:-4px; background:rgba(217,119,6,0.08); border:1px dashed var(--accent); padding:10px 14px; border-radius:8px;">
+        <label style="color:var(--accent); font-size:11px; font-weight:600; display:block; margin-bottom:4px;">
+          ✨ NHẬP HÌNH THỨC NHẬN HÀNG TÙY CHỈNH:
+        </label>
+        <input name="customDeliveryType" class="custom-delivery-input" placeholder="VD: Nhận qua Ticket Discord, Link Drive, QR Code..." value="${isCustom ? esc(currentDeliveryType) : ''}" maxlength="50" style="width:100%; padding:6px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px;" />
+        <div style="margin-top:8px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <span style="font-size:11px; color:var(--muted); font-weight:600;">Gợi ý nhanh:</span>
+          ${QUICK_DELIVERY_SUGGESTIONS.map(sug => `<button type="button" class="button secondary btn-xs btn-delivery-sug-pick" data-val="${esc(sug)}" style="padding:2px 7px; font-size:11px; line-height:1;">${esc(sug)}</button>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+
   function openCategoriesManager(fromProductId = null) {
     if (fromProductId) returnToProductId = fromProductId;
     const isPartner = currentUser && currentUser.role === "partner";
@@ -567,7 +625,10 @@ window.initAdminPricing = (() => {
                     <div class="variant-meta">
                       <div class="variant-name-row">
                         <strong>${esc(v.name)}</strong>
-                        ${v.deliveryType === 'log' ? '<span class="status-badge log-sm">🔑 Log</span>' : v.deliveryType === 'service' ? '<span class="status-badge service-sm">🛠️ Service</span>' : '<span class="status-badge gift-sm">🎁 Gift</span>'}
+                        ${(() => {
+                          const badgeInfo = getDeliveryBadgeInfo(v.deliveryType);
+                          return `<span class="status-badge ${badgeInfo.class}">${esc(badgeInfo.label)}</span>`;
+                        })()}
                         ${v.isCustom ? '<span class="status-badge custom-sm">Tự tạo</span>' : ""}
                         ${v.isActive ? "" : '<span class="status-badge disabled-sm">Đã ẩn</span>'}
                       </div>
@@ -1189,11 +1250,7 @@ window.initAdminPricing = (() => {
         <div class="pricing-form-grid" style="margin-top: 10px;">
           <label>Tên gói đầu tiên<input name="variantName" placeholder="Ví dụ: 🎁 [Gift] Spotify · 1 tháng"></label>
           <label>Giá niêm yết (VND)<input name="variantPrice" type="number" min="0" max="1000000000" step="1000" placeholder="Ví dụ: 35000"></label>
-          <label>Hình thức nhận hàng<select name="deliveryType">
-            <option value="gift">🎁 Link quà tặng (Gift)</option>
-            <option value="log">🔑 Đăng nhập nạp (Log)</option>
-            <option value="service">🛠️ Tư vấn riêng</option>
-          </select></label>
+          ${renderDeliveryTypeFieldHtml("gift")}
           <label>Ghi chú gói<input name="variantNote" placeholder="Ví dụ: Nâng cấp chính chủ email..."></label>
         </div>
       </fieldset>
@@ -1219,11 +1276,7 @@ window.initAdminPricing = (() => {
         <div class="pricing-form-grid">
           <label>Tên gói *<input name="name" required maxlength="100" value="${esc(v.name)}"></label>
           <label>Giá niêm yết (VND) *<input name="price" type="number" min="0" max="1000000000" step="1000" required value="${v.basePrice ?? v.price}"></label>
-          <label>Hình thức nhận hàng<select name="deliveryType">
-            <option value="gift" ${v.deliveryType === "gift" ? "selected" : ""}>🎁 Link quà tặng (Gift)</option>
-            <option value="log" ${v.deliveryType === "log" ? "selected" : ""}>🔑 Đăng nhập nạp (Log)</option>
-            <option value="service" ${v.deliveryType === "service" ? "selected" : ""}>🛠️ Tư vấn riêng</option>
-          </select></label>
+          ${renderDeliveryTypeFieldHtml(v.deliveryType || "gift")}
           <label>Ghi chú gói<input name="note" placeholder="Ví dụ: Nhận link claim trực tiếp..." value="${esc(v.note || "")}"></label>
         </div>
         <p class="pricing-form-message" role="status"></p>
@@ -1238,11 +1291,7 @@ window.initAdminPricing = (() => {
       <div class="pricing-form-grid">
         <label>Tên gói *<input name="name" required maxlength="100" placeholder="Ví dụ: 🎁 [Gift] ${esc(product.name)} · 6 tháng"></label>
         <label>Giá niêm yết (VND) *<input name="price" type="number" min="0" max="1000000000" step="1000" required placeholder="Ví dụ: 199000"></label>
-        <label>Hình thức nhận hàng<select name="deliveryType">
-          <option value="gift">🎁 Link quà tặng (Gift)</option>
-          <option value="log">🔑 Đăng nhập nạp (Log)</option>
-          <option value="service">🛠️ Tư vấn riêng</option>
-        </select></label>
+        ${renderDeliveryTypeFieldHtml("gift")}
         <label>Ghi chú gói<input name="note" placeholder="Ví dụ: Nhận link claim trực tiếp..."></label>
       </div>
       <p class="pricing-form-message" role="status"></p>
@@ -1695,7 +1744,11 @@ window.initAdminPricing = (() => {
           : ((data.get("partnerEmail") || "").trim() || null);
         const variantName = (data.get("variantName") || "").trim();
         const variantPrice = data.get("variantPrice") ? Number(data.get("variantPrice")) : null;
-        const deliveryType = data.get("deliveryType") || "gift";
+        const deliveryPreset = (data.get("deliveryPreset") || data.get("deliveryType") || "gift").trim();
+        let deliveryType = deliveryPreset;
+        if (deliveryPreset === "__custom__") {
+          deliveryType = (data.get("customDeliveryType") || "").trim() || "gift";
+        }
         const variantNote = (data.get("variantNote") || "").trim();
         const variants = variantName && variantPrice !== null ? [{ name: variantName, price: variantPrice, deliveryType, note: variantNote }] : [];
         await api("/api/admin/products", { method: "POST", body: JSON.stringify({ name, category, badge, description, image, partnerEmail, variants, detail, features }) });
@@ -1754,7 +1807,11 @@ window.initAdminPricing = (() => {
         const productId = form.dataset.productId;
         const name = data.get("name").trim();
         const price = Number(data.get("price"));
-        const deliveryType = data.get("deliveryType") || "gift";
+        const deliveryPreset = (data.get("deliveryPreset") || data.get("deliveryType") || "gift").trim();
+        let deliveryType = deliveryPreset;
+        if (deliveryPreset === "__custom__") {
+          deliveryType = (data.get("customDeliveryType") || "").trim() || "gift";
+        }
         const note = (data.get("note") || "").trim();
         await api("/api/admin/products/" + productId + "/variants", { method: "POST", body: JSON.stringify({ name, price, deliveryType, note }) });
         notify("Đã thêm gói sản phẩm mới.");
@@ -1765,7 +1822,11 @@ window.initAdminPricing = (() => {
         const variantId = form.dataset.variantId;
         const name = data.get("name").trim();
         const price = Number(data.get("price"));
-        const deliveryType = data.get("deliveryType") || "gift";
+        const deliveryPreset = (data.get("deliveryPreset") || data.get("deliveryType") || "gift").trim();
+        let deliveryType = deliveryPreset;
+        if (deliveryPreset === "__custom__") {
+          deliveryType = (data.get("customDeliveryType") || "").trim() || "gift";
+        }
         const note = (data.get("note") || "").trim();
         await api("/api/admin/products/" + productId + "/variants/" + variantId, {
           method: "PUT",
@@ -1884,6 +1945,11 @@ window.initAdminPricing = (() => {
               preview.textContent = (customInp && customInp.value.trim()) || "📦";
             }
           }
+        }
+        if (event.target.classList && event.target.classList.contains("delivery-type-select")) {
+          const form = event.target.closest("form");
+          const wrap = form ? form.querySelector(".custom-delivery-wrap") : null;
+          if (wrap) wrap.style.display = event.target.value === "__custom__" ? "block" : "none";
         }
         if (event.target.id === "product-image-select") {
           const wrap = document.querySelector("#product-custom-image-wrap");
@@ -2206,6 +2272,17 @@ window.initAdminPricing = (() => {
               input.focus();
             }
             if (preview) preview.textContent = emoji;
+          }
+        }
+        if (button.classList.contains("btn-delivery-sug-pick")) {
+          const form = button.closest("form");
+          const val = button.dataset.val;
+          if (form && val) {
+            const input = form.querySelector(".custom-delivery-input");
+            if (input) {
+              input.value = val;
+              input.focus();
+            }
           }
         }
         if (button.hasAttribute("data-categories-manage")) {

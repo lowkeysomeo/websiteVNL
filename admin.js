@@ -335,9 +335,34 @@
 
         const itemsHtml = (order.items || [])
           .map((item) => {
-            const isLog = item.deliveryType === "log";
-            const badgeClass = isLog ? "item-badge-log" : "item-badge-gift";
-            const badgeText = isLog ? "NẠP ACC (LOG)" : "LINK CLAIM (GIFT)";
+            const delType = (item.deliveryType || "gift").toLowerCase();
+            let badgeClass = "item-badge-gift";
+            let badgeText = "LINK CLAIM (GIFT)";
+            if (delType === "log") {
+              badgeClass = "item-badge-log";
+              badgeText = "NẠP ACC (LOG)";
+            } else if (delType === "key") {
+              badgeClass = "item-badge-key";
+              badgeText = "MÃ KEY (CODE)";
+            } else if (delType === "account") {
+              badgeClass = "item-badge-acc";
+              badgeText = "TÀI KHOẢN (ACC)";
+            } else if (delType === "invite") {
+              badgeClass = "item-badge-invite";
+              badgeText = "MỜI EMAIL (INVITE)";
+            } else if (delType === "bot") {
+              badgeClass = "item-badge-bot";
+              badgeText = "BOT NẠP";
+            } else if (delType === "file") {
+              badgeClass = "item-badge-file";
+              badgeText = "FILE TẢI VỀ";
+            } else if (delType === "service") {
+              badgeClass = "item-badge-service";
+              badgeText = "TƯ VẤN (SERVICE)";
+            } else if (delType !== "gift") {
+              badgeClass = "item-badge-custom";
+              badgeText = escapeHtml(item.deliveryType.toUpperCase());
+            }
             return `
               <li>
                 <div>
@@ -412,18 +437,18 @@
           `;
         }
 
-        // GIFT CLAIM BOX
+        // GIFT / CLAIM / DELIVERY CONTENT BOX
         let giftClaimBox = "";
         const hasGift = (order.items || []).some((i) => i.deliveryType !== "log");
         if (hasGift) {
           giftClaimBox = `
             <div class="admin-gift-claim-box">
-              <div class="admin-gift-claim-header">🎁 LINK CLAIM QUÀ TẶNG CHO KHÁCH (GIFT)</div>
+              <div class="admin-gift-claim-header">🎁 LINK CLAIM QUÀ TẶNG / NỘI DUNG GIAO HÀNG (KEY, LINK, ACC...)</div>
               <div class="admin-claim-input-group">
                 <input
                   class="admin-claim-input"
                   data-order-claim="${order.id}"
-                  placeholder="Dán link claim quà Discord (vd: https://discord.gift/...)"
+                  placeholder="Dán link claim quà, key kích hoạt, link tải hoặc thông tin bàn giao..."
                   value="${escapeHtml(order.claimLink || "")}"
                 />
                 <button class="admin-claim-save-btn" data-action="save-claim" data-order-id="${order.id}">

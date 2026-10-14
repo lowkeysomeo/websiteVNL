@@ -133,25 +133,28 @@ test("HTTP API Admin quản lý thêm/bỏ mặt hàng và gói", async () => {
         category: "creative",
         badge: "DESIGN / PRO",
         description: "Thiết kế không giới hạn tài nguyên",
-        variants: [{ name: "Canva · 1 năm", price: 120000, deliveryType: "log" }],
+        variants: [{ name: "Canva · 1 năm", price: 120000, deliveryType: "key" }],
       }),
     });
     assert.equal(createRes.status, 201);
     const createdData = await createRes.json();
     const prodId = createdData.product.id;
     assert(prodId);
+    assert.equal(createdData.product.variants[0].deliveryType, "key", "Gói đầu tiên nhận deliveryType là key");
 
-    // 2. Thêm gói mới vào mặt hàng qua POST /api/admin/products/:id/variants
+    // 2. Thêm gói mới vào mặt hàng với hình thức nhận hàng tùy chỉnh (custom deliveryType)
     const addVarRes = await fetch(origin + `/api/admin/products/${prodId}/variants`, {
       method: "POST",
       headers: adminHeaders,
       body: JSON.stringify({
         name: "Canva · Vĩnh viễn",
         price: 250000,
-        deliveryType: "log",
+        deliveryType: "Ticket Discord",
       }),
     });
     assert.equal(addVarRes.status, 201);
+    const addedVarData = await addVarRes.json();
+    assert.equal(addedVarData.variant.deliveryType, "Ticket Discord", "Gói mới nhận deliveryType tùy chỉnh");
 
     // 3. Ẩn mặt hàng qua PATCH /api/admin/products/:id/toggle
     const toggleRes = await fetch(origin + `/api/admin/products/${prodId}/toggle`, {
