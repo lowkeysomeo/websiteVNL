@@ -4,8 +4,7 @@ window.initAdminPricing = (() => {
     { id: "discord", name: "Discord", icon: "gamepad" },
     { id: "entertainment", name: "Giải trí", icon: "layers" },
     { id: "creative", name: "Sáng tạo", icon: "sparkles" },
-    { id: "services", name: "Dịch vụ Discord", icon: "box" },
-  ], partnersList = [], currentUser = { role: "admin", email: "", name: "" }, adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false;
+  ], partnersList = [], currentUser = { role: "admin", email: "", name: "" }, adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false, editingCategoryId = null, returnToProductId = null;
   const guideCategoryLabels = { guide: "Hướng dẫn", tips: "Mẹo & Thủ thuật", news: "Tin tức", other: "Khác" };
   const $ = (selector) => document.querySelector(selector);
   const money = n => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
@@ -209,15 +208,16 @@ window.initAdminPricing = (() => {
     }
   }
 
-  function openCategoriesManager() {
+  function openCategoriesManager(fromProductId = null) {
+    if (fromProductId) returnToProductId = fromProductId;
     $("#catalog-editor").innerHTML = `
       <div class="pricing-card categories-manager-card">
         <div class="promotion-title">
           <div>
-            <h3>⚙️ Quản lý & Phân chia Hạng mục</h3>
-            <p class="admin-cat-help" style="font-size:12px; color:var(--muted); margin:4px 0 0;">Thêm mới, đổi tên hoặc sắp xếp lại thứ tự các hạng mục trên cửa hàng.</p>
+            <h3>⚙️ Quản lý & Chỉnh sửa Hạng mục</h3>
+            <p class="admin-cat-help" style="font-size:12px; color:var(--muted); margin:4px 0 0;">Tự tạo thêm hạng mục mới, đổi tên hoặc sắp xếp lại thứ tự các hạng mục hiển thị trên cửa hàng.</p>
           </div>
-          <button type="button" class="button secondary btn-small" data-catalog-close>Đóng ✕</button>
+          <button type="button" class="button secondary btn-small" data-cat-mgr-close>Đóng ✕</button>
         </div>
 
         <div class="cat-list-wrap" style="margin-top:16px;">
@@ -225,6 +225,33 @@ window.initAdminPricing = (() => {
           <div class="cat-rows-container">
             ${categoriesList.map((cat, idx) => {
               const count = products.filter(p => p.category === cat.id).length;
+              if (editingCategoryId === cat.id) {
+                return `
+                  <div class="cat-manager-row cat-editing-row" style="background:rgba(217,119,6,0.12); border:1px solid var(--accent); padding:10px 14px; border-radius:8px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+                    <span class="cat-index-badge">#${idx + 1}</span>
+                    <div style="flex:1; min-width:180px;">
+                      <label style="font-size:10px; color:var(--accent); font-weight:600; display:block; margin-bottom:3px;">TÊN HẠNG MỤC *</label>
+                      <input id="cat-edit-name-input" value="${esc(cat.name)}" required maxlength="50" style="width:100%; padding:6px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px;" />
+                    </div>
+                    <div style="width:170px;">
+                      <label style="font-size:10px; color:var(--accent); font-weight:600; display:block; margin-bottom:3px;">BIỂU TƯỢNG (ICON)</label>
+                      <select id="cat-edit-icon-select" style="width:100%; padding:6px 10px; font-size:12px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px;">
+                        <option value="gamepad" ${cat.icon === "gamepad" ? "selected" : ""}>🎮 Tay cầm Game</option>
+                        <option value="layers" ${cat.icon === "layers" ? "selected" : ""}>🎬 Phim ảnh / Gói</option>
+                        <option value="sparkles" ${cat.icon === "sparkles" ? "selected" : ""}>✨ Ngôi sao / Sáng tạo</option>
+                        <option value="box" ${cat.icon === "box" ? "selected" : ""}>📦 Hộp quà / Dịch vụ</option>
+                        <option value="grid" ${cat.icon === "grid" ? "selected" : ""}>🔲 Lưới / Tổng hợp</option>
+                        <option value="headphones" ${cat.icon === "headphones" ? "selected" : ""}>🎧 Âm nhạc</option>
+                        <option value="book" ${cat.icon === "book" ? "selected" : ""}>📖 Sách / Hướng dẫn</option>
+                      </select>
+                    </div>
+                    <div style="display:flex; gap:6px; align-self:flex-end;">
+                      <button type="button" class="button primary btn-xs" data-cat-save="${esc(cat.id)}">💾 Lưu</button>
+                      <button type="button" class="button secondary btn-xs" data-cat-cancel>Hủy</button>
+                    </div>
+                  </div>
+                `;
+              }
               return `
                 <div class="cat-manager-row">
                   <div class="cat-row-info">
@@ -234,6 +261,7 @@ window.initAdminPricing = (() => {
                     <span class="status-badge" style="background:#26181b; font-size:10px;">${count} sản phẩm</span>
                   </div>
                   <div class="cat-row-actions">
+                    <button type="button" class="button secondary btn-xs" data-cat-edit="${esc(cat.id)}" title="Sửa tên hoặc icon hạng mục">✏️ Sửa</button>
                     <button type="button" class="button secondary btn-xs" data-cat-up="${esc(cat.id)}" ${idx === 0 ? "disabled" : ""} title="Đưa lên trên">▲ Lên</button>
                     <button type="button" class="button secondary btn-xs" data-cat-down="${esc(cat.id)}" ${idx === categoriesList.length - 1 ? "disabled" : ""} title="Đưa xuống dưới">▼ Xuống</button>
                     <button type="button" class="button secondary btn-xs btn-danger" data-cat-delete="${esc(cat.id)}" ${count > 0 ? 'disabled title="Còn sản phẩm thuộc hạng mục này, không thể xóa"' : 'title="Xóa hạng mục này"'}>✕ Xóa</button>
@@ -245,26 +273,31 @@ window.initAdminPricing = (() => {
         </div>
 
         <form id="category-add-form" class="category-add-form" style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">
-          <h4 style="font-size:13px; margin-bottom:12px;">+ Tạo thêm hạng mục mới:</h4>
+          <h4 style="font-size:13px; margin-bottom:12px; color:var(--accent);">+ Tự tạo thêm hạng mục mới:</h4>
           <div class="pricing-form-grid">
-            <label>Tên hiển thị hạng mục *<input name="catName" required maxlength="50" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa..."></label>
+            <label>Tên hiển thị hạng mục *<input name="catName" required maxlength="50" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa, Thiết Kế..."></label>
             <label>Mã hạng mục (Tùy chọn)<input name="catId" maxlength="30" placeholder="Để trống sẽ tự tạo từ tên..."></label>
             <label>Biểu tượng (Icon)<select name="catIcon">
               <option value="gamepad">🎮 Tay cầm Game / Giải trí (gamepad)</option>
               <option value="layers">🎬 Phim ảnh / Gói xếp lớp (layers)</option>
               <option value="sparkles">✨ Ngôi sao / Sáng tạo (sparkles)</option>
-              <option value="box">📦 Hộp quà / Dịch vụ (box)</option>
+              <option value="box" selected>📦 Hộp quà / Dịch vụ (box)</option>
               <option value="grid">🔲 Lưới / Tổng hợp (grid)</option>
               <option value="headphones">🎧 Âm nhạc / Hỗ trợ (headphones)</option>
               <option value="book">📖 Sách / Hướng dẫn (book)</option>
             </select></label>
           </div>
           <p class="pricing-form-message" role="status"></p>
-          <button type="submit" class="button primary" style="margin-top:10px;">+ Thêm hạng mục này</button>
+          <button type="submit" class="button primary" style="margin-top:10px;">+ Tạo hạng mục này</button>
         </form>
       </div>
     `;
-    $("#category-add-form [name=catName]").focus();
+    if (editingCategoryId) {
+      const inp = $("#cat-edit-name-input");
+      if (inp) { inp.focus(); inp.select(); }
+    } else {
+      $("#category-add-form [name=catName]").focus();
+    }
   }
 
   function render() {
@@ -793,12 +826,35 @@ window.initAdminPricing = (() => {
         <div class="promotion-title"><h3>✏️ Chỉnh sửa mặt hàng: ${esc(p.name)}</h3><button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button></div>
         <div class="pricing-form-grid">
           <label>Tên mặt hàng *<input name="name" required maxlength="100" value="${esc(p.name)}"></label>
-          <label>Danh mục / Hạng mục *<select name="category" required id="product-category-select">
-            ${categoriesList.map(c => `<option value="${esc(c.id)}" ${p.category === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
-            ${!isPartner ? '<option value="__custom__">+ Nhập hạng mục mới...</option>' : ''}
-          </select></label>
-          <div id="new-cat-inline-wrap" style="display:none; grid-column:1 / -1; margin-top:-6px;">
-            <label style="color:var(--accent);">Tên hạng mục mới cần tạo *<input name="newCategoryName" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa..."></label>
+          <label>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span>Danh mục / Hạng mục *</span>
+              <button type="button" data-categories-manage="${p.id}" style="background:none; border:none; color:var(--accent); font-size:11px; cursor:pointer; text-decoration:underline; padding:0;">
+                ⚙️ Quản lý & Sửa hạng mục
+              </button>
+            </div>
+            <select name="category" required id="product-category-select">
+              ${categoriesList.map(c => `<option value="${esc(c.id)}" ${p.category === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
+              <option value="__custom__">✨ + Tự tạo thêm hạng mục mới...</option>
+            </select>
+          </label>
+          <div id="new-cat-inline-wrap" style="display:none; grid-column:1 / -1; margin-top:-4px; background:rgba(217,119,6,0.08); border:1px dashed var(--accent); padding:10px 14px; border-radius:8px;">
+            <label style="color:var(--accent); font-size:12px; font-weight:600; display:block; margin-bottom:6px;">
+              ✨ Tên hạng mục mới cần tạo *
+              <input name="newCategoryName" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa, Thiết Kế..." style="margin-top:4px;">
+            </label>
+            <label style="color:var(--text); font-size:11px; display:block;">
+              Biểu tượng đại diện:
+              <select name="newCategoryIcon" style="margin-top:4px;">
+                <option value="gamepad">🎮 Tay cầm Game / Giải trí (gamepad)</option>
+                <option value="layers">🎬 Phim ảnh / Gói xếp lớp (layers)</option>
+                <option value="sparkles">✨ Ngôi sao / Sáng tạo (sparkles)</option>
+                <option value="box" selected>📦 Hộp quà / Dịch vụ (box)</option>
+                <option value="grid">🔲 Lưới / Tổng hợp (grid)</option>
+                <option value="headphones">🎧 Âm nhạc / Hỗ trợ (headphones)</option>
+                <option value="book">📖 Sách / Hướng dẫn (book)</option>
+              </select>
+            </label>
           </div>
           ${!isPartner ? `
           <label>Đối tác sở hữu (tùy chọn)<select name="partnerEmail">
@@ -832,12 +888,35 @@ window.initAdminPricing = (() => {
       <div class="promotion-title"><h3>+ Thêm ${isPartner ? "dịch vụ mới" : "mặt hàng mới"}</h3><button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button></div>
       <div class="pricing-form-grid">
         <label>Tên mặt hàng *<input name="name" required maxlength="100" placeholder="Ví dụ: Spotify Premium, Canva Pro..."></label>
-        <label>Danh mục / Hạng mục *<select name="category" required id="product-category-select">
-          ${categoriesList.map(c => `<option value="${esc(c.id)}" ${c.id === "entertainment" ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
-          ${!isPartner ? '<option value="__custom__">+ Nhập hạng mục mới...</option>' : ''}
-        </select></label>
-        <div id="new-cat-inline-wrap" style="display:none; grid-column:1 / -1; margin-top:-6px;">
-          <label style="color:var(--accent);">Tên hạng mục mới cần tạo *<input name="newCategoryName" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa..."></label>
+        <label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Danh mục / Hạng mục *</span>
+            <button type="button" data-categories-manage="new" style="background:none; border:none; color:var(--accent); font-size:11px; cursor:pointer; text-decoration:underline; padding:0;">
+              ⚙️ Quản lý & Sửa hạng mục
+            </button>
+          </div>
+          <select name="category" required id="product-category-select">
+            ${categoriesList.map(c => `<option value="${esc(c.id)}" ${c.id === "entertainment" ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
+            <option value="__custom__">✨ + Tự tạo thêm hạng mục mới...</option>
+          </select>
+        </label>
+        <div id="new-cat-inline-wrap" style="display:none; grid-column:1 / -1; margin-top:-4px; background:rgba(217,119,6,0.08); border:1px dashed var(--accent); padding:10px 14px; border-radius:8px;">
+          <label style="color:var(--accent); font-size:12px; font-weight:600; display:block; margin-bottom:6px;">
+            ✨ Tên hạng mục mới cần tạo *
+            <input name="newCategoryName" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa, Thiết Kế..." style="margin-top:4px;">
+          </label>
+          <label style="color:var(--text); font-size:11px; display:block;">
+            Biểu tượng đại diện:
+            <select name="newCategoryIcon" style="margin-top:4px;">
+              <option value="gamepad">🎮 Tay cầm Game / Giải trí (gamepad)</option>
+              <option value="layers">🎬 Phim ảnh / Gói xếp lớp (layers)</option>
+              <option value="sparkles">✨ Ngôi sao / Sáng tạo (sparkles)</option>
+              <option value="box" selected>📦 Hộp quà / Dịch vụ (box)</option>
+              <option value="grid">🔲 Lưới / Tổng hợp (grid)</option>
+              <option value="headphones">🎧 Âm nhạc / Hỗ trợ (headphones)</option>
+              <option value="book">📖 Sách / Hướng dẫn (book)</option>
+            </select>
+          </label>
         </div>
         ${!isPartner ? `
         <label>Đối tác sở hữu (tùy chọn)<select name="partnerEmail">
@@ -1321,9 +1400,10 @@ window.initAdminPricing = (() => {
         if (category === "__custom__") {
           const newName = (data.get("newCategoryName") || "").trim();
           if (!newName) throw new Error("Vui lòng nhập tên cho hạng mục mới.");
+          const newIcon = data.get("newCategoryIcon") || "box";
           const newId = slugify(newName) || "cat-" + Date.now();
           if (!categoriesList.some(c => c.id === newId)) {
-            categoriesList.push({ id: newId, name: newName, icon: "box" });
+            categoriesList.push({ id: newId, name: newName, icon: newIcon });
             await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
           }
           category = newId;
@@ -1350,9 +1430,10 @@ window.initAdminPricing = (() => {
         if (category === "__custom__") {
           const newName = (data.get("newCategoryName") || "").trim();
           if (!newName) throw new Error("Vui lòng nhập tên cho hạng mục mới.");
+          const newIcon = data.get("newCategoryIcon") || "box";
           const newId = slugify(newName) || "cat-" + Date.now();
           if (!categoriesList.some(c => c.id === newId)) {
-            categoriesList.push({ id: newId, name: newName, icon: "box" });
+            categoriesList.push({ id: newId, name: newName, icon: newIcon });
             await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
           }
           category = newId;
@@ -1687,7 +1768,52 @@ window.initAdminPricing = (() => {
           moveProduct(button.dataset.productDown, 1);
         }
         if (button.hasAttribute("data-categories-manage")) {
+          const fromPid = button.getAttribute("data-categories-manage");
+          openCategoriesManager(fromPid || null);
+        }
+        if (button.hasAttribute("data-cat-mgr-close")) {
+          if (returnToProductId) {
+            const pid = returnToProductId;
+            returnToProductId = null;
+            openProductEditor(pid === "new" ? null : pid);
+          } else {
+            $("#catalog-editor").replaceChildren();
+          }
+        }
+        if (button.dataset.catEdit) {
+          editingCategoryId = button.dataset.catEdit;
           openCategoriesManager();
+        }
+        if (button.hasAttribute("data-cat-cancel")) {
+          editingCategoryId = null;
+          openCategoriesManager();
+        }
+        if (button.dataset.catSave) {
+          const cId = button.dataset.catSave;
+          const nameInput = document.querySelector("#cat-edit-name-input");
+          const iconSelect = document.querySelector("#cat-edit-icon-select");
+          const newName = nameInput ? nameInput.value.trim() : "";
+          if (!newName) {
+            notify("Tên hạng mục không được để trống.");
+            return;
+          }
+          const newIcon = iconSelect ? iconSelect.value : "box";
+          const cat = categoriesList.find(c => c.id === cId);
+          if (cat) {
+            cat.name = newName;
+            cat.icon = newIcon;
+            button.disabled = true;
+            try {
+              await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+              notify(`Đã cập nhật hạng mục "${newName}"!`);
+              editingCategoryId = null;
+              openCategoriesManager();
+            } catch (err) {
+              notify(err.message);
+            } finally {
+              button.disabled = false;
+            }
+          }
         }
         if (button.dataset.filterCat) {
           adminCategoryFilter = button.dataset.filterCat;

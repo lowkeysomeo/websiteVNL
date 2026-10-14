@@ -473,7 +473,7 @@ export function createApp(db, config) {
           return json(200, { products });
         }
         if (req.method === "PUT" && route === "/api/admin/categories") {
-          await requireAdmin(req);
+          await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
           const categories = await saveCategories(db, body.categories);
