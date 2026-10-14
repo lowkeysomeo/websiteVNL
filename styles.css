@@ -1038,8 +1038,13 @@ footer button {
 .menu-overlay {
   position: fixed;
   inset: 0;
-  z-index: 19;
-  background: #110507a8;
+  z-index: 95;
+  background: rgba(17, 5, 7, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 dialog {
   border: 1px solid #52453e;
@@ -1494,19 +1499,66 @@ form textarea {
 @media (max-width: 760px) {
   .sidebar {
     transform: translateX(-100%);
-    transition: transform 0.2s;
-    width: 250px;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    width: min(310px, 84vw);
+    max-width: 330px;
+    z-index: 100;
+    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.65);
+    padding-top: max(20px, calc(env(safe-area-inset-top) + 14px));
+    padding-bottom: max(24px, calc(env(safe-area-inset-bottom) + 20px));
+    -webkit-overflow-scrolling: touch;
   }
   .sidebar.open {
     transform: translateX(0);
   }
   .sidebar-close {
-    display: grid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     position: absolute;
-    top: 18px;
-    right: 13px;
-    width: 26px;
-    height: 26px;
+    top: max(16px, calc(env(safe-area-inset-top) + 10px));
+    right: 14px;
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
+    border-radius: 10px;
+    background: #2c1b1e;
+    border: 1px solid #50433d;
+    color: #e3dcd9;
+    cursor: pointer;
+    z-index: 102;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  }
+  .sidebar-close:active {
+    transform: scale(0.92);
+    background: #3d2429;
+    border-color: var(--accent);
+  }
+  .sidebar-close svg {
+    display: block;
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    pointer-events: none;
+  }
+  .nav-item {
+    min-height: 44px;
+    padding: 11px 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nav-item:active {
+    background: rgba(255, 209, 92, 0.12);
+  }
+  body.menu-open {
+    overflow: hidden;
+    touch-action: none;
+  }
+  body.menu-open .page-shell {
+    pointer-events: none;
   }
   .logo {
     font-size: 21px;
@@ -1522,7 +1574,17 @@ form textarea {
   }
   .menu-toggle {
     display: grid;
+    place-items: center;
     flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    border-radius: 10px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .menu-toggle:active {
+    transform: scale(0.92);
   }
   .topbar-actions {
     gap: 8px;
@@ -1532,14 +1594,18 @@ form textarea {
     display: none;
   }
   .cart-button {
-    padding: 7px 8px;
+    padding: 7px 10px;
     gap: 7px;
+    min-height: 42px;
+    min-width: 42px;
+    border-radius: 10px;
+    touch-action: manipulation;
   }
   .search-box {
     gap: 7px;
   }
   .search-box input {
-    font-size: 10px;
+    font-size: 14px;
   }
   main {
     padding: 18px 18px 0;

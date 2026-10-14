@@ -745,25 +745,40 @@ function handleAction(action) {
 
 function closeMenu() {
   const sidebar = document.querySelector("#sidebar");
+  if (!sidebar) return;
   const wasOpen = sidebar.classList.contains("open");
   sidebar.classList.remove("open");
   sidebar.inert = window.matchMedia("(max-width: 760px)").matches;
-  document.querySelector(".page-shell").inert = false;
-  document.querySelector("#menu-overlay").hidden = true;
-  document.querySelector("#open-menu").setAttribute("aria-expanded", "false");
+  const pageShell = document.querySelector(".page-shell");
+  if (pageShell) pageShell.inert = false;
+  const overlay = document.querySelector("#menu-overlay");
+  if (overlay) overlay.hidden = true;
+  const openBtn = document.querySelector("#open-menu");
+  if (openBtn) openBtn.setAttribute("aria-expanded", "false");
   document.body.classList.remove("menu-open");
-  if (wasOpen) document.querySelector("#open-menu").focus();
+  if (wasOpen && window.matchMedia("(any-hover: hover)").matches) {
+    openBtn?.focus();
+  }
 }
+window.closeMenu = closeMenu;
 
 function openMenu() {
-  document.querySelector("#sidebar").inert = false;
-  document.querySelector("#sidebar").classList.add("open");
-  document.querySelector(".page-shell").inert = true;
-  document.querySelector("#menu-overlay").hidden = false;
-  document.querySelector("#open-menu").setAttribute("aria-expanded", "true");
+  const sidebar = document.querySelector("#sidebar");
+  if (!sidebar) return;
+  sidebar.inert = false;
+  sidebar.classList.add("open");
+  const pageShell = document.querySelector(".page-shell");
+  if (pageShell) pageShell.inert = true;
+  const overlay = document.querySelector("#menu-overlay");
+  if (overlay) overlay.hidden = false;
+  const openBtn = document.querySelector("#open-menu");
+  if (openBtn) openBtn.setAttribute("aria-expanded", "true");
   document.body.classList.add("menu-open");
-  document.querySelector("#close-menu").focus();
+  if (window.matchMedia("(any-hover: hover)").matches) {
+    document.querySelector("#close-menu")?.focus();
+  }
 }
+window.openMenu = openMenu;
 
 document.addEventListener("click", (event) => {
   const button = event.target.closest("button, a");
@@ -807,6 +822,12 @@ document.addEventListener("click", (event) => {
     resetFilters();
     closeMenu();
   }
+  if (button.getAttribute("href") === "#catalog") {
+    closeMenu();
+  }
+  if (button.closest("#sidebar") && button.id !== "close-menu" && window.matchMedia("(max-width: 760px)").matches) {
+    closeMenu();
+  }
 });
 
 search.addEventListener("input", () => {
@@ -827,11 +848,86 @@ document
   .querySelector("#reset-filters")
   .addEventListener("click", resetFilters);
 document.querySelector("#empty-reset").addEventListener("click", resetFilters);
-document.querySelector("#open-menu").addEventListener("click", openMenu);
-document.querySelector("#close-menu").addEventListener("click", closeMenu);
-document.querySelector("#menu-overlay").addEventListener("click", closeMenu);
-document.querySelector("#open-menu").setAttribute("aria-expanded", "false");
-document.querySelector("#open-menu").setAttribute("aria-controls", "sidebar");
+
+const openMenuBtn = document.querySelector("#open-menu");
+const closeMenuBtn = document.querySelector("#close-menu");
+const menuOverlay = document.querySelector("#menu-overlay");
+
+if (openMenuBtn) {
+  openMenuBtn.addEventListener("click", openMenu);
+  openMenuBtn.setAttribute("aria-expanded", "false");
+  openMenuBtn.setAttribute("aria-controls", "sidebar");
+}
+
+if (closeMenuBtn) {
+  closeMenuBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    closeMenu();
+  });
+  closeMenuBtn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    closeMenu();
+  }, { passive: false });
+}
+
+if (menuOverlay) {
+  menuOverlay.addEventListener("click", (e) => {
+    e.preventDefault();
+    closeMenu();
+  });
+  menuOverlay.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    closeMenu();
+  }, { passive: false });
+}
+
+// Click / touch outside sidebar closes drawer on mobile
+document.addEventListener("pointerdown", (event) => {
+  const sidebar = document.querySelector("#sidebar");
+  if (!sidebar || !sidebar.classList.contains("open")) return;
+  if (!window.matchMedia("(max-width: 760px)").matches) return;
+  if (sidebar.contains(event.target) || openMenuBtn?.contains(event.target)) return;
+  closeMenu();
+});
+
+// Touch swipe-left to close sidebar
+(() => {
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+  let isSwiping = false;
+  const sidebar = document.querySelector("#sidebar");
+  if (!sidebar) return;
+
+  function onTouchStart(e) {
+    if (!sidebar.classList.contains("open")) return;
+    const touch = e.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    touchStartTime = Date.now();
+    isSwiping = true;
+  }
+
+  function onTouchEnd(e) {
+    if (!isSwiping || !sidebar.classList.contains("open")) return;
+    isSwiping = false;
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartX;
+    const deltaY = touch.clientY - touchStartY;
+    const duration = Date.now() - touchStartTime;
+
+    if (Math.abs(deltaX) > Math.abs(deltaY) * 1.2 && deltaX < -35) {
+      if (deltaX < -60 || (deltaX < -35 && duration < 280)) {
+        closeMenu();
+      }
+    }
+  }
+
+  sidebar.addEventListener("touchstart", onTouchStart, { passive: true });
+  sidebar.addEventListener("touchend", onTouchEnd, { passive: true });
+  menuOverlay?.addEventListener("touchstart", onTouchStart, { passive: true });
+  menuOverlay?.addEventListener("touchend", onTouchEnd, { passive: true });
+})();
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeMenu();

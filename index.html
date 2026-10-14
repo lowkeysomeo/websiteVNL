@@ -10,13 +10,13 @@
       content="VietNam Legacy — Không gian mua sắm Nitro, Decor, Boost Server và các dịch vụ giải trí, sáng tạo. Bản mẫu tương tác."
     />
     <title>VietNam Legacy · Digital store, chất riêng của bạn</title>
-    <link rel="stylesheet" href="styles.css?v=20261013-pricing1" />
+    <link rel="stylesheet" href="styles.css?v=20261014-mobile1" />
     <script src="assets/vendor/three.min.js" defer></script>
     <script src="assets/fonts/vnl-font.js" defer></script>
     <script src="hero3d.js" defer></script>
     <script src="cursor.js?v=20261012-cursor11" defer></script>
     <script src="products.js" defer></script>
-    <script src="app.js?v=20261013-notice2" defer></script>
+    <script src="app.js?v=20261014-mobile1" defer></script>
     <link rel="stylesheet" href="wallet.css" />
     <script src="wallet.js" defer></script>
     <script src="intro.js?v=20261013-intro2" defer></script>
@@ -43,11 +43,15 @@
         >
       </a>
       <button
+        type="button"
         class="sidebar-close icon-button"
         id="close-menu"
         aria-label="Đóng menu"
       >
-        ×
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
       </button>
       <div class="sidebar-label">KHÁM PHÁ</div>
       <nav class="main-nav">
@@ -108,7 +112,7 @@
         <span class="online-dot"></span> Bản mẫu cửa hàng <span>v1.0</span>
       </div>
     </aside>
-    <div class="menu-overlay" id="menu-overlay" hidden></div>
+    <div class="menu-overlay" id="menu-overlay" role="button" aria-label="Đóng menu" tabindex="-1" hidden></div>
 
     <div class="page-shell" id="home">
       <header class="topbar">
