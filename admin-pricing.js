@@ -210,12 +210,19 @@ window.initAdminPricing = (() => {
 
   function openCategoriesManager(fromProductId = null) {
     if (fromProductId) returnToProductId = fromProductId;
+    const isPartner = currentUser && currentUser.role === "partner";
+    const partnerEmail = isPartner ? (currentUser.email || "").toLowerCase() : null;
+
     $("#catalog-editor").innerHTML = `
       <div class="pricing-card categories-manager-card">
         <div class="promotion-title">
           <div>
             <h3>⚙️ Quản lý & Chỉnh sửa Hạng mục</h3>
-            <p class="admin-cat-help" style="font-size:12px; color:var(--muted); margin:4px 0 0;">Tự tạo thêm hạng mục mới, đổi tên hoặc sắp xếp lại thứ tự các hạng mục hiển thị trên cửa hàng.</p>
+            <p class="admin-cat-help" style="font-size:12px; color:var(--muted); margin:4px 0 0;">
+              ${isPartner
+                ? "Tự tạo thêm hạng mục mới cho dịch vụ của bạn hoặc chỉnh sửa/xóa hạng mục do bạn tạo. Hạng mục hệ thống cũ được bảo vệ và không thể xóa."
+                : "Tự tạo thêm hạng mục mới, đổi tên hoặc sắp xếp lại thứ tự các hạng mục hiển thị trên cửa hàng."}
+            </p>
           </div>
           <button type="button" class="button secondary btn-small" data-cat-mgr-close>Đóng ✕</button>
         </div>
@@ -225,7 +232,19 @@ window.initAdminPricing = (() => {
           <div class="cat-rows-container">
             ${categoriesList.map((cat, idx) => {
               const count = products.filter(p => p.category === cat.id).length;
-              if (editingCategoryId === cat.id) {
+              const isCatPartner = Boolean(cat.partnerEmail);
+              const isOwned = isPartner ? Boolean(cat.partnerEmail && cat.partnerEmail.toLowerCase() === partnerEmail) : true;
+
+              let ownerBadge = "";
+              if (!isCatPartner) {
+                ownerBadge = `<span class="status-badge" style="background:#1f2937; color:#9ca3af; font-size:10px; border:1px solid #374151;">🔒 Mặc định</span>`;
+              } else if (isPartner && isOwned) {
+                ownerBadge = `<span class="status-badge" style="background:#1b382b; color:#34d399; font-size:10px; border:1px solid rgba(52,211,153,0.3);">🤝 Của bạn</span>`;
+              } else {
+                ownerBadge = `<span class="status-badge" style="background:#262338; color:#a78bfa; font-size:10px; border:1px solid rgba(167,139,250,0.3);" title="Hạng mục của ${esc(cat.partnerEmail)}">🤝 ${esc(cat.partnerEmail)}</span>`;
+              }
+
+              if (editingCategoryId === cat.id && isOwned) {
                 return `
                   <div class="cat-manager-row cat-editing-row" style="background:rgba(217,119,6,0.12); border:1px solid var(--accent); padding:10px 14px; border-radius:8px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
                     <span class="cat-index-badge">#${idx + 1}</span>
@@ -259,12 +278,22 @@ window.initAdminPricing = (() => {
                     <strong class="cat-name-display">${esc(cat.name)}</strong>
                     <code class="cat-id-code">[${esc(cat.id)}]</code>
                     <span class="status-badge" style="background:#26181b; font-size:10px;">${count} sản phẩm</span>
+                    ${ownerBadge}
                   </div>
                   <div class="cat-row-actions">
-                    <button type="button" class="button secondary btn-xs" data-cat-edit="${esc(cat.id)}" title="Sửa tên hoặc icon hạng mục">✏️ Sửa</button>
-                    <button type="button" class="button secondary btn-xs" data-cat-up="${esc(cat.id)}" ${idx === 0 ? "disabled" : ""} title="Đưa lên trên">▲ Lên</button>
-                    <button type="button" class="button secondary btn-xs" data-cat-down="${esc(cat.id)}" ${idx === categoriesList.length - 1 ? "disabled" : ""} title="Đưa xuống dưới">▼ Xuống</button>
-                    <button type="button" class="button secondary btn-xs btn-danger" data-cat-delete="${esc(cat.id)}" ${count > 0 ? 'disabled title="Còn sản phẩm thuộc hạng mục này, không thể xóa"' : 'title="Xóa hạng mục này"'}>✕ Xóa</button>
+                    ${isOwned
+                      ? `<button type="button" class="button secondary btn-xs" data-cat-edit="${esc(cat.id)}" title="Sửa tên hoặc icon hạng mục của bạn">✏️ Sửa</button>`
+                      : `<button type="button" class="button secondary btn-xs" disabled title="Hạng mục cũ / hệ thống - Đối tác không thể chỉnh sửa" style="opacity:0.45; cursor:not-allowed;">🔒 Khóa</button>`
+                    }
+                    ${!isPartner
+                      ? `<button type="button" class="button secondary btn-xs" data-cat-up="${esc(cat.id)}" ${idx === 0 ? "disabled" : ""} title="Đưa lên trên">▲ Lên</button>
+                         <button type="button" class="button secondary btn-xs" data-cat-down="${esc(cat.id)}" ${idx === categoriesList.length - 1 ? "disabled" : ""} title="Đưa xuống dưới">▼ Xuống</button>`
+                      : ""
+                    }
+                    ${isOwned
+                      ? `<button type="button" class="button secondary btn-xs btn-danger" data-cat-delete="${esc(cat.id)}" ${count > 0 ? 'disabled title="Còn sản phẩm thuộc hạng mục này, không thể xóa"' : 'title="Xóa hạng mục của bạn"'}>✕ Xóa</button>`
+                      : `<button type="button" class="button secondary btn-xs btn-danger" disabled title="Hạng mục cũ / hệ thống - Đối tác không thể xóa" style="opacity:0.4; cursor:not-allowed;">🔒 Khóa</button>`
+                    }
                   </div>
                 </div>
               `;
@@ -1378,8 +1407,13 @@ window.initAdminPricing = (() => {
         if (!catId) catId = "cat-" + Date.now();
         const catIcon = data.get("catIcon") || "box";
         if (categoriesList.some(c => c.id === catId)) throw new Error(`Mã hạng mục "${catId}" đã tồn tại.`);
-        categoriesList.push({ id: catId, name: catName, icon: catIcon });
-        await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+        const newCat = { id: catId, name: catName, icon: catIcon };
+        if (currentUser && currentUser.role === "partner") {
+          newCat.partnerEmail = currentUser.email.toLowerCase();
+        }
+        categoriesList.push(newCat);
+        const res = await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+        if (res && res.categories) categoriesList = res.categories;
         notify(`Đã thêm hạng mục "${catName}"!`);
         openCategoriesManager();
       } else if (form.id === "partner-create-form") {
@@ -1403,8 +1437,13 @@ window.initAdminPricing = (() => {
           const newIcon = data.get("newCategoryIcon") || "box";
           const newId = slugify(newName) || "cat-" + Date.now();
           if (!categoriesList.some(c => c.id === newId)) {
-            categoriesList.push({ id: newId, name: newName, icon: newIcon });
-            await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+            const newCat = { id: newId, name: newName, icon: newIcon };
+            if (currentUser && currentUser.role === "partner") {
+              newCat.partnerEmail = currentUser.email.toLowerCase();
+            }
+            categoriesList.push(newCat);
+            const res = await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+            if (res && res.categories) categoriesList = res.categories;
           }
           category = newId;
         }
@@ -1433,8 +1472,13 @@ window.initAdminPricing = (() => {
           const newIcon = data.get("newCategoryIcon") || "box";
           const newId = slugify(newName) || "cat-" + Date.now();
           if (!categoriesList.some(c => c.id === newId)) {
-            categoriesList.push({ id: newId, name: newName, icon: newIcon });
-            await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+            const newCat = { id: newId, name: newName, icon: newIcon };
+            if (currentUser && currentUser.role === "partner") {
+              newCat.partnerEmail = currentUser.email.toLowerCase();
+            }
+            categoriesList.push(newCat);
+            const res = await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+            if (res && res.categories) categoriesList = res.categories;
           }
           category = newId;
         }
@@ -1781,7 +1825,16 @@ window.initAdminPricing = (() => {
           }
         }
         if (button.dataset.catEdit) {
-          editingCategoryId = button.dataset.catEdit;
+          const cId = button.dataset.catEdit;
+          const targetCat = categoriesList.find(c => c.id === cId);
+          if (currentUser?.role === "partner" && targetCat) {
+            const isOwned = targetCat.partnerEmail && targetCat.partnerEmail.toLowerCase() === currentUser.email.toLowerCase();
+            if (!isOwned) {
+              notify("Bạn chỉ có quyền sửa hạng mục do chính mình tạo.");
+              return;
+            }
+          }
+          editingCategoryId = cId;
           openCategoriesManager();
         }
         if (button.hasAttribute("data-cat-cancel")) {
@@ -1800,11 +1853,19 @@ window.initAdminPricing = (() => {
           const newIcon = iconSelect ? iconSelect.value : "box";
           const cat = categoriesList.find(c => c.id === cId);
           if (cat) {
+            if (currentUser?.role === "partner") {
+              const isOwned = cat.partnerEmail && cat.partnerEmail.toLowerCase() === currentUser.email.toLowerCase();
+              if (!isOwned) {
+                notify("Bạn chỉ có quyền sửa hạng mục do chính mình tạo.");
+                return;
+              }
+            }
             cat.name = newName;
             cat.icon = newIcon;
             button.disabled = true;
             try {
-              await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+              const res = await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+              if (res && res.categories) categoriesList = res.categories;
               notify(`Đã cập nhật hạng mục "${newName}"!`);
               editingCategoryId = null;
               openCategoriesManager();
@@ -1825,7 +1886,8 @@ window.initAdminPricing = (() => {
           if (idx > 0) {
             const item = categoriesList.splice(idx, 1)[0];
             categoriesList.splice(idx - 1, 0, item);
-            await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+            const res = await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+            if (res && res.categories) categoriesList = res.categories;
             notify("Đã cập nhật thứ tự hạng mục.");
             openCategoriesManager();
           }
@@ -1836,18 +1898,35 @@ window.initAdminPricing = (() => {
           if (idx >= 0 && idx < categoriesList.length - 1) {
             const item = categoriesList.splice(idx, 1)[0];
             categoriesList.splice(idx + 1, 0, item);
-            await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+            const res = await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
+            if (res && res.categories) categoriesList = res.categories;
             notify("Đã cập nhật thứ tự hạng mục.");
             openCategoriesManager();
           }
         }
         if (button.dataset.catDelete) {
           const cId = button.dataset.catDelete;
+          const cat = categoriesList.find(c => c.id === cId);
+          if (currentUser?.role === "partner" && cat) {
+            const isOwned = cat.partnerEmail && cat.partnerEmail.toLowerCase() === currentUser.email.toLowerCase();
+            if (!isOwned) {
+              notify("Bạn không có quyền xóa hạng mục mặc định hoặc của đối tác khác.");
+              return;
+            }
+          }
           if (!confirm("Bạn có chắc chắn muốn xóa hạng mục này?")) return;
-          categoriesList = categoriesList.filter(c => c.id !== cId);
-          await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
-          notify("Đã xóa hạng mục.");
-          openCategoriesManager();
+          button.disabled = true;
+          try {
+            const filteredList = categoriesList.filter(c => c.id !== cId);
+            const res = await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: filteredList }) });
+            if (res && res.categories) categoriesList = res.categories;
+            notify("Đã xóa hạng mục.");
+            openCategoriesManager();
+          } catch (err) {
+            notify(err.message);
+          } finally {
+            button.disabled = false;
+          }
         }
         if (button.hasAttribute("data-modal-close")) {
           $("#catalog-editor").replaceChildren();

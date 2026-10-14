@@ -292,22 +292,83 @@ export async function getCategories(db) {
   return saved;
 }
 
-export async function saveCategories(db, categories, now = Date.now()) {
+function normalizeNowCaller(now, caller) {
+  let effectiveNow = typeof now === "number" ? now : Date.now();
+  let effectiveCaller = caller;
+  if (now && typeof now === "object" && now.role) {
+    effectiveCaller = now;
+    effectiveNow = Date.now();
+  }
+  return { now: effectiveNow, caller: effectiveCaller };
+}
+
+export async function saveCategories(db, categories, now = Date.now(), caller = null) {
+  const { now: effectiveNow, caller: effectiveCaller } = normalizeNowCaller(now, caller);
   if (!Array.isArray(categories) || !categories.length) throw fail("Danh sách hạng mục không hợp lệ.");
+
+  const existing = await getCategories(db);
+  const existingMap = new Map(existing.map(c => [c.id, c]));
+
+  const isPartner = effectiveCaller?.role === "partner";
+  const partnerEmail = isPartner ? String(effectiveCaller.email || "").trim().toLowerCase() : null;
+
+  // Đối tác không được phép xóa hạng mục mặc định của hệ thống hoặc của đối tác khác
+  if (isPartner) {
+    const incomingIds = new Set(
+      categories.map((c, idx) => slugify(c.id || c.name) || `cat-${idx + 1}`)
+    );
+    for (const oldCat of existing) {
+      const isOwned = oldCat.partnerEmail && String(oldCat.partnerEmail).trim().toLowerCase() === partnerEmail;
+      if (!isOwned && !incomingIds.has(oldCat.id)) {
+        throw fail("Bạn không có quyền xóa hạng mục mặc định hoặc của đối tác khác.", 403);
+      }
+    }
+  }
+
   const cleaned = categories.map((cat, idx) => {
     const id = slugify(cat.id || cat.name) || `cat-${idx + 1}`;
-    const name = String(cat.name || id).trim().slice(0, 50);
-    const icon = String(cat.icon || "box").trim().slice(0, 30);
-    return { id, name, icon };
+    let name = String(cat.name || id).trim().slice(0, 50);
+    let icon = String(cat.icon || "box").trim().slice(0, 30);
+    const oldCat = existingMap.get(id);
+
+    let catPartnerEmail = null;
+    if (oldCat) {
+      catPartnerEmail = oldCat.partnerEmail || null;
+      if (isPartner) {
+        const isOwned = oldCat.partnerEmail && String(oldCat.partnerEmail).trim().toLowerCase() === partnerEmail;
+        // Đối tác không được phép sửa tên hoặc icon của hạng mục mặc định/đối tác khác
+        if (!isOwned) {
+          name = oldCat.name;
+          icon = oldCat.icon;
+        }
+      } else if (cat.partnerEmail !== undefined) {
+        catPartnerEmail = cat.partnerEmail ? String(cat.partnerEmail).trim().toLowerCase() : null;
+      }
+    } else {
+      // Hạng mục mới tạo
+      if (isPartner) {
+        catPartnerEmail = partnerEmail;
+      } else if (cat.partnerEmail) {
+        catPartnerEmail = String(cat.partnerEmail).trim().toLowerCase();
+      }
+    }
+
+    const item = { id, name, icon };
+    if (catPartnerEmail) {
+      item.partnerEmail = catPartnerEmail;
+    }
+    return item;
   });
+
   const seen = new Set();
   for (const c of cleaned) {
     if (seen.has(c.id)) throw fail(`Mã hạng mục "${c.id}" bị trùng lặp.`);
     seen.add(c.id);
   }
+
   await db.prepare(`INSERT INTO catalog_item_overrides (item_key, data_json, updated_at) VALUES (?, ?, ?)
     ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`)
-    .run("system:catalog_categories", JSON.stringify(cleaned), now);
+    .run("system:catalog_categories", JSON.stringify(cleaned), effectiveNow);
   return cleaned;
 }
 
@@ -326,16 +387,6 @@ async function assertProductOwner(db, productId, caller) {
   if (!custom || String(custom.partner_email || "").toLowerCase() !== caller.email.toLowerCase()) {
     throw fail("Bạn chỉ có quyền quản lý dịch vụ / mặt hàng của chính mình.", 403);
   }
-}
-
-function normalizeNowCaller(now, caller) {
-  let effectiveNow = typeof now === "number" ? now : Date.now();
-  let effectiveCaller = caller;
-  if (now && typeof now === "object" && now.role) {
-    effectiveCaller = now;
-    effectiveNow = Date.now();
-  }
-  return { now: effectiveNow, caller: effectiveCaller };
 }
 
 export async function createCustomProduct(db, body, now = Date.now(), partnerEmail = null, caller = null) {

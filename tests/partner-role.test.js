@@ -173,6 +173,80 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
     assert.equal(goodEditRes.status, 200);
 
     // -------------------------------------------------------------
+    // 5.1. Quản lý hạng mục: Đối tác chỉ được tạo & xóa hạng mục của chính mình
+    // -------------------------------------------------------------
+    const getPricingRes = await fetch(origin + "/api/admin/pricing", { headers: partnerHeaders });
+    assert.equal(getPricingRes.status, 200);
+    const initialCats = (await getPricingRes.json()).categories;
+    assert.equal(initialCats.length, 5); // 5 hạng mục mặc định
+
+    // A. Đối tác tạo hạng mục mới riêng của họ
+    const addCatRes = await fetch(origin + "/api/admin/categories", {
+      method: "PUT",
+      headers: partnerHeaders,
+      body: JSON.stringify({
+        categories: [
+          ...initialCats,
+          { id: "custom-ptn-cat", name: "Dịch Vụ Riêng", icon: "sparkles" },
+        ],
+      }),
+    });
+    assert.equal(addCatRes.status, 200);
+    const addedCats = (await addCatRes.json()).categories;
+    const partnerCat = addedCats.find(c => c.id === "custom-ptn-cat");
+    assert(partnerCat, "Hạng mục của đối tác phải được thêm");
+    assert.equal(partnerCat.partnerEmail, "doitac@gmail.com", "Hạng mục mới được tự động gắn partnerEmail");
+
+    // B. Đối tác cố tình xóa hạng mục mặc định của hệ thống -> Bị chặn 403
+    const badDeleteCatRes = await fetch(origin + "/api/admin/categories", {
+      method: "PUT",
+      headers: partnerHeaders,
+      body: JSON.stringify({
+        categories: addedCats.filter(c => c.id !== "discord"),
+      }),
+    });
+    assert.equal(badDeleteCatRes.status, 403, "Đối tác không được xóa hạng mục mặc định của hệ thống");
+    const badDeleteErr = await badDeleteCatRes.json();
+    assert.match(badDeleteErr.error, /không có quyền xóa hạng mục mặc định/i);
+
+    // C. Đối tác cố tình đổi tên hạng mục mặc định của hệ thống -> Hệ thống giữ nguyên giá trị gốc
+    const tamperCatRes = await fetch(origin + "/api/admin/categories", {
+      method: "PUT",
+      headers: partnerHeaders,
+      body: JSON.stringify({
+        categories: addedCats.map(c => c.id === "discord" ? { ...c, name: "Hacked Discord Name" } : c),
+      }),
+    });
+    assert.equal(tamperCatRes.status, 200);
+    const preservedCats = (await tamperCatRes.json()).categories;
+    assert.equal(preservedCats.find(c => c.id === "discord").name, "Discord", "Tên hạng mục mặc định được bảo vệ không bị đối tác sửa");
+
+    // D. Đối tác sửa hạng mục của chính mình -> Thành công
+    const editOwnCatRes = await fetch(origin + "/api/admin/categories", {
+      method: "PUT",
+      headers: partnerHeaders,
+      body: JSON.stringify({
+        categories: addedCats.map(c => c.id === "custom-ptn-cat" ? { ...c, name: "Dịch Vụ Riêng VIP", icon: "box" } : c),
+      }),
+    });
+    assert.equal(editOwnCatRes.status, 200);
+    const editedCats = (await editOwnCatRes.json()).categories;
+    assert.equal(editedCats.find(c => c.id === "custom-ptn-cat").name, "Dịch Vụ Riêng VIP");
+
+    // E. Đối tác xóa hạng mục của chính mình -> Thành công
+    const deleteOwnCatRes = await fetch(origin + "/api/admin/categories", {
+      method: "PUT",
+      headers: partnerHeaders,
+      body: JSON.stringify({
+        categories: editedCats.filter(c => c.id !== "custom-ptn-cat"),
+      }),
+    });
+    assert.equal(deleteOwnCatRes.status, 200);
+    const remainingCats = (await deleteOwnCatRes.json()).categories;
+    assert(!remainingCats.some(c => c.id === "custom-ptn-cat"), "Hạng mục của đối tác đã được xóa");
+    assert.equal(remainingCats.length, 5, "5 hạng mục mặc định vẫn còn nguyên");
+
+    // -------------------------------------------------------------
     // 6. Cách ly đơn hàng và trả hàng (Fulfillment)
     // -------------------------------------------------------------
     // Tạo 1 đơn hàng cho sản phẩm của Admin (nitro)
