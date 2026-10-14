@@ -126,6 +126,7 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
         category: "design",
         badge: "PARTNER / DESIGN",
         description: "Thiết kế banner chất lượng cao theo yêu cầu.",
+        image: "https://i.imgur.com/partner-custom-banner.png",
         variants: [
           { name: "Gói Cơ Bản (1 Banner)", price: 50000, deliveryType: "gift" },
         ],
@@ -134,6 +135,7 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
     assert.equal(createProdRes.status, 201);
     const createdProd = (await createProdRes.json()).product;
     assert.equal(createdProd.partnerEmail, "doitac@gmail.com", "Sản phẩm tự động gắn partner_email");
+    assert.equal(createdProd.image, "https://i.imgur.com/partner-custom-banner.png", "Ảnh minh họa riêng của đối tác được lưu thành công");
 
     // Thêm variant cho sản phẩm của mình
     const addVarRes = await fetch(origin + `/api/admin/products/${createdProd.id}/variants`, {
@@ -161,16 +163,19 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
     });
     assert.equal(badDeleteRes.status, 403, "Đối tác bị chặn xóa sản phẩm của Master Admin");
 
-    // Đối tác sửa sản phẩm của chính mình -> thành công
+    // Đối tác sửa sản phẩm của chính mình và cập nhật ảnh minh họa mới -> thành công
     const goodEditRes = await fetch(origin + `/api/admin/products/${createdProd.id}`, {
       method: "PUT",
       headers: partnerHeaders,
       body: JSON.stringify({
         name: "Dịch Vụ Thiết Kế Banner Discord VIP",
         description: "Mô tả mới của đối tác.",
+        image: "https://i.imgur.com/partner-custom-banner-updated.png",
       }),
     });
     assert.equal(goodEditRes.status, 200);
+    const editedProd = (await goodEditRes.json()).product;
+    assert.equal(editedProd.image, "https://i.imgur.com/partner-custom-banner-updated.png", "Ảnh minh họa được cập nhật thành công");
 
     // -------------------------------------------------------------
     // 5.1. Quản lý hạng mục: Đối tác chỉ được tạo & xóa hạng mục của chính mình

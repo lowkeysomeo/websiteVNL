@@ -469,6 +469,7 @@ window.initAdminPricing = (() => {
                 <div>
                   <div class="product-title-row">
                     ${!isPartner ? `<span class="product-pos-badge" title="Thứ tự vị trí hiển thị trên cửa hàng">#${globalIdx + 1}</span>` : ""}
+                    <img src="${esc(p.image || 'assets/nitro.svg')}" style="width:24px; height:24px; object-fit:contain; border-radius:4px; vertical-align:middle; background:#11080a; border:1px solid #382428;" alt="" />
                     <h3>${esc(p.name)}</h3>
                     <span class="product-category-chip">${esc(getCategoryDisplayName(p.category))}</span>
                     ${p.partnerEmail ? `<span class="product-partner-badge" title="Mặt hàng do đối tác quản lý">🤝 ${esc(p.partnerEmail)}</span>` : ""}
@@ -848,9 +849,21 @@ window.initAdminPricing = (() => {
 
   function openProductEditor(productId = null) {
     const isPartner = currentUser.role === "partner";
+    const standardImages = [
+      { value: "assets/nitro.svg", label: "Biểu tượng Nitro (Sấm sét)" },
+      { value: "assets/youtube.svg", label: "Biểu tượng YouTube / Video" },
+      { value: "assets/netflix.svg", label: "Biểu tượng Phim ảnh / Rạp chiếu" },
+      { value: "assets/capcut.svg", label: "Biểu tượng Biên tập / Sáng tạo" },
+      { value: "assets/decor.svg", label: "Biểu tượng Decor / Khung avatar" },
+      { value: "assets/boost.svg", label: "Biểu tượng Boost Server" },
+      { value: "assets/server.svg", label: "Biểu tượng Server Discord" },
+      { value: "assets/bot.svg", label: "Biểu tượng Custom Bot" },
+    ];
     if (productId) {
       const p = products.find(x => x.id === productId);
       if (!p) return;
+      const isCustomImg = Boolean(p.image && !standardImages.some(img => img.value === p.image));
+      const selectedImgPreset = isCustomImg ? "__custom__" : (p.image || "assets/nitro.svg");
       $("#catalog-editor").innerHTML = `<form id="product-edit-form" class="pricing-card promotion-form" data-product-id="${p.id}">
         <div class="promotion-title"><h3>✏️ Chỉnh sửa mặt hàng: ${esc(p.name)}</h3><button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button></div>
         <div class="pricing-form-grid">
@@ -894,16 +907,39 @@ window.initAdminPricing = (() => {
           <div style="font-size:11px; color:#60a5fa; grid-column:1 / -1;">🤝 Mặt hàng này thuộc quyền quản lý của bạn (<b>${esc(currentUser.email)}</b>).</div>
           `}
           <label>Huy hiệu / Badge (Góc ảnh)<input name="badge" maxlength="50" placeholder="Ví dụ: DISCORD / NITRO BOOST" value="${esc(p.badge || "")}"></label>
-          <label>Ảnh minh họa (Icon)<select name="image">
-            <option value="assets/nitro.svg" ${p.image === "assets/nitro.svg" ? "selected" : ""}>Biểu tượng Nitro (Sấm sét)</option>
-            <option value="assets/youtube.svg" ${p.image === "assets/youtube.svg" ? "selected" : ""}>Biểu tượng YouTube / Video</option>
-            <option value="assets/netflix.svg" ${p.image === "assets/netflix.svg" ? "selected" : ""}>Biểu tượng Phim ảnh / Rạp chiếu</option>
-            <option value="assets/capcut.svg" ${p.image === "assets/capcut.svg" ? "selected" : ""}>Biểu tượng Biên tập / Sáng tạo</option>
-            <option value="assets/decor.svg" ${p.image === "assets/decor.svg" ? "selected" : ""}>Biểu tượng Decor / Khung avatar</option>
-            <option value="assets/boost.svg" ${p.image === "assets/boost.svg" ? "selected" : ""}>Biểu tượng Boost Server</option>
-            <option value="assets/server.svg" ${p.image === "assets/server.svg" ? "selected" : ""}>Biểu tượng Server Discord</option>
-            <option value="assets/bot.svg" ${p.image === "assets/bot.svg" ? "selected" : ""}>Biểu tượng Custom Bot</option>
-          </select></label>
+          <label>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span>Ảnh minh họa (Icon) *</span>
+              <span style="font-size:11px; color:var(--muted);">Có sẵn hoặc tự chỉnh ảnh riêng</span>
+            </div>
+            <select name="imagePreset" id="product-image-select">
+              ${standardImages.map(img => `<option value="${img.value}" ${!isCustomImg && selectedImgPreset === img.value ? "selected" : ""}>${img.label}</option>`).join("")}
+              <option value="__custom__" ${isCustomImg ? "selected" : ""}>✨ + Nhập link ảnh riêng / Tải ảnh lên...</option>
+            </select>
+          </label>
+          <div id="product-custom-image-wrap" style="${isCustomImg ? 'display:block;' : 'display:none;'} grid-column:1 / -1; margin-top:-4px; background:rgba(217,119,6,0.08); border:1px dashed var(--accent); padding:10px 14px; border-radius:8px;">
+            <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+              <div style="flex:1; min-width:220px;">
+                <label style="color:var(--accent); font-size:11px; font-weight:600; display:block; margin-bottom:4px;">
+                  🔗 LINK ẢNH MINH HỌA RIÊNG (URL) HOẶC TẢI ẢNH TỪ MÁY
+                </label>
+                <input id="product-custom-image-input" name="customImageUrl" placeholder="VD: https://i.imgur.com/... hoặc link ảnh bất kỳ" value="${isCustomImg ? esc(p.image) : ""}" style="width:100%; padding:7px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px;" />
+                <div style="margin-top:8px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                  <label class="button secondary btn-xs" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:5px;">
+                    📁 Tải ảnh từ máy
+                    <input type="file" id="product-image-file-input" accept="image/*" style="display:none;" />
+                  </label>
+                  <span style="font-size:11px; color:var(--muted);">Hỗ trợ PNG, JPG, WebP, SVG (Tự động nén tối ưu)</span>
+                </div>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                <span style="font-size:10px; color:var(--muted); font-weight:600;">XEM TRƯỚC</span>
+                <div style="width:64px; height:64px; border-radius:8px; border:1px solid var(--line); background:#150a0d; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                  <img id="product-image-live-preview" src="${esc(p.image || 'assets/nitro.svg')}" style="max-width:100%; max-height:100%; object-fit:contain;" alt="Preview" onerror="this.src='assets/nitro.svg'" />
+                </div>
+              </div>
+            </div>
+          </div>
           <label style="grid-column: 1 / -1;">Mô tả ngắn *<input name="description" required maxlength="300" value="${esc(p.description || "")}"></label>
         </div>
         <p class="pricing-form-message" role="status"></p>
@@ -956,16 +992,39 @@ window.initAdminPricing = (() => {
         <div style="font-size:11px; color:#60a5fa; grid-column:1 / -1;">🤝 Mặt hàng này sẽ được đăng bán dưới thương hiệu đối tác của bạn (<b>${esc(currentUser.email)}</b>).</div>
         `}
         <label>Huy hiệu / Badge (Góc ảnh)<input name="badge" maxlength="50" placeholder="Ví dụ: MUSIC / VIP, DESIGN / PRO..."></label>
-        <label>Ảnh minh họa (Icon)<select name="image">
-          <option value="assets/nitro.svg">Biểu tượng Nitro (Sấm sét)</option>
-          <option value="assets/youtube.svg">Biểu tượng YouTube / Video</option>
-          <option value="assets/netflix.svg">Biểu tượng Phim ảnh / Rạp chiếu</option>
-          <option value="assets/capcut.svg">Biểu tượng Biên tập / Sáng tạo</option>
-          <option value="assets/decor.svg">Biểu tượng Decor / Khung avatar</option>
-          <option value="assets/boost.svg">Biểu tượng Boost Server</option>
-          <option value="assets/server.svg">Biểu tượng Server Discord</option>
-          <option value="assets/bot.svg">Biểu tượng Custom Bot</option>
-        </select></label>
+        <label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Ảnh minh họa (Icon) *</span>
+            <span style="font-size:11px; color:var(--muted);">Có sẵn hoặc tự chỉnh ảnh riêng</span>
+          </div>
+          <select name="imagePreset" id="product-image-select">
+            ${standardImages.map(img => `<option value="${img.value}">${img.label}</option>`).join("")}
+            <option value="__custom__">✨ + Nhập link ảnh riêng / Tải ảnh lên...</option>
+          </select>
+        </label>
+        <div id="product-custom-image-wrap" style="display:none; grid-column:1 / -1; margin-top:-4px; background:rgba(217,119,6,0.08); border:1px dashed var(--accent); padding:10px 14px; border-radius:8px;">
+          <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+            <div style="flex:1; min-width:220px;">
+              <label style="color:var(--accent); font-size:11px; font-weight:600; display:block; margin-bottom:4px;">
+                🔗 LINK ẢNH MINH HỌA RIÊNG (URL) HOẶC TẢI ẢNH TỪ MÁY
+              </label>
+              <input id="product-custom-image-input" name="customImageUrl" placeholder="VD: https://i.imgur.com/... hoặc link ảnh bất kỳ" style="width:100%; padding:7px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px;" />
+              <div style="margin-top:8px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <label class="button secondary btn-xs" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:5px;">
+                  📁 Tải ảnh từ máy
+                  <input type="file" id="product-image-file-input" accept="image/*" style="display:none;" />
+                </label>
+                <span style="font-size:11px; color:var(--muted);">Hỗ trợ PNG, JPG, WebP, SVG (Tự động nén tối ưu)</span>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+              <span style="font-size:10px; color:var(--muted); font-weight:600;">XEM TRƯỚC</span>
+              <div style="width:64px; height:64px; border-radius:8px; border:1px solid var(--line); background:#150a0d; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                <img id="product-image-live-preview" src="assets/nitro.svg" style="max-width:100%; max-height:100%; object-fit:contain;" alt="Preview" onerror="this.src='assets/nitro.svg'" />
+              </div>
+            </div>
+          </div>
+        </div>
         <label style="grid-column: 1 / -1;">Mô tả ngắn *<input name="description" required maxlength="300" placeholder="Mô tả quyền lợi và tính năng của mặt hàng..."></label>
       </div>
       <fieldset class="promotion-scope" style="margin-top: 18px;">
@@ -1449,7 +1508,13 @@ window.initAdminPricing = (() => {
         }
         const badge = data.get("badge").trim();
         const description = data.get("description").trim();
-        const image = data.get("image") || "assets/nitro.svg";
+        const imagePreset = (data.get("imagePreset") || "").trim() || "assets/nitro.svg";
+        let image = imagePreset;
+        if (imagePreset === "__custom__") {
+          const customUrl = (data.get("customImageUrl") || "").trim();
+          if (!customUrl) throw new Error("Vui lòng nhập link ảnh hoặc tải ảnh từ máy lên.");
+          image = customUrl;
+        }
         const partnerEmail = currentUser.role === "partner"
           ? currentUser.email
           : ((data.get("partnerEmail") || "").trim() || null);
@@ -1484,13 +1549,19 @@ window.initAdminPricing = (() => {
         }
         const badge = data.get("badge").trim();
         const description = data.get("description").trim();
-        const image = data.get("image") || "assets/nitro.svg";
+        const editImagePreset = (data.get("imagePreset") || "").trim() || "assets/nitro.svg";
+        let editImage = editImagePreset;
+        if (editImagePreset === "__custom__") {
+          const customUrl = (data.get("customImageUrl") || "").trim();
+          if (!customUrl) throw new Error("Vui lòng nhập link ảnh hoặc tải ảnh từ máy lên.");
+          editImage = customUrl;
+        }
         const partnerEmail = currentUser.role === "partner"
           ? currentUser.email
           : ((data.get("partnerEmail") || "").trim() || null);
         await api("/api/admin/products/" + productId, {
           method: "PUT",
-          body: JSON.stringify({ name, category, badge, description, image, partnerEmail }),
+          body: JSON.stringify({ name, category, badge, description, image: editImage, partnerEmail }),
         });
         notify("Đã cập nhật thông tin mặt hàng.");
         $("#catalog-editor").replaceChildren();
@@ -1587,8 +1658,59 @@ window.initAdminPricing = (() => {
           const wrap = document.querySelector("#new-cat-inline-wrap");
           if (wrap) wrap.style.display = event.target.value === "__custom__" ? "block" : "none";
         }
+        if (event.target.id === "product-image-select") {
+          const wrap = document.querySelector("#product-custom-image-wrap");
+          const preview = document.querySelector("#product-image-live-preview");
+          if (wrap) wrap.style.display = event.target.value === "__custom__" ? "block" : "none";
+          if (event.target.value !== "__custom__" && preview) {
+            preview.src = event.target.value;
+          } else if (preview) {
+            const customInput = document.querySelector("#product-custom-image-input");
+            preview.src = (customInput && customInput.value.trim()) || "assets/nitro.svg";
+          }
+        }
+        if (event.target.id === "product-image-file-input") {
+          const file = event.target.files && event.target.files[0];
+          if (!file) return;
+          const preview = document.querySelector("#product-image-live-preview");
+          const customInput = document.querySelector("#product-custom-image-input");
+          const reader = new FileReader();
+          reader.onload = (loadEvt) => {
+            const dataUrl = loadEvt.target.result;
+            if (file.type === "image/svg+xml") {
+              if (customInput) customInput.value = dataUrl;
+              if (preview) preview.src = dataUrl;
+              return;
+            }
+            const img = new Image();
+            img.onload = () => {
+              const maxDim = 320;
+              let w = img.width, h = img.height;
+              if (w > maxDim || h > maxDim) {
+                if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+                else { w = Math.round((w * maxDim) / h); h = maxDim; }
+              }
+              const canvas = document.createElement("canvas");
+              canvas.width = w;
+              canvas.height = h;
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(img, 0, 0, w, h);
+              const compressedUrl = canvas.toDataURL("image/webp", 0.85) || canvas.toDataURL("image/png");
+              if (customInput) customInput.value = compressedUrl;
+              if (preview) preview.src = compressedUrl;
+            };
+            img.src = dataUrl;
+          };
+          reader.readAsDataURL(file);
+        }
       });
       document.addEventListener("input", event => {
+        if (event.target.id === "product-custom-image-input") {
+          const preview = document.querySelector("#product-image-live-preview");
+          if (preview) {
+            preview.src = event.target.value.trim() || "assets/nitro.svg";
+          }
+        }
         if (event.target.id === "guide-video-input") {
           const box = document.querySelector("#guide-preview-video-box");
           if (box) {

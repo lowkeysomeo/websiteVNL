@@ -70,12 +70,12 @@ const types = {
   ".json": "application/json",
 };
 
-async function readBody(req) {
+async function readBody(req, limit = 1048576) {
   let length = 0;
   const chunks = [];
   for await (const chunk of req) {
     length += chunk.length;
-    if (length > 16384) throw fail(413, "Yêu cầu quá lớn.");
+    if (length > limit) throw fail(413, "Yêu cầu quá lớn.");
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);

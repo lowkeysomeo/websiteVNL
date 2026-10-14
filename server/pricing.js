@@ -406,7 +406,7 @@ export async function createCustomProduct(db, body, now = Date.now(), partnerEma
   const description = String(body.description || "").trim().slice(0, 500);
   const badge = String(body.badge || "").trim().slice(0, 50) || category.toUpperCase();
   const detail = String(body.detail || description).trim().slice(0, 2000);
-  const image = String(body.image || "").trim() || "assets/nitro.svg";
+  const image = String(body.image || "").trim().slice(0, 500000) || "assets/nitro.svg";
   const service = body.service ? 1 : 0;
   const assignedPartnerEmail = (
     effectiveCaller?.role === "partner"
@@ -499,7 +499,7 @@ export async function updateProduct(db, productId, body, now = Date.now(), calle
   const description = String(body.description || "").trim().slice(0, 500);
   const badge = String(body.badge || "").trim().slice(0, 50) || category.toUpperCase();
   const detail = String(body.detail || description).trim().slice(0, 2000);
-  const image = String(body.image || "").trim() || "assets/nitro.svg";
+  const image = String(body.image || "").trim().slice(0, 500000) || "assets/nitro.svg";
 
   const custom = await db.prepare("SELECT * FROM custom_products WHERE id = ?").get(productId);
   if (custom) {
