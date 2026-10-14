@@ -260,10 +260,11 @@ export function createApp(db, config) {
             url.searchParams.get("secret") ||
             url.searchParams.get("api_key") ||
             url.searchParams.get("access_token");
-          if (activeSecret) {
-            if (!verifyWebhook(req.headers, raw, activeSecret, Date.now(), queryToken))
-              throw fail(401, "Chữ ký hoặc API Key webhook không hợp lệ.");
-          }
+          // Chưa có khóa thì dừng nhận giao dịch, không bỏ qua bước xác thực.
+          if (!String(activeSecret || "").trim())
+            throw fail(503, "Chưa cấu hình khóa xác thực webhook.");
+          if (!verifyWebhook(req.headers, raw, activeSecret, Date.now(), queryToken))
+            throw fail(401, "Chữ ký hoặc API Key webhook không hợp lệ.");
           const payload = parse(raw);
           if (typeof payload.transferAmount === "string" && /^\d+$/.test(payload.transferAmount.trim())) {
             payload.transferAmount = Number(payload.transferAmount.trim());
@@ -271,10 +272,7 @@ export function createApp(db, config) {
           if (typeof payload.amount === "string" && /^\d+$/.test(payload.amount.trim())) {
             payload.amount = Number(payload.amount.trim());
           }
-          if (!payload.id || !/^\d{1,30}$/.test(String(payload.id).trim())) {
-            const digits = String(payload.id || payload.transaction_id || payload.referenceCode || "").replace(/\D/g, "");
-            payload.id = digits && digits.length <= 30 ? digits : String(Date.now());
-          }
+          // Giữ nguyên ID của SePay để lần gửi lại vẫn nhận ra giao dịch cũ.
           const result = await processTransfer(
             db,
             payload,

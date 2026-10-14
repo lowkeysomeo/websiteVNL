@@ -549,7 +549,8 @@ test("Tự động duyệt tiền nạp: VietinBank ICB alias, số tài khoản
         Authorization: `apikey ${testSecret}`,
       },
       body: JSON.stringify({
-        id: "FT24010192839210",
+        id: 24010192839210,
+        referenceCode: "FT24010192839210",
         gateway: "ICB",
         accountNumber: "9999-9957-3939",
         transferAmount: "100000",
@@ -575,7 +576,7 @@ test("Tự động duyệt tiền nạp: VietinBank ICB alias, số tài khoản
   }
 });
 
-test("Tự động duyệt tiền nạp khi server chưa cài webhookSecret (không bị chặn 401)", async () => {
+test("Không cộng tiền qua webhook khi chưa cấu hình khóa xác thực", async () => {
   const fixture = await createServerFixture();
   const { base, close } = fixture;
 
@@ -624,7 +625,7 @@ test("Tự động duyệt tiền nạp khi server chưa cài webhookSecret (kh�
     const depJson = await depRes.json();
     const depositCode = depJson.deposit.code;
 
-    // 3. Webhook gửi tới không có secret/auth header -> Vẫn nhận và duyệt thành công!
+    // Thiếu khóa xác thực: từ chối webhook và giữ nguyên số dư.
     const hookRes = await fetch(base + "/api/payments/webhook", {
       method: "POST",
       headers: {
@@ -639,16 +640,16 @@ test("Tự động duyệt tiền nạp khi server chưa cài webhookSecret (kh�
         transferType: "in",
       }),
     });
-    assert.equal(hookRes.status, 200);
+    assert.equal(hookRes.status, 503);
     const hookData = await hookRes.json();
-    assert.equal(hookData.success, true);
-    assert.equal(hookData.outcome, "credited");
+    assert.equal(hookData.success, false);
+    assert.equal((await fixture.db.prepare("SELECT COUNT(*) AS n FROM bank_events").get()).n, 0);
 
-    // 4. Kiểm tra ví khách hàng -> đã có 50.000₫
+    // Không thay đổi số dư khi chưa xác thực nguồn gửi.
     const walletRes = await fetch(base + "/api/wallet", {
       headers: { Cookie: cookie },
     });
-    assert.equal((await walletRes.json()).balance, 50000);
+    assert.equal((await walletRes.json()).balance, 0);
   } finally {
     await close();
   }
@@ -754,4 +755,31 @@ test("Admin có thể thu hồi tiền nạp đã lỡ duyệt nhầm (trừ ví
   } finally {
     await close();
   }
+});
+
+
+test("Cập nhật ngân hàng không truyền khóa vẫn giữ khóa webhook đã lưu", async () => {
+  const db = await openStore(":memory:");
+  const settings = { bankCode: "ICB", bankGateway: "VietinBank", accountNumber: "1234567890", accountName: "TEST", isActive: true };
+  try {
+    await saveBankSettings(db, { ...settings, webhookSecret: "test-secret-preserved-0000000000" });
+    await saveBankSettings(db, { ...settings, autoCredit: false });
+    assert.equal((await getBankSettings(db)).webhookSecret, "test-secret-preserved-0000000000");
+    await saveBankSettings(db, { ...settings, webhookSecret: "" });
+    assert.equal((await getBankSettings(db)).webhookSecret, "");
+  } finally { db.close(); }
+});
+
+test("Webhook không tự sinh ID khi thiếu hoặc sai ID giao dịch SePay", async () => {
+  const fixture = await createServerFixture();
+  const { db, base, close } = fixture;
+  const secret = "test-invalid-id-secret-000000000000";
+  try {
+    await saveBankSettings(db, { bankCode: "ICB", bankGateway: "VietinBank", accountNumber: "1234567890", accountName: "TEST", isActive: true, webhookSecret: secret });
+    for (const id of [undefined, "FT24010192839210", {}, "invalid"]) {
+      const res = await fetch(base + "/api/payments/webhook", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Apikey " + secret }, body: JSON.stringify({ id, transferAmount: 50000, gateway: "VietinBank", accountNumber: "1234567890", transferType: "in", content: "khong co ma" }) });
+      assert.equal(res.status, 400);
+    }
+    assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM bank_events").get()).n, 0);
+  } finally { await close(); }
 });

@@ -62,29 +62,15 @@ function normalizeBankIdentifier(val) {
 }
 
 export function isBankMatch(eventGateway, bankGateway, bankCode) {
-  if (!eventGateway || (!bankGateway && !bankCode)) return true;
-  const eg = normalizeBankIdentifier(eventGateway);
-  const bg = normalizeBankIdentifier(bankGateway);
-  const bc = normalizeBankIdentifier(bankCode);
+  const event = normalizeBankIdentifier(eventGateway);
+  const configured = [bankGateway, bankCode].map(normalizeBankIdentifier).filter(Boolean);
+  if (!event || !configured.length) return false;
+  if (configured.includes(event)) return true;
 
-  if (bg && (eg === bg || eg.includes(bg) || bg.includes(eg))) return true;
-  if (bc && (eg === bc || eg.includes(bc) || bc.includes(eg))) return true;
-
-  for (const entry of BANK_ALIASES) {
-    const eventMatches = entry.codes.some(
-      (c) => eg === c || eg.includes(c) || c.includes(eg),
-    );
-    if (eventMatches) {
-      const bankMatches = entry.codes.some(
-        (c) =>
-          (bg && (bg === c || bg.includes(c) || c.includes(bg))) ||
-          (bc && (bc === c || bc.includes(c) || c.includes(bc))),
-      );
-      if (bankMatches) return true;
-    }
-  }
-
-  return false;
+  // Chỉ đối chiếu tên/mã đầy đủ; không nhận một phần tên ngân hàng.
+  return BANK_ALIASES.some(({ codes }) =>
+    codes.includes(event) && configured.some(value => codes.includes(value)),
+  );
 }
 
 function extractDepositCode(event) {
@@ -169,27 +155,23 @@ export async function processTransfer(db, event, bank, now = Date.now(), autoCre
       ? await db.prepare("SELECT * FROM deposits WHERE code = ?").get(code)
       : null;
     let outcome = "unmatched";
-    const rawType = String(event.transferType || event.type || "in")
+    const rawType = String(event.transferType || event.type || "")
       .trim()
       .toLowerCase();
     const isOutgoing = ["out", "outgoing", "debit", "d", "-"].includes(rawType);
 
     const gatewayMatch = isBankMatch(event.gateway, bank.gateway, bank.code);
 
-    const cleanAcc = (s) => String(s || "").replace(/\D/g, "");
-    const eventAcc = cleanAcc(
-      event.accountNumber || event.account_number || event.subAccount,
-    );
+    const cleanAcc = (value) => {
+      const formatted = String(value || "").trim();
+      return /^[\d\s-]+$/.test(formatted) ? formatted.replace(/[\s-]/g, "") : "";
+    };
+    const eventAcc = cleanAcc(event.accountNumber || event.account_number);
     const bankAcc = cleanAcc(bank.accountNumber);
-    const accMatch =
-      !bankAcc ||
-      !eventAcc ||
-      eventAcc === bankAcc ||
-      (eventAcc.length >= 6 &&
-        bankAcc.length >= 6 &&
-        (eventAcc.endsWith(bankAcc) || bankAcc.endsWith(eventAcc)));
+    const accMatch = Boolean(eventAcc && bankAcc && eventAcc === bankAcc);
 
     if (isOutgoing) outcome = "outgoing";
+    else if (!["in", "incoming", "credit"].includes(rawType)) outcome = "invalid_direction";
     else if (!accMatch || !gatewayMatch)
       outcome = "wrong_account";
     else if (deposit) {
@@ -671,12 +653,12 @@ export async function saveBankSettings(db, data = {}, now = Date.now()) {
          bank_gateway = excluded.bank_gateway,
          account_number = excluded.account_number,
          account_name = excluded.account_name,
-         webhook_secret = COALESCE(excluded.webhook_secret, payment_settings.webhook_secret),
+         webhook_secret = CASE WHEN ? THEN excluded.webhook_secret ELSE payment_settings.webhook_secret END,
          auto_credit = excluded.auto_credit,
          is_active = excluded.is_active,
          updated_at = excluded.updated_at`,
     )
-    .run(bankCode, bankGateway, accountNumber, accountName, webhookSecret ?? "", autoCredit, isActive, now);
+    .run(bankCode, bankGateway, accountNumber, accountName, webhookSecret ?? "", autoCredit, isActive, now, webhookSecret !== null ? 1 : 0);
 
   const currentSettings = await getBankSettings(db);
   return currentSettings;
