@@ -1116,6 +1116,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           "products.js",
           "app.js",
           "hero3d.js",
+          "bg3d.js",
           "cursor.js",
           "intro.js",
           "wallet.js",

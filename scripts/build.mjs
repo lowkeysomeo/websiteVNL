@@ -10,6 +10,7 @@ const files = [
   "products.js",
   "app.js",
   "hero3d.js",
+  "bg3d.js",
   "cursor.js",
   "intro.js",
   "local-entry.js",
