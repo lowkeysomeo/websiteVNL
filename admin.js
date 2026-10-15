@@ -172,8 +172,14 @@
       if (ordersBtn) ordersBtn.textContent = "📦 Đơn hàng của tôi";
       if (pricesBtn) pricesBtn.textContent = "🏷️ Dịch vụ của tôi";
       if (depositsBtn) depositsBtn.hidden = true;
-      if (campaignsBtn) campaignsBtn.hidden = true;
-      if (couponsBtn) couponsBtn.hidden = true;
+      if (campaignsBtn) {
+        campaignsBtn.hidden = false;
+        campaignsBtn.textContent = "⚡ Đợt giảm giá của tôi";
+      }
+      if (couponsBtn) {
+        couponsBtn.hidden = false;
+        couponsBtn.textContent = "🎟️ Mã giảm giá của tôi";
+      }
       if (guideBtn) guideBtn.hidden = true;
       if (contactsBtn) contactsBtn.hidden = true;
       if (partnersBtn) partnersBtn.hidden = true;

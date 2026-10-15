@@ -9,22 +9,48 @@ const integer = (value, min, max, label) => {
 const optionalInteger = (value, max, label) => value == null ? null : integer(value, 1, max, label);
 const mapRule = (row) => ({ ...JSON.parse(row.rules_json), id: row.id, kind: row.kind, code: row.code, updatedAt: row.updated_at });
 
-export async function listPromotions(db, now = Date.now()) {
+export async function listPromotions(db, now = Date.now(), partnerEmail = null) {
+  let effectiveNow = typeof now === "number" ? now : Date.now();
+  let effectiveEmail = partnerEmail;
+  if (now && typeof now === "string") {
+    effectiveEmail = now;
+    effectiveNow = Date.now();
+  } else if (now && typeof now === "object" && now.role) {
+    effectiveEmail = now.role === "partner" ? now.email : null;
+    effectiveNow = Date.now();
+  }
   const rows = await db.prepare(`SELECT p.*, (SELECT COUNT(*) FROM order_pricing op JOIN orders o ON o.id = op.order_id
     WHERE op.coupon_id = p.id AND o.status != 'cancelled') AS used FROM promotions p ORDER BY p.updated_at DESC, p.id`).all();
-  return rows.map(row => {
+  const list = rows.map(row => {
     const rule = mapRule(row);
-    const status = !rule.enabled ? "disabled" : rule.endsAt != null && now >= rule.endsAt ? "expired"
-      : rule.startsAt != null && now < rule.startsAt ? "scheduled"
+    const status = !rule.enabled ? "disabled" : rule.endsAt != null && effectiveNow >= rule.endsAt ? "expired"
+      : rule.startsAt != null && effectiveNow < rule.startsAt ? "scheduled"
       : rule.usageLimit != null && row.used >= rule.usageLimit ? "exhausted" : "active";
     return { ...rule, used: row.used, status };
   });
+  if (effectiveEmail) {
+    const lower = String(effectiveEmail).trim().toLowerCase();
+    return list.filter(p => p.partnerEmail && String(p.partnerEmail).trim().toLowerCase() === lower);
+  }
+  return list;
 }
 
-export async function savePromotion(db, body, id = null, now = Date.now()) {
+export async function savePromotion(db, body, id = null, now = Date.now(), caller = null) {
+  const { now: effectiveNow, caller: effectiveCaller } = normalizeNowCaller(now, caller);
   const old = id ? await db.prepare("SELECT * FROM promotions WHERE id = ?").get(id) : null;
   if (id && !old) throw fail("Không tìm thấy ưu đãi.", 404);
   if (!["campaign", "coupon"].includes(body.kind) || (old && old.kind !== body.kind)) throw fail("Loại ưu đãi không hợp lệ.");
+  const oldRule = old ? mapRule(old) : null;
+
+  const isPartner = effectiveCaller?.role === "partner";
+  const partnerEmail = isPartner ? String(effectiveCaller.email || "").trim().toLowerCase() : null;
+
+  if (isPartner && oldRule) {
+    if (!oldRule.partnerEmail || String(oldRule.partnerEmail).trim().toLowerCase() !== partnerEmail) {
+      throw fail("Bạn chỉ có quyền quản lý ưu đãi của chính mình.", 403);
+    }
+  }
+
   const name = String(body.name || "").trim();
   if (!name || name.length > 100) throw fail("Tên ưu đãi cần từ 1 đến 100 ký tự.");
   const code = body.kind === "coupon" ? String(body.code || "").trim().toUpperCase() : null;
@@ -34,7 +60,36 @@ export async function savePromotion(db, body, id = null, now = Date.now()) {
   const startsAt = optionalInteger(body.startsAt, 8640000000000000, "Ngày bắt đầu");
   const endsAt = optionalInteger(body.endsAt, 8640000000000000, "Ngày kết thúc");
   if (endsAt != null && startsAt != null && endsAt <= startsAt) throw fail("Ngày kết thúc phải sau ngày bắt đầu.");
-  if (!Array.isArray(body.productIds) || body.productIds.length > products.length || body.productIds.some(id => !products.some(p => p.id === id && !p.service))) throw fail("Danh sách sản phẩm không hợp lệ.");
+
+  const catalog = await getCatalog(db, effectiveNow, true);
+  if (!Array.isArray(body.productIds)) throw fail("Danh sách sản phẩm không hợp lệ.");
+
+  if (isPartner) {
+    if (body.productIds.length === 0) {
+      throw fail("Vui lòng chọn ít nhất 1 sản phẩm của bạn để áp dụng ưu đãi.");
+    }
+    for (const pid of body.productIds) {
+      const prod = catalog.find(p => p.id === pid && !p.service);
+      if (!prod || !prod.partnerEmail || String(prod.partnerEmail).trim().toLowerCase() !== partnerEmail) {
+        throw fail("Danh sách sản phẩm không hợp lệ hoặc chứa sản phẩm không thuộc quyền quản lý của bạn.", 403);
+      }
+    }
+  } else {
+    for (const pid of body.productIds) {
+      const prod = catalog.find(p => p.id === pid && !p.service);
+      if (!prod) throw fail("Danh sách sản phẩm không hợp lệ.");
+    }
+  }
+
+  let assignedPartnerEmail = null;
+  if (isPartner) {
+    assignedPartnerEmail = partnerEmail;
+  } else if (oldRule?.partnerEmail) {
+    assignedPartnerEmail = oldRule.partnerEmail;
+  } else if (body.partnerEmail) {
+    assignedPartnerEmail = String(body.partnerEmail).trim().toLowerCase();
+  }
+
   const isCoupon = body.kind === "coupon";
   if (isCoupon && typeof body.stackWithSale !== "boolean") throw fail("Vui lòng chọn cách kết hợp với đợt giảm giá.");
   const rule = {
@@ -45,6 +100,7 @@ export async function savePromotion(db, body, id = null, now = Date.now()) {
     usageLimit: isCoupon ? optionalInteger(body.usageLimit, 1000000, "Tổng lượt sử dụng") : null,
     perUserLimit: isCoupon ? optionalInteger(body.perUserLimit, 1000000, "Lượt dùng mỗi khách") : null,
     stackWithSale: isCoupon ? body.stackWithSale : true,
+    ...(assignedPartnerEmail ? { partnerEmail: assignedPartnerEmail } : {}),
   };
   if (code) {
     const existing = await db.prepare("SELECT id FROM promotions WHERE code = ? AND id != ?").get(code, id || "");
@@ -53,16 +109,42 @@ export async function savePromotion(db, body, id = null, now = Date.now()) {
   id ||= randomUUID();
   await db.prepare(`INSERT INTO promotions (id, kind, code, rules_json, updated_at) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET code = excluded.code, rules_json = excluded.rules_json, updated_at = excluded.updated_at`)
-    .run(id, body.kind, code, JSON.stringify(rule), now);
-  const allPromos = await listPromotions(db, now);
+    .run(id, body.kind, code, JSON.stringify(rule), effectiveNow);
+  const allPromos = await listPromotions(db, effectiveNow);
   return allPromos.find(p => p.id === id);
 }
 
-export async function setPromotionEnabled(db, id, enabled) {
+export async function setPromotionEnabled(db, id, enabled, now = Date.now(), caller = null) {
+  const { now: effectiveNow, caller: effectiveCaller } = normalizeNowCaller(now, caller);
   if (typeof enabled !== "boolean") throw fail("Trạng thái không hợp lệ.");
   const row = await db.prepare("SELECT * FROM promotions WHERE id = ?").get(id);
   if (!row) throw fail("Không tìm thấy ưu đãi.", 404);
-  return await savePromotion(db, { ...mapRule(row), enabled }, id);
+  const rule = mapRule(row);
+  if (effectiveCaller?.role === "partner") {
+    const partnerEmail = String(effectiveCaller.email || "").trim().toLowerCase();
+    if (!rule.partnerEmail || String(rule.partnerEmail).trim().toLowerCase() !== partnerEmail) {
+      throw fail("Bạn chỉ có quyền quản lý ưu đãi của chính mình.", 403);
+    }
+  }
+  return await savePromotion(db, { ...rule, enabled }, id, effectiveNow, effectiveCaller);
+}
+
+export async function deletePromotion(db, id, caller = null) {
+  const row = await db.prepare("SELECT * FROM promotions WHERE id = ?").get(id);
+  if (!row) throw fail("Không tìm thấy ưu đãi.", 404);
+  const rule = mapRule(row);
+  if (caller?.role === "partner") {
+    const partnerEmail = String(caller.email || "").trim().toLowerCase();
+    if (!rule.partnerEmail || String(rule.partnerEmail).trim().toLowerCase() !== partnerEmail) {
+      throw fail("Bạn chỉ có quyền xóa ưu đãi của chính mình.", 403);
+    }
+  }
+  const usedCount = await db.prepare("SELECT COUNT(*) AS count FROM order_pricing WHERE coupon_id = ?").get(id);
+  if (usedCount && usedCount.count > 0) {
+    throw fail("Mã giảm giá này đã được sử dụng trong các đơn hàng trước đó. Hãy chọn 'Tắt ưu đãi' thay vì xóa để lưu trữ lịch sử kế toán.", 400);
+  }
+  await db.prepare("DELETE FROM promotions WHERE id = ?").run(id);
+  return { id, deleted: true };
 }
 
 export async function savePrices(db, changes, now = Date.now()) {
@@ -91,7 +173,10 @@ export async function savePrices(db, changes, now = Date.now()) {
 }
 
 const active = (rule, now) => rule.enabled && (rule.startsAt == null || now >= rule.startsAt) && (rule.endsAt == null || now < rule.endsAt);
-const applies = (rule, id) => !rule.productIds.length || rule.productIds.includes(id);
+const applies = (rule, id) => {
+  if (rule.partnerEmail && (!Array.isArray(rule.productIds) || !rule.productIds.length)) return false;
+  return !rule.productIds.length || rule.productIds.includes(id);
+};
 const discount = (amount, rule) => Math.min(amount, rule.type === "percent" ? Math.floor(amount * rule.value / 100) : rule.value, rule.maxDiscount ?? Infinity);
 
 function slugify(text) {
@@ -785,12 +870,28 @@ export async function quoteOrder(db, items, couponCode = "", userId = null, now 
       FROM order_pricing op JOIN orders o ON o.id = op.order_id WHERE op.coupon_id = ? AND o.status != 'cancelled'`).get(userId, rule.id);
     if (rule.usageLimit != null && usage.total >= rule.usageLimit) throw fail("Mã giảm giá đã hết lượt sử dụng.");
     if (rule.perUserLimit != null && usage.personal >= rule.perUserLimit) throw fail("Tài khoản đã dùng hết lượt của mã giảm giá này.");
-    if (result.total < rule.minOrder) throw fail(`Mã yêu cầu đơn từ ${rule.minOrder.toLocaleString("vi-VN")}₫ sau giảm giá sản phẩm.`);
-    if (!rule.stackWithSale && saleDiscount > 0) throw fail("Mã này không kết hợp với sản phẩm đang giảm giá.");
-    const eligible = enriched.filter(i => applies(rule, i.productId)).reduce((sum, i) => sum + i.subtotal, 0);
+
+    const isPartnerCoupon = Boolean(rule.partnerEmail);
+    const eligibleItems = enriched.filter(i => applies(rule, i.productId));
+    const eligible = eligibleItems.reduce((sum, i) => sum + i.subtotal, 0);
     if (eligible === 0) throw fail("Giỏ hàng chưa có sản phẩm đủ điều kiện dùng mã.");
+
+    const minOrderBase = isPartnerCoupon ? eligible : result.total;
+    if (minOrderBase < rule.minOrder) {
+      if (isPartnerCoupon) {
+        throw fail(`Mã yêu cầu tổng tiền các sản phẩm của đối tác từ ${rule.minOrder.toLocaleString("vi-VN")}₫.`);
+      }
+      throw fail(`Mã yêu cầu đơn từ ${rule.minOrder.toLocaleString("vi-VN")}₫ sau giảm giá sản phẩm.`);
+    }
+
+    if (!rule.stackWithSale) {
+      const partnerSaleDiscount = eligibleItems.reduce((sum, i) => sum + (i.basePrice * i.quantity - i.subtotal), 0);
+      const hasSale = isPartnerCoupon ? (partnerSaleDiscount > 0) : (saleDiscount > 0);
+      if (hasSale) throw fail("Mã này không kết hợp với sản phẩm đang giảm giá.");
+    }
+
     couponDiscount = discount(eligible, rule);
-    coupon = { id: rule.id, code, name: rule.name };
+    coupon = { id: rule.id, code, name: rule.name, partnerEmail: rule.partnerEmail || null };
   }
   const quote = { ...result, validatedItems: enriched, subtotal, saleDiscount, couponDiscount, total: result.total - couponDiscount, coupon };
   // Dấu đối chiếu giúp phát hiện giá thay đổi trước lúc khách xác nhận trả tiền.

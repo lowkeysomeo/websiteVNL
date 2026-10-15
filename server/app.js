@@ -39,6 +39,7 @@ import {
   listPromotions,
   savePromotion,
   setPromotionEnabled,
+  deletePromotion,
   createCustomProduct,
   updateProduct,
   addCustomVariant,
@@ -502,7 +503,9 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           const caller = await requireAdminOrPartner(req);
           return json(200, {
             products: await getCatalog(db, Date.now(), true),
-            promotions: caller.role === "admin" ? await listPromotions(db) : [],
+            promotions: caller.role === "admin"
+              ? await listPromotions(db)
+              : await listPromotions(db, Date.now(), caller.email),
             categories: await getCategories(db),
             caller,
           });
@@ -592,16 +595,25 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
         }
         const promotionMatch = route.match(/^\/api\/admin\/promotions\/([a-f0-9-]{36})$/);
         if ((req.method === "POST" && route === "/api/admin/promotions") || (req.method === "PUT" && promotionMatch)) {
-          await requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
-          return json(promotionMatch ? 200 : 201, { promotion: await savePromotion(db, body, promotionMatch?.[1]) });
+          return json(promotionMatch ? 200 : 201, {
+            promotion: await savePromotion(db, body, promotionMatch?.[1], Date.now(), caller)
+          });
         }
         if (req.method === "PATCH" && promotionMatch) {
-          await requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
-          return json(200, { promotion: await setPromotionEnabled(db, promotionMatch[1], body.enabled) });
+          return json(200, {
+            promotion: await setPromotionEnabled(db, promotionMatch[1], body.enabled, Date.now(), caller)
+          });
+        }
+        if (req.method === "DELETE" && promotionMatch) {
+          const caller = await requireAdminOrPartner(req);
+          sameOrigin(req);
+          return json(200, await deletePromotion(db, promotionMatch[1], caller));
         }
         if (req.method === "POST" && route === "/api/orders") {
           const current = await protect(req);

@@ -1184,18 +1184,39 @@ window.initAdminPricing = (() => {
       return;
     }
     const coupon = currentView === "coupons", kind = coupon ? "coupon" : "campaign";
+    const isPartner = currentUser?.role === "partner";
     const rows = promotions.filter(p => p.kind === kind);
-    panel.innerHTML = `<header class="pricing-heading"><div><span class="pricing-eyebrow">ƯU ĐÃI CỬA HÀNG</span><h2>${coupon ? "Mã giảm giá" : "Đợt giảm giá"}</h2>
-      <p>${coupon ? "Tạo mã riêng cho khách, giới hạn lượt dùng và chọn sản phẩm áp dụng." : "Lên lịch ưu đãi tự động. Nếu nhiều đợt trùng nhau, khách nhận mức giảm tốt nhất cho từng gói."}</p></div>
-      <button class="button primary" type="button" data-promotion-new="${kind}">${coupon ? "+ Tạo mã giảm giá" : "+ Tạo đợt giảm giá"}</button></header>
-      <div id="promotion-editor"></div><div class="promotion-list">${rows.length ? rows.map(p => `<article class="pricing-card promotion-card">
-        <div class="promotion-title"><div>${coupon ? `<code>${esc(p.code)}</code>` : ""}<h3>${esc(p.name)}</h3></div><span class="promotion-status is-${p.status}">${statuses[p.status]}</span></div>
+    const eyebrow = isPartner
+      ? `ƯU ĐÃI ĐỐI TÁC (${esc(currentUser.name || currentUser.email)})`
+      : "ƯU ĐÃI CỬA HÀNG";
+    const heading = isPartner
+      ? (coupon ? "Mã giảm giá của bạn" : "Đợt giảm giá của bạn")
+      : (coupon ? "Mã giảm giá" : "Đợt giảm giá");
+    const desc = isPartner
+      ? (coupon ? "Tạo mã riêng cho khách, giới hạn lượt dùng và áp dụng riêng cho các dịch vụ / mặt hàng của bạn." : "Lên lịch ưu đãi tự động cho các gói dịch vụ của bạn.")
+      : (coupon ? "Tạo mã riêng cho khách, giới hạn lượt dùng và chọn sản phẩm áp dụng." : "Lên lịch ưu đãi tự động. Nếu nhiều đợt trùng nhau, khách nhận mức giảm tốt nhất cho từng gói.");
+    const btnLabel = isPartner
+      ? (coupon ? "+ Tạo mã giảm giá của tôi" : "+ Tạo đợt giảm giá của tôi")
+      : (coupon ? "+ Tạo mã giảm giá" : "+ Tạo đợt giảm giá");
+
+    panel.innerHTML = `<header class="pricing-heading"><div><span class="pricing-eyebrow">${eyebrow}</span><h2>${heading}</h2>
+      <p>${desc}</p></div>
+      <button class="button primary" type="button" data-promotion-new="${kind}">${btnLabel}</button></header>
+      <div id="promotion-editor"></div><div class="promotion-list">${rows.length ? rows.map(p => {
+        const ownerTag = p.partnerEmail
+          ? `<span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:6px; background:rgba(168,85,247,0.15); color:#c084fc; border:1px solid rgba(168,85,247,0.3); font-weight:600;">🤝 Đối tác: ${esc(p.partnerEmail)}</span>`
+          : (!isPartner ? `<span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:6px; background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); font-weight:600;">👑 Toàn sàn (Admin)</span>` : "");
+        const prodNames = p.productIds.length ? p.productIds.map(id => esc(products.find(x => x.id === id)?.name || id)).join(", ") : (isPartner ? "Các mặt hàng của bạn" : "Tất cả sản phẩm có giá bán");
+        return `<article class="pricing-card promotion-card">
+        <div class="promotion-title"><div>${coupon ? `<code>${esc(p.code)}</code>` : ""}<h3>${esc(p.name)}</h3>${ownerTag}</div><span class="promotion-status is-${p.status}">${statuses[p.status]}</span></div>
         <strong class="promotion-value">Giảm ${p.type === "percent" ? p.value + "%" : money(p.value)} <small>${coupon ? "/ đơn đủ điều kiện" : "/ gói sản phẩm"}</small></strong>
-        <p>${p.productIds.length ? p.productIds.map(id => esc(products.find(x => x.id === id)?.name || id)).join(", ") : "Tất cả sản phẩm có giá bán"}</p>
+        <p>${prodNames}</p>
         <dl class="promotion-details"><div><dt>Bắt đầu</dt><dd>${formatDate(p.startsAt)}</dd></div><div><dt>Kết thúc</dt><dd>${formatDate(p.endsAt)}</dd></div>
         ${coupon ? `<div><dt>Lượt đã dùng</dt><dd>${p.used} / ${p.usageLimit ?? "không giới hạn"}</dd></div><div><dt>Mỗi khách</dt><dd>${p.perUserLimit == null ? "Không giới hạn" : p.perUserLimit + " lượt"}</dd></div><div><dt>Đơn tối thiểu</dt><dd>${money(p.minOrder)}</dd></div><div><dt>Giảm tối đa</dt><dd>${p.maxDiscount == null ? "Không giới hạn" : money(p.maxDiscount)}</dd></div><div><dt>Kết hợp đợt giảm giá</dt><dd>${p.stackWithSale ? "Có" : "Không"}</dd></div>` : ""}</dl>
         <div class="pricing-actions"><button class="button secondary btn-small" type="button" data-promotion-edit="${p.id}">Chỉnh sửa</button>
-          <button class="button secondary btn-small" type="button" data-promotion-toggle="${p.id}">${p.enabled ? "Tắt ưu đãi" : "Bật ưu đãi"}</button></div></article>`).join("") : `<div class="pricing-empty"><span>${coupon ? "✦" : "◷"}</span><h3>${coupon ? "Chưa có mã giảm giá" : "Chưa có đợt giảm giá"}</h3><p>Tạo ưu đãi đầu tiên khi cửa hàng sẵn sàng.</p></div>`}</div>`;
+          <button class="button secondary btn-small" type="button" data-promotion-toggle="${p.id}">${p.enabled ? "Tắt ưu đãi" : "Bật ưu đãi"}</button>
+          <button class="button secondary btn-small btn-danger" type="button" data-promotion-delete="${p.id}">Xóa</button></div></article>`;
+      }).join("") : `<div class="pricing-empty"><span>${coupon ? "✦" : "◷"}</span><h3>${coupon ? "Chưa có mã giảm giá" : "Chưa có đợt giảm giá"}</h3><p>${isPartner ? "Tạo ưu đãi đầu tiên cho các sản phẩm của bạn." : "Tạo ưu đãi đầu tiên khi cửa hàng sẵn sàng."}</p></div>`}</div>`;
   }
 
   function openPartnerEditor() {
@@ -1642,10 +1663,31 @@ window.initAdminPricing = (() => {
   }
 
   function openEditor(kind, id = null) {
+    const isPartner = currentUser?.role === "partner";
+    const partnerEmail = isPartner ? String(currentUser.email || "").toLowerCase() : null;
     const p = promotions.find(p => p.id === id) || { kind, name: "", code: "", enabled: true, type: "percent", value: 10, productIds: [], minOrder: 0, stackWithSale: true, perUserLimit: 1 };
     const coupon = kind === "coupon";
+
+    const eligibleProducts = isPartner
+      ? products.filter(prod => prod.partnerEmail && String(prod.partnerEmail).toLowerCase() === partnerEmail && !prod.service)
+      : products.filter(prod => !prod.service);
+
+    const scopeLegend = isPartner ? "Sản phẩm áp dụng (bắt buộc chọn) *" : "Sản phẩm áp dụng";
+    const scopeHint = isPartner
+      ? `<p style="color:#60a5fa; font-size:12px; margin-bottom:10px;">Chỉ áp dụng cho các mặt hàng do bạn (${esc(currentUser.email)}) quản lý (bắt buộc chọn ít nhất 1 mặt hàng):</p>`
+      : `<p>Không chọn mục nào để áp dụng tất cả sản phẩm có giá bán (toàn sàn).</p>`;
+
+    const productsCheckboxHtml = eligibleProducts.length
+      ? eligibleProducts.map(product => {
+          const ownerTag = !isPartner && product.partnerEmail ? ` <small style="color:#c084fc;">(Đối tác: ${esc(product.partnerEmail)})</small>` : "";
+          return `<label><input type="checkbox" name="productIds" value="${product.id}" ${p.productIds.includes(product.id) ? "checked" : ""}> ${esc(product.name)}${ownerTag}</label>`;
+        }).join("")
+      : (isPartner
+          ? `<p style="color:#f87171; font-size:12px; font-style:italic;">Bạn chưa có mặt hàng nào. Vui lòng vào tab "Dịch vụ của tôi" để đăng mặt hàng trước khi tạo ưu đãi.</p>`
+          : `<p style="color:var(--muted); font-size:12px;">Chưa có sản phẩm nào có giá bán.</p>`);
+
     $("#promotion-editor").innerHTML = `<form id="promotion-form" class="pricing-card promotion-form" data-id="${id || ""}" data-kind="${kind}">
-      <div class="promotion-title"><h3>${id ? "Chỉnh sửa" : "Tạo"} ${coupon ? "mã giảm giá" : "đợt giảm giá"}</h3><button type="button" class="button secondary btn-small" data-promotion-close>Đóng</button></div>
+      <div class="promotion-title"><h3>${id ? "Chỉnh sửa" : "Tạo"} ${coupon ? (isPartner ? "mã giảm giá của tôi" : "mã giảm giá") : (isPartner ? "đợt giảm giá của tôi" : "đợt giảm giá")}</h3><button type="button" class="button secondary btn-small" data-promotion-close>Đóng</button></div>
       <div class="pricing-form-grid">
         <label>Tên ưu đãi<input name="name" required maxlength="100" placeholder="Ví dụ: Ưu đãi cuối tuần" value="${esc(p.name)}"></label>
         ${coupon ? `<label>Mã khách nhập<input name="code" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_-]{3,32}" placeholder="Ví dụ: VNL10" value="${esc(p.code)}"></label>` : ""}
@@ -1653,16 +1695,16 @@ window.initAdminPricing = (() => {
         <label>Mức giảm<input name="value" type="number" min="1" max="${p.type === 'percent' ? 100 : 1000000000}" step="1" required value="${p.value}"><small>${coupon ? "Giảm trên tổng các sản phẩm đủ điều kiện trong đơn." : "Giảm trên mỗi gói sản phẩm."}</small></label>
         <label>Bắt đầu<input name="startsAt" type="datetime-local" value="${inputDate(p.startsAt)}"><small>Để trống để áp dụng ngay.</small></label>
         <label>Kết thúc<input name="endsAt" type="datetime-local" value="${inputDate(p.endsAt)}"><small>Để trống nếu chưa có ngày kết thúc.</small></label>
-        ${coupon ? `<label>Đơn tối thiểu (VND)<input name="minOrder" type="number" min="0" max="1000000000000" step="1" required value="${p.minOrder}"><small>Tính sau các đợt giảm giá sản phẩm.</small></label>
+        ${coupon ? `<label>Đơn tối thiểu (VND)<input name="minOrder" type="number" min="0" max="1000000000000" step="1" required value="${p.minOrder}"><small>${isPartner ? "Tính trên tổng các sản phẩm của bạn trong đơn." : "Tính sau các đợt giảm giá sản phẩm."}</small></label>
           <label>Giảm tối đa (VND)<input name="maxDiscount" type="number" min="1" max="1000000000" step="1" placeholder="Không giới hạn" value="${p.maxDiscount ?? ''}"></label>
           <label>Tổng lượt sử dụng<input name="usageLimit" type="number" min="1" max="1000000" step="1" placeholder="Không giới hạn" value="${p.usageLimit ?? ''}"></label>
           <label>Lượt dùng mỗi khách<input name="perUserLimit" type="number" min="1" max="1000000" step="1" placeholder="Không giới hạn" value="${p.perUserLimit ?? ''}"></label>` : ""}
       </div>
       <p class="pricing-hint">Thời gian theo thiết bị: ${esc(Intl.DateTimeFormat().resolvedOptions().timeZone)}.</p>
-      <fieldset class="promotion-scope"><legend>Sản phẩm áp dụng</legend><p>Không chọn mục nào để áp dụng tất cả sản phẩm có giá bán.</p><div>${products.filter(p => !p.service).map(product => `<label><input type="checkbox" name="productIds" value="${product.id}" ${p.productIds.includes(product.id) ? "checked" : ""}>${esc(product.name)}</label>`).join("")}</div></fieldset>
+      <fieldset class="promotion-scope"><legend>${scopeLegend}</legend>${scopeHint}<div>${productsCheckboxHtml}</div></fieldset>
       <label class="pricing-check"><input name="enabled" type="checkbox" ${p.enabled ? "checked" : ""}>Bật ưu đãi theo lịch đã chọn</label>
       ${coupon ? `<label class="pricing-check"><input name="stackWithSale" type="checkbox" ${p.stackWithSale ? "checked" : ""}>Cho phép kết hợp với đợt giảm giá sản phẩm</label><p class="pricing-hint">Mỗi đơn dùng một mã. Đơn đã hủy sẽ trả lại lượt sử dụng.</p>` : ""}
-      <p class="pricing-form-message" role="status"></p><button class="button primary" type="submit">Lưu ${coupon ? "mã giảm giá" : "đợt giảm giá"}</button>
+      <p class="pricing-form-message" role="status"></p><button class="button primary" type="submit">Lưu ${coupon ? (isPartner ? "mã giảm giá của tôi" : "mã giảm giá") : (isPartner ? "đợt giảm giá của tôi" : "đợt giảm giá")}</button>
     </form>`;
     $("#promotion-form [name=name]").focus();
   }
@@ -2260,12 +2302,16 @@ window.initAdminPricing = (() => {
       } else {
         const data = new FormData(form);
         const optional = name => data.get(name) ? Number(data.get(name)) : null;
+        const productIds = data.getAll("productIds");
+        if (currentUser?.role === "partner" && productIds.length === 0) {
+          throw new Error("Vui lòng chọn ít nhất 1 sản phẩm của bạn để áp dụng ưu đãi.");
+        }
         const body = { kind: form.dataset.kind, name: data.get("name"), code: data.get("code"), type: data.get("type"), value: Number(data.get("value")),
           startsAt: data.get("startsAt") ? new Date(data.get("startsAt")).getTime() : null, endsAt: data.get("endsAt") ? new Date(data.get("endsAt")).getTime() : null,
-          productIds: data.getAll("productIds"), enabled: data.has("enabled"), stackWithSale: data.has("stackWithSale"),
+          productIds, enabled: data.has("enabled"), stackWithSale: data.has("stackWithSale"),
           minOrder: Number(data.get("minOrder") || 0), maxDiscount: optional("maxDiscount"), usageLimit: optional("usageLimit"), perUserLimit: optional("perUserLimit") };
         await api("/api/admin/promotions" + (form.dataset.id ? "/" + form.dataset.id : ""), { method: form.dataset.id ? "PUT" : "POST", body: JSON.stringify(body) });
-        notify("Đã lưu ưu đãi.");
+        notify(currentUser?.role === "partner" ? "Đã lưu ưu đãi của bạn thành công." : "Đã lưu ưu đãi.");
       }
       await load();
     } catch (error) {
@@ -2980,6 +3026,16 @@ window.initAdminPricing = (() => {
             await api("/api/admin/promotions/" + rule.id, { method: "PATCH", body: JSON.stringify({ enabled: !rule.enabled }) });
             await load();
             notify(rule.enabled ? "Đã tắt ưu đãi." : "Đã bật ưu đãi theo lịch.");
+          } catch (error) { notify(error.message); }
+          finally { button.disabled = false; }
+        }
+        if (button.dataset.promotionDelete) {
+          if (!confirm("Bạn có chắc chắn muốn xóa vĩnh viễn ưu đãi này?")) return;
+          button.disabled = true;
+          try {
+            await api("/api/admin/promotions/" + button.dataset.promotionDelete, { method: "DELETE" });
+            notify("Đã xóa ưu đãi thành công.");
+            await load();
           } catch (error) { notify(error.message); }
           finally { button.disabled = false; }
         }
