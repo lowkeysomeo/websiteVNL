@@ -566,7 +566,11 @@ function showProduct(id, isDirectBuy = false) {
       buyNowDirect(id, select.value);
     });
   }
+  const currentScrollY = window.scrollY;
   productDialog.showModal();
+  if (window.scrollY !== currentScrollY) {
+    window.scrollTo({ top: currentScrollY, behavior: "instant" });
+  }
 }
 
 function buyNowDirect(productId, variantId) {
@@ -1431,9 +1435,18 @@ document.addEventListener("click", (event) => {
     document.querySelector("#guide-dialog")?.close();
     smoothScrollTo("#catalog");
   }
-  if (button.dataset.detail) showProduct(button.dataset.detail);
-  if (button.dataset.add) addToCart(button.dataset.add);
-  if (button.dataset.buy) showProduct(button.dataset.buy, true);
+  if (button.dataset.detail) {
+    event.preventDefault();
+    showProduct(button.dataset.detail);
+  }
+  if (button.dataset.add) {
+    event.preventDefault();
+    addToCart(button.dataset.add);
+  }
+  if (button.dataset.buy) {
+    event.preventDefault();
+    showProduct(button.dataset.buy, true);
+  }
   if (button.dataset.action) handleAction(button.dataset.action);
   if (button.dataset.favorite) {
     const id = button.dataset.favorite;
