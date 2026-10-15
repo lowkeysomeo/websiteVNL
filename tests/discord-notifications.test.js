@@ -11,9 +11,13 @@ import {
   formatVND,
   getDiscordSettings,
   saveDiscordSettings,
+  getPartnerDiscordSettings,
+  savePartnerDiscordSettings,
   buildOrderEmbed,
+  buildPartnerOrderEmbed,
   sendDiscordOrderNotification,
   sendDiscordTestNotification,
+  sendPartnerDiscordTestNotification,
 } from "../server/discord.js";
 
 async function creditWallet(db, userId, amount = 500000) {
@@ -398,6 +402,283 @@ test("Order creation resilience: Nếu Discord webhook bị lỗi/timeout, đơn
     assert.equal(orderRes.status, 201);
     assert.equal(orderRes.data.success, true);
     assert.ok(orderRes.data.order.id.startsWith("VNL-"));
+  } finally {
+    await close();
+  }
+});
+
+test("Partner Discord settings: lưu trữ DB theo partnerEmail, validation và alias adminId/discordId", async () => {
+  const db = await openStore(":memory:");
+  const partnerEmail = "partner1@vietnamlegacy.com";
+
+  // Initial settings
+  const initial = await getPartnerDiscordSettings(db, partnerEmail);
+  assert.equal(initial.enabled, false);
+  assert.equal(initial.webhookUrl, "");
+  assert.equal(initial.discordId, "");
+  assert.equal(initial.partnerEmail, partnerEmail);
+
+  // Validation: Invalid webhook URL
+  await assert.rejects(
+    async () => {
+      await savePartnerDiscordSettings(db, partnerEmail, {
+        webhookUrl: "invalid-url",
+        enabled: true,
+      });
+    },
+    (err) => err.status === 400,
+  );
+
+  // Validation: Invalid Discord ID (non-numeric)
+  await assert.rejects(
+    async () => {
+      await savePartnerDiscordSettings(db, partnerEmail, {
+        webhookUrl: "https://discord.com/api/webhooks/partner/token",
+        discordId: "abc_not_numeric",
+      });
+    },
+    (err) => err.status === 400,
+  );
+
+  // Save valid settings
+  const saved = await savePartnerDiscordSettings(
+    db,
+    partnerEmail,
+    {
+      webhookUrl: "https://discord.com/api/webhooks/partner1/token123",
+      discordId: "123456789012345678",
+      enabled: true,
+    },
+    1710000000,
+  );
+  assert.equal(saved.enabled, true);
+  assert.equal(saved.webhookUrl, "https://discord.com/api/webhooks/partner1/token123");
+  assert.equal(saved.discordId, "123456789012345678");
+
+  // Re-fetch
+  const reloaded = await getPartnerDiscordSettings(db, partnerEmail);
+  assert.equal(reloaded.enabled, true);
+  assert.equal(reloaded.webhookUrl, "https://discord.com/api/webhooks/partner1/token123");
+  assert.equal(reloaded.discordId, "123456789012345678");
+  assert.equal(reloaded.updatedAt, 1710000000);
+
+  // Different partner has separate settings
+  const partner2 = await getPartnerDiscordSettings(db, "other@domain.com");
+  assert.equal(partner2.enabled, false);
+  assert.equal(partner2.webhookUrl, "");
+});
+
+test("Partner Discord embed formatting: tags partner Discord ID, chỉ hiển thị mặt hàng và doanh thu của đối tác đó", async () => {
+  const order = {
+    id: "VNL-PARTNER-01",
+    customerName: "Nguyễn Văn Đối Tác",
+    customerEmail: "doitac_buyer@gmail.com",
+    customerNote: "Cần gấp trong ngày ạ",
+    total: 350000,
+    hasLogItems: true,
+    discordAccount: "buyer_acc#9999",
+    discordPassword: "pass_word_here",
+    backupCodes: "11112222\n33334444\n55556666",
+    serverInvite: "https://discord.gg/server-boost",
+    createdAt: Date.now(),
+  };
+
+  const partnerItems = [
+    {
+      productId: "partner-banner",
+      productName: "Thiết kế Banner Discord",
+      variantName: "Banner GIF Động",
+      price: 150000,
+      quantity: 1,
+      deliveryType: "gift",
+    },
+  ];
+
+  const payload = buildPartnerOrderEmbed(
+    order,
+    "designer@vietnamlegacy.com",
+    partnerItems,
+    { discordId: "888877776666555544" },
+    "http://localhost:3000",
+  );
+
+  assert.ok(payload.content.includes("<@888877776666555544>"));
+  assert.ok(payload.content.includes("VNL-PARTNER-01"));
+
+  const embed = payload.embeds[0];
+  assert.ok(embed.title.includes("Đơn dịch vụ mới: VNL-PARTNER-01"));
+  assert.equal(embed.color, 0x06b6d4);
+
+  const revenueField = embed.fields.find((f) => f.name.includes("Doanh thu phần bạn"));
+  assert.ok(revenueField.value.includes("150.000₫"));
+  assert.ok(revenueField.value.includes("Tổng đơn shop: 350.000₫"));
+
+  const itemsField = embed.fields.find((f) => f.name.includes("Dịch vụ cần xử lý"));
+  assert.ok(itemsField.value.includes("Thiết kế Banner Discord"));
+  assert.ok(itemsField.value.includes("150.000₫"));
+
+  assert.ok(embed.footer.text.includes("designer@vietnamlegacy.com"));
+});
+
+test("HTTP API Partner Discord: Cấu hình Discord đối tác, gửi tin test và phân tách thông báo khi có đơn hàng đa dịch vụ", async () => {
+  const calls = [];
+  const mockFetch = async (url, options) => {
+    calls.push({ url, body: JSON.parse(options.body) });
+    return { ok: true, status: 200, text: async () => "ok" };
+  };
+
+  const { db, config, request, close } = await setupTestApp({}, mockFetch);
+
+  try {
+    // 1. Setup Master Admin Discord
+    await saveDiscordSettings(db, {
+      webhookUrl: "https://discord.com/api/webhooks/admin/global-feed",
+      adminId: "604729446649298963",
+      enabled: true,
+    });
+
+    // 2. Create Partner Account
+    const partnerEmail = "partner_bot@vietnamlegacy.com";
+    const partnerPassword = "partner-secret-pass-999";
+    const createPartnerRes = await request(
+      "POST",
+      "/api/admin/partners",
+      {
+        email: partnerEmail,
+        name: "Partner Bot Store",
+        password: partnerPassword,
+      },
+      { "X-Admin-Key": config.adminPassword },
+    );
+    assert.equal(createPartnerRes.status, 201);
+
+    // Partner login
+    const loginRes = await request("POST", "/api/admin/auth", {
+      email: partnerEmail,
+      password: partnerPassword,
+    });
+    assert.equal(loginRes.status, 200);
+    const partnerToken = loginRes.data.token;
+    assert.ok(partnerToken.startsWith("vnl_ptn_"));
+
+    const partnerHeaders = { "X-Admin-Key": partnerToken };
+
+    // 3. Partner GET Discord settings -> initial disabled
+    const getDiscordRes = await request("GET", "/api/partner/discord", null, partnerHeaders);
+    assert.equal(getDiscordRes.status, 200);
+    assert.equal(getDiscordRes.data.settings.enabled, false);
+
+    // 4. Partner PUT Discord settings
+    const partnerWebhookUrl = "https://discord.com/api/webhooks/partner/bot-channel";
+    const partnerDiscordId = "777788889999000011";
+    const putDiscordRes = await request(
+      "PUT",
+      "/api/partner/discord",
+      {
+        webhookUrl: partnerWebhookUrl,
+        discordId: partnerDiscordId,
+        enabled: true,
+      },
+      partnerHeaders,
+    );
+    assert.equal(putDiscordRes.status, 200);
+    assert.equal(putDiscordRes.data.settings.enabled, true);
+    assert.equal(putDiscordRes.data.settings.webhookUrl, partnerWebhookUrl);
+    assert.equal(putDiscordRes.data.settings.discordId, partnerDiscordId);
+
+    // Also verify GET /api/admin/discord with partner token returns partner's settings
+    const getViaAdminRoute = await request("GET", "/api/admin/discord", null, partnerHeaders);
+    assert.equal(getViaAdminRoute.status, 200);
+    assert.equal(getViaAdminRoute.data.settings.webhookUrl, partnerWebhookUrl);
+
+    // 5. Partner Test Webhook POST /api/partner/discord/test
+    const testRes = await request(
+      "POST",
+      "/api/partner/discord/test",
+      {
+        webhookUrl: partnerWebhookUrl,
+        discordId: partnerDiscordId,
+      },
+      partnerHeaders,
+    );
+    assert.equal(testRes.status, 200);
+    assert.equal(testRes.data.success, true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, partnerWebhookUrl);
+    assert.ok(calls[0].body.content.includes(`<@${partnerDiscordId}>`));
+    assert.ok(calls[0].body.embeds[0].title.includes("Đối tác"));
+
+    // Reset calls
+    calls.length = 0;
+
+    // 6. Partner creates a custom product
+    const createProdRes = await request(
+      "POST",
+      "/api/admin/products",
+      {
+        name: "Dịch Vụ Setup Bot Nhạc Discord",
+        category: "services",
+        badge: "PARTNER / BOT",
+        description: "Cài đặt bot nhạc 24/7 chất lượng âm thanh cao cấp.",
+        variants: [{ name: "Gói Vĩnh Viễn", price: 120000, deliveryType: "gift" }],
+      },
+      partnerHeaders,
+    );
+    assert.equal(createProdRes.status, 201);
+    const customProduct = createProdRes.data.product;
+
+    // 7. Customer registers, deposits, and buys both Nitro (Shop item) and Setup Bot (Partner item)
+    const buyerEmail = "mixed_buyer@gmail.com";
+    const regRes = await request("POST", "/api/auth/register", {
+      email: buyerEmail,
+      password: "password123",
+    });
+    const sessionCookie = regRes.headers["set-cookie"][0].split(";")[0];
+    const csrfToken = regRes.data.csrfToken;
+    const buyerUser = await db.prepare("SELECT id FROM users WHERE email = ?").get(buyerEmail);
+
+    await creditWallet(db, buyerUser.id, 500000);
+
+    const orderRes = await request(
+      "POST",
+      "/api/orders",
+      {
+        name: "Khách Mua Đa Dịch Vụ",
+        email: buyerEmail,
+        items: [
+          { productId: "nitro", variantId: "boost_gift_1m", quantity: 1 },
+          { productId: customProduct.id, variantId: customProduct.variants[0].id, quantity: 1 },
+        ],
+      },
+      { Cookie: sessionCookie, "X-CSRF-Token": csrfToken },
+    );
+    assert.equal(orderRes.status, 201);
+    assert.equal(orderRes.data.success, true);
+
+    // Verify both webhooks were called!
+    assert.equal(calls.length, 2, "Cả Admin và Đối tác đều phải nhận thông báo webhook");
+
+    const adminCall = calls.find((c) => c.url.includes("admin/global-feed"));
+    const partnerCall = calls.find((c) => c.url.includes("partner/bot-channel"));
+
+    assert.ok(adminCall, "Admin Webhook phải được gọi");
+    assert.ok(partnerCall, "Partner Webhook phải được gọi");
+
+    // Admin receives all items in order
+    assert.ok(adminCall.body.content.includes("<@604729446649298963>"));
+    const adminItemsField = adminCall.body.embeds[0].fields.find((f) => f.name.includes("Mặt hàng"));
+    assert.ok(adminItemsField.value.includes("Discord Nitro"));
+    assert.ok(adminItemsField.value.includes("Setup Bot Nhạc"));
+
+    // Partner ONLY receives partner's items, NOT the shop's nitro!
+    assert.ok(partnerCall.body.content.includes(`<@${partnerDiscordId}>`));
+    const partnerItemsField = partnerCall.body.embeds[0].fields.find((f) => f.name.includes("Dịch vụ cần xử lý"));
+    assert.ok(partnerItemsField.value.includes("Setup Bot Nhạc"));
+    assert.ok(!partnerItemsField.value.includes("Discord Nitro"), "Đối tác tuyệt đối không thấy mặt hàng của shop hay đối tác khác");
+
+    // Partner revenue is only 120.000₫
+    const partnerRevenueField = partnerCall.body.embeds[0].fields.find((f) => f.name.includes("Doanh thu phần bạn"));
+    assert.ok(partnerRevenueField.value.includes("120.000₫"));
   } finally {
     await close();
   }

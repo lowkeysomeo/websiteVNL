@@ -686,8 +686,14 @@ export async function quoteOrder(db, items, couponCode = "", userId = null, now 
   const catalog = await getCatalog(db, now);
   const result = validateOrderItems(items, catalog);
   const enriched = result.validatedItems.map(item => {
-    const variant = catalog.find(p => p.id === item.productId).variants.find(v => v.id === item.variantId);
-    return { ...item, basePrice: variant.basePrice, sale: variant.sale };
+    const prod = catalog.find(p => p.id === item.productId);
+    const variant = prod?.variants?.find(v => v.id === item.variantId);
+    return {
+      ...item,
+      basePrice: variant ? variant.basePrice : item.price,
+      sale: variant ? variant.sale : null,
+      partnerEmail: prod?.partnerEmail || null,
+    };
   });
   const subtotal = enriched.reduce((sum, i) => sum + i.basePrice * i.quantity, 0);
   const saleDiscount = subtotal - result.total;

@@ -166,8 +166,8 @@
         <section class="admin-announcement-card" id="admin-discord-card">
           <div class="admin-card-header">
             <div>
-              <h3><span style="font-size: 16px;">🔔</span> Thông báo đơn hàng qua Discord Admin</h3>
-              <p>Tự động gửi thông báo kèm ping Discord Admin khi có khách hàng đặt hàng mới trên website.</p>
+              <h3 id="admin-discord-title"><span style="font-size: 16px;">🔔</span> Thông báo đơn hàng qua Discord Admin</h3>
+              <p id="admin-discord-desc">Tự động gửi thông báo kèm ping Discord Admin khi có khách hàng đặt hàng mới trên website.</p>
             </div>
             <div class="announcement-toggle-group">
               <label class="switch-label">
@@ -194,7 +194,7 @@
                 </small>
               </div>
               <div>
-                <label for="admin-discord-admin-id" style="display: block; font-size: 12px; font-weight: 600; color: #d8b4fe; margin-bottom: 6px;">
+                <label for="admin-discord-admin-id" id="admin-discord-id-label" style="display: block; font-size: 12px; font-weight: 600; color: #d8b4fe; margin-bottom: 6px;">
                   ID Discord Admin (để ping khi có đơn)
                 </label>
                 <input
@@ -204,7 +204,7 @@
                   value="604729446649298963"
                   style="width: 100%; box-sizing: border-box; padding: 9px 12px; background: #140b0e; border: 1px solid var(--line); border-radius: 8px; color: #fff; font-size: 13px;"
                 />
-                <small style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted, #94a3b8);">
+                <small id="admin-discord-id-hint" style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted, #94a3b8);">
                   Mặc định: <code style="color: #c084fc;">604729446649298963</code> (bot sẽ gắn thẻ <code>&lt;@604729446649298963&gt;</code>).
                 </small>
               </div>

@@ -1,5 +1,6 @@
 (() => {
   let adminKey = sessionStorage.getItem("vnl_admin_key") || "";
+  let currentUser = null;
   let allOrders = [];
   let statsRequest = 0;
   let currentFilter = "all";
@@ -127,6 +128,7 @@
     const role = user?.role || sessionStorage.getItem("vnl_admin_role") || "admin";
     const email = user?.email || sessionStorage.getItem("vnl_admin_email") || "";
     const name = user?.name || sessionStorage.getItem("vnl_admin_name") || "";
+    currentUser = { role, email, name };
 
     loginScreen.hidden = true;
     adminApp.hidden = false;
@@ -152,7 +154,20 @@
         userBadge.innerHTML = `<span class="user-badge-role partner">🤝 Đối tác: <b>${escapeHtml(name || email)}</b></span>`;
       }
       if (annCard) annCard.hidden = true;
-      if (discordCard) discordCard.hidden = true;
+      if (discordCard) {
+        discordCard.hidden = false;
+        const discordTitle = document.querySelector("#admin-discord-title");
+        const discordDesc = document.querySelector("#admin-discord-desc");
+        const discordIdLabel = document.querySelector("#admin-discord-id-label");
+        const discordIdHint = document.querySelector("#admin-discord-id-hint");
+        if (discordTitle) discordTitle.innerHTML = '<span style="font-size: 16px;">🔔</span> Thông báo đơn hàng dịch vụ qua Discord (Đối tác)';
+        if (discordDesc) discordDesc.textContent = 'Tự động gửi thông báo đến kênh Discord của bạn khi có khách hàng đặt mua dịch vụ do bạn cung cấp.';
+        if (discordIdLabel) discordIdLabel.textContent = 'ID Discord của bạn (để bot tag ping khi có đơn mới)';
+        if (discordAdminIdInput) discordAdminIdInput.placeholder = 'Nhập ID Discord của bạn (VD: 604729446649298963)';
+        if (discordIdHint) {
+          discordIdHint.innerHTML = 'Nhập ID Discord của bạn để bot tag <code>&lt;@ID&gt;</code> khi có đơn mới (hoặc để trống nếu không cần tag).';
+        }
+      }
 
       if (ordersBtn) ordersBtn.textContent = "📦 Đơn hàng của tôi";
       if (pricesBtn) pricesBtn.textContent = "🏷️ Dịch vụ của tôi";
@@ -169,7 +184,20 @@
         userBadge.innerHTML = `<span class="user-badge-role admin">👑 Quản trị viên</span>`;
       }
       if (annCard) annCard.hidden = false;
-      if (discordCard) discordCard.hidden = false;
+      if (discordCard) {
+        discordCard.hidden = false;
+        const discordTitle = document.querySelector("#admin-discord-title");
+        const discordDesc = document.querySelector("#admin-discord-desc");
+        const discordIdLabel = document.querySelector("#admin-discord-id-label");
+        const discordIdHint = document.querySelector("#admin-discord-id-hint");
+        if (discordTitle) discordTitle.innerHTML = '<span style="font-size: 16px;">🔔</span> Thông báo đơn hàng qua Discord Admin';
+        if (discordDesc) discordDesc.textContent = 'Tự động gửi thông báo kèm ping Discord Admin khi có khách hàng đặt hàng mới trên website.';
+        if (discordIdLabel) discordIdLabel.textContent = 'ID Discord Admin (để ping khi có đơn)';
+        if (discordAdminIdInput) discordAdminIdInput.placeholder = '604729446649298963';
+        if (discordIdHint) {
+          discordIdHint.innerHTML = 'Mặc định: <code style="color: #c084fc;">604729446649298963</code> (bot sẽ gắn thẻ <code>&lt;@604729446649298963&gt;</code>).';
+        }
+      }
 
       if (ordersBtn) ordersBtn.textContent = "Đơn hàng & thông báo";
       if (pricesBtn) pricesBtn.textContent = "Giá sản phẩm";
@@ -184,8 +212,9 @@
     loadOrders();
     if (role === "admin") {
       loadAnnouncement();
-      loadDiscordSettings();
+    // loadDiscordSettings called below
     }
+    loadDiscordSettings();
     if (window.initAdminPricing) {
       window.initAdminPricing({ api, notify, user: { role, email, name } });
     }
@@ -797,11 +826,13 @@
   async function loadDiscordSettings() {
     if (!discordWebhookInput) return;
     try {
-      const data = await api("/api/admin/discord");
+      const isPartner = currentUser?.role === "partner";
+      const endpoint = isPartner ? "/api/partner/discord" : "/api/admin/discord";
+      const data = await api(endpoint);
       if (data.settings) {
         discordWebhookInput.value = data.settings.webhookUrl || "";
         if (discordAdminIdInput) {
-          discordAdminIdInput.value = data.settings.adminId || "604729446649298963";
+          discordAdminIdInput.value = data.settings.discordId || data.settings.adminId || (isPartner ? "" : "604729446649298963");
         }
         if (discordActive) {
           discordActive.checked = Boolean(data.settings.enabled);
@@ -816,7 +847,8 @@
   if (saveDiscordBtn) {
     saveDiscordBtn.addEventListener("click", async () => {
       const webhookUrl = discordWebhookInput ? discordWebhookInput.value.trim() : "";
-      const adminId = discordAdminIdInput ? discordAdminIdInput.value.trim() : "604729446649298963";
+      const isPartner = currentUser?.role === "partner";
+      const adminId = discordAdminIdInput ? discordAdminIdInput.value.trim() : (isPartner ? "" : "604729446649298963");
       const enabled = discordActive ? discordActive.checked : false;
 
       if (enabled && !webhookUrl) {
@@ -831,7 +863,8 @@
       discordStatus("Đang lưu cấu hình...");
 
       try {
-        const data = await api("/api/admin/discord", {
+        const endpoint = isPartner ? "/api/partner/discord" : "/api/admin/discord";
+        const data = await api(endpoint, {
           method: "PUT",
           body: JSON.stringify({
             webhookUrl,
@@ -841,14 +874,14 @@
         });
 
         if (discordWebhookInput) discordWebhookInput.value = data.settings.webhookUrl || "";
-        if (discordAdminIdInput) discordAdminIdInput.value = data.settings.adminId || "604729446649298963";
+        if (discordAdminIdInput) discordAdminIdInput.value = data.settings.discordId || data.settings.adminId || (isPartner ? "" : "604729446649298963");
         if (discordActive) discordActive.checked = Boolean(data.settings.enabled);
         updateDiscordStatusLabel();
 
         const savedAt = new Date().toLocaleTimeString("vi-VN");
         discordStatus(
           data.settings.enabled
-            ? `Đã lưu lúc ${savedAt}. Đang bật thông báo đơn hàng qua Discord (Admin: ${data.settings.adminId}).`
+            ? `Đã lưu lúc ${savedAt}. Đang bật thông báo đơn hàng qua Discord (${isPartner ? "Đối tác" : "Admin"}${data.settings.adminId || data.settings.discordId ? `: ${data.settings.adminId || data.settings.discordId}` : ""}).`
             : `Đã lưu lúc ${savedAt}. Thông báo qua Discord đang tắt.`,
         );
         notify("Đã lưu cấu hình thông báo Discord.");
@@ -865,7 +898,8 @@
   if (testDiscordBtn) {
     testDiscordBtn.addEventListener("click", async () => {
       const webhookUrl = discordWebhookInput ? discordWebhookInput.value.trim() : "";
-      const adminId = discordAdminIdInput ? discordAdminIdInput.value.trim() : "604729446649298963";
+      const isPartner = currentUser?.role === "partner";
+      const adminId = discordAdminIdInput ? discordAdminIdInput.value.trim() : (isPartner ? "" : "604729446649298963");
 
       if (!webhookUrl) {
         discordStatus("Vui lòng nhập Discord Webhook URL để gửi tin thử nghiệm.", true);
@@ -879,11 +913,13 @@
       discordStatus("Đang gửi tin thử nghiệm tới Discord...");
 
       try {
-        const data = await api("/api/admin/discord/test", {
+        const endpoint = isPartner ? "/api/partner/discord/test" : "/api/admin/discord/test";
+        const data = await api(endpoint, {
           method: "POST",
           body: JSON.stringify({
             webhookUrl,
-            adminId: adminId || "604729446649298963",
+            adminId: adminId,
+            discordId: adminId,
           }),
         });
         discordStatus("✅ " + (data.message || "Đã gửi thông báo thử nghiệm thành công! Hãy kiểm tra Discord."));

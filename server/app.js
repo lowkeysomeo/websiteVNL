@@ -63,8 +63,11 @@ import {
 import {
   getDiscordSettings,
   saveDiscordSettings,
+  getPartnerDiscordSettings,
+  savePartnerDiscordSettings,
   sendDiscordOrderNotification,
   sendDiscordTestNotification,
+  sendPartnerDiscordTestNotification,
 } from "./discord.js";
 import {
   getContactsSettings,
@@ -898,24 +901,42 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           const settings = await saveBankSettings(db, body);
           return json(200, { success: true, settings });
         }
-        if (req.method === "GET" && route === "/api/admin/discord") {
-          await requireAdmin(req);
+        if (req.method === "GET" && (route === "/api/admin/discord" || route === "/api/partner/discord")) {
+          const caller = await requireAdminOrPartner(req);
+          if (caller.role === "partner" || route === "/api/partner/discord") {
+            const partnerEmail = caller.role === "partner" ? caller.email : (url.searchParams.get("partnerEmail") || "");
+            if (!partnerEmail) throw fail(400, "Vui lòng chỉ định email đối tác.");
+            const settings = await getPartnerDiscordSettings(db, partnerEmail);
+            return json(200, { success: true, settings, role: "partner" });
+          }
           const settings = await getDiscordSettings(db, process.env);
-          return json(200, { success: true, settings });
+          return json(200, { success: true, settings, role: "admin" });
         }
-        if (req.method === "PUT" && route === "/api/admin/discord") {
-          await requireAdmin(req);
+        if (req.method === "PUT" && (route === "/api/admin/discord" || route === "/api/partner/discord")) {
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
+          if (caller.role === "partner" || route === "/api/partner/discord") {
+            const partnerEmail = caller.role === "partner" ? caller.email : (body.partnerEmail || "");
+            if (!partnerEmail) throw fail(400, "Vui lòng chỉ định email đối tác.");
+            const settings = await savePartnerDiscordSettings(db, partnerEmail, body);
+            return json(200, { success: true, settings, role: "partner" });
+          }
           const settings = await saveDiscordSettings(db, body);
-          return json(200, { success: true, settings });
+          return json(200, { success: true, settings, role: "admin" });
         }
-        if (req.method === "POST" && route === "/api/admin/discord/test") {
-          await requireAdmin(req);
+        if (req.method === "POST" && (route === "/api/admin/discord/test" || route === "/api/partner/discord/test")) {
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
+          if (caller.role === "partner" || route === "/api/partner/discord/test") {
+            const partnerEmail = caller.role === "partner" ? caller.email : (body.partnerEmail || "");
+            if (!partnerEmail) throw fail(400, "Vui lòng chỉ định email đối tác.");
+            const result = await sendPartnerDiscordTestNotification(db, partnerEmail, body, fetchFn);
+            return json(200, { success: true, ...result, role: "partner" });
+          }
           const result = await sendDiscordTestNotification(db, body, fetchFn);
-          return json(200, { success: true, ...result });
+          return json(200, { success: true, ...result, role: "admin" });
         }
         if (req.method === "GET" && route === "/api/contacts") {
           const settings = await getContactsSettings(db);
