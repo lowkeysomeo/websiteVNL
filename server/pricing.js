@@ -128,6 +128,17 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
     customVariants = await db.prepare("SELECT * FROM custom_variants ORDER BY created_at ASC").all();
   } catch {}
 
+  let inventoryMap = new Map();
+  try {
+    const invRows = await db.prepare("SELECT * FROM product_inventory").all();
+    for (const r of invRows) {
+      inventoryMap.set(`${r.product_id}:${r.variant_id || ""}`, {
+        stock: Number(r.stock),
+        soldCount: Number(r.sold_count),
+      });
+    }
+  } catch {}
+
   const priceRows = await db.prepare("SELECT * FROM product_prices").all();
   const overrides = new Map(priceRows.map(r => [`${r.product_id}:${r.variant_id}`, r.price]));
   const campaignRows = await db.prepare("SELECT * FROM promotions WHERE kind = 'campaign'").all();
@@ -143,6 +154,7 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
         id: p.id,
       };
       const isProductActive = statusMap.get("product:" + p.id) !== 0;
+      const pInvFallback = inventoryMap.get(`${p.id}:`) || { stock: 99, soldCount: 0 };
 
       const standardVariants = (p.variants || [])
         .filter(v => statusMap.get("variant:" + p.id + ":" + v.id) !== -1)
@@ -160,6 +172,7 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
             const savings = applies(rule, p.id) ? discount(basePrice, rule) : 0;
             if (savings > amount) { amount = savings; sale = { id: rule.id, name: rule.name, endsAt: rule.endsAt }; }
           }
+          const vInv = inventoryMap.get(`${p.id}:${v.id}`);
           return {
             ...mergedV,
             isCustom: false,
@@ -168,6 +181,8 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
             basePrice,
             price: basePrice - amount,
             sale,
+            stock: vInv ? vInv.stock : pInvFallback.stock,
+            soldCount: vInv ? vInv.soldCount : pInvFallback.soldCount,
           };
         });
 
@@ -181,6 +196,7 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
             const savings = applies(rule, p.id) ? discount(basePrice, rule) : 0;
             if (savings > amount) { amount = savings; sale = { id: rule.id, name: rule.name, endsAt: rule.endsAt }; }
           }
+          const vInv = inventoryMap.get(`${p.id}:${cv.id}`);
           return {
             id: cv.id,
             name: cv.name,
@@ -192,6 +208,8 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
             basePrice,
             price: basePrice - amount,
             sale,
+            stock: vInv ? vInv.stock : pInvFallback.stock,
+            soldCount: vInv ? vInv.soldCount : pInvFallback.soldCount,
           };
         });
 
@@ -199,12 +217,15 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
         ...mergedP,
         isCustom: false,
         isActive: isProductActive,
+        stock: pInvFallback.stock,
+        soldCount: pInvFallback.soldCount,
         variants: [...standardVariants, ...addedVariants],
       };
     });
 
   const customList = customProducts.map(cp => {
     const isProductActive = cp.is_active === 1;
+    const pInvFallback = inventoryMap.get(`${cp.id}:`) || { stock: 99, soldCount: 0 };
     const prodVariants = customVariants
       .filter(cv => cv.product_id === cp.id)
       .map(cv => {
@@ -215,6 +236,7 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
           const savings = applies(rule, cp.id) ? discount(basePrice, rule) : 0;
           if (savings > amount) { amount = savings; sale = { id: rule.id, name: rule.name, endsAt: rule.endsAt }; }
         }
+        const vInv = inventoryMap.get(`${cp.id}:${cv.id}`);
         return {
           id: cv.id,
           name: cv.name,
@@ -226,6 +248,8 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
           basePrice,
           price: basePrice - amount,
           sale,
+          stock: vInv ? vInv.stock : pInvFallback.stock,
+          soldCount: vInv ? vInv.soldCount : pInvFallback.soldCount,
         };
       });
 
@@ -245,12 +269,15 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
       partnerEmail: cp.partner_email || null,
       isCustom: true,
       isActive: isProductActive,
+      stock: pInvFallback.stock,
+      soldCount: pInvFallback.soldCount,
       variants: prodVariants,
     };
   });
 
   const allProducts = [...defaultList, ...customList].map(p => ({
-    ...p, checkoutNotice: overridesMap.get('notice:' + p.id) || null,
+    ...p,
+    checkoutNotice: overridesMap.get('notice:' + p.id) || null,
   }));
 
   let orderList = overridesMap.get("system:catalog_product_order");
@@ -470,6 +497,15 @@ export async function createCustomProduct(db, body, now = Date.now(), partnerEma
     }
   }
 
+  if (body.stock !== undefined || body.soldCount !== undefined) {
+    const stock = body.stock !== undefined && body.stock !== null ? integer(Number(body.stock), 0, 1000000, "Số lượng còn") : 99;
+    const soldCount = body.soldCount !== undefined && body.soldCount !== null ? integer(Number(body.soldCount), 0, 10000000, "Số lượng đã bán") : 0;
+    await db.prepare(`INSERT INTO product_inventory (product_id, variant_id, stock, sold_count, updated_at)
+      VALUES (?, '', ?, ?, ?)
+      ON CONFLICT(product_id, variant_id) DO UPDATE SET stock = excluded.stock, sold_count = excluded.sold_count, updated_at = excluded.updated_at`)
+      .run(id, stock, soldCount, effectiveNow);
+  }
+
   return (await getCatalog(db, effectiveNow, true)).find(p => p.id === id);
 }
 
@@ -565,6 +601,18 @@ export async function updateProduct(db, productId, body, now = Date.now(), calle
       ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`)
       .run('notice:' + productId, JSON.stringify(checkoutNotice), effectiveNow);
   }
+  if (body.stock !== undefined || body.soldCount !== undefined) {
+    let existing = null;
+    try {
+      existing = await db.prepare("SELECT stock, sold_count FROM product_inventory WHERE product_id = ? AND variant_id = ''").get(productId);
+    } catch {}
+    const nextStock = body.stock !== undefined && body.stock !== null ? integer(Number(body.stock), 0, 1000000, "Số lượng còn") : (existing ? existing.stock : 99);
+    const nextSold = body.soldCount !== undefined && body.soldCount !== null ? integer(Number(body.soldCount), 0, 10000000, "Số lượng đã bán") : (existing ? existing.sold_count : 0);
+    await db.prepare(`INSERT INTO product_inventory (product_id, variant_id, stock, sold_count, updated_at)
+      VALUES (?, '', ?, ?, ?)
+      ON CONFLICT(product_id, variant_id) DO UPDATE SET stock = excluded.stock, sold_count = excluded.sold_count, updated_at = excluded.updated_at`)
+      .run(productId, nextStock, nextSold, effectiveNow);
+  }
   return (await getCatalog(db, effectiveNow, true)).find(p => p.id === productId);
 }
 
@@ -579,6 +627,7 @@ export async function deleteProduct(db, productId, now = Date.now(), caller = nu
       await tx.prepare("DELETE FROM product_prices WHERE product_id = ?").run(productId);
       await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("product:" + productId);
       await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("notice:" + productId);
+      await tx.prepare("DELETE FROM product_inventory WHERE product_id = ?").run(productId);
     });
     return { productId, deleted: true };
   } else {
@@ -592,6 +641,7 @@ export async function deleteProduct(db, productId, now = Date.now(), caller = nu
       await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("product:" + productId);
       await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("notice:" + productId);
       await tx.prepare("DELETE FROM product_prices WHERE product_id = ?").run(productId);
+      await tx.prepare("DELETE FROM product_inventory WHERE product_id = ?").run(productId);
     });
     return { productId, deleted: true };
   }
@@ -633,6 +683,18 @@ export async function updateVariant(db, productId, variantId, body, now = Date.n
       await tx.prepare(`INSERT INTO product_prices (product_id, variant_id, price, updated_at) VALUES (?, ?, ?, ?)
         ON CONFLICT(product_id, variant_id) DO UPDATE SET price = excluded.price, updated_at = excluded.updated_at`)
         .run(productId, variantId, price, effectiveNow);
+      if (body.stock !== undefined || body.soldCount !== undefined) {
+        let existing = null;
+        try {
+          existing = await tx.prepare("SELECT stock, sold_count FROM product_inventory WHERE product_id = ? AND variant_id = ?").get(productId, variantId);
+        } catch {}
+        const nextStock = body.stock !== undefined && body.stock !== null ? integer(Number(body.stock), 0, 1000000, "Số lượng còn") : (existing ? existing.stock : 99);
+        const nextSold = body.soldCount !== undefined && body.soldCount !== null ? integer(Number(body.soldCount), 0, 10000000, "Số lượng đã bán") : (existing ? existing.sold_count : 0);
+        await tx.prepare(`INSERT INTO product_inventory (product_id, variant_id, stock, sold_count, updated_at)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(product_id, variant_id) DO UPDATE SET stock = excluded.stock, sold_count = excluded.sold_count, updated_at = excluded.updated_at`)
+          .run(productId, variantId, nextStock, nextSold, effectiveNow);
+      }
     });
   } else {
     if (effectiveCaller && effectiveCaller.role === "partner") throw fail("Bạn chỉ có quyền quản lý mặt hàng của chính mình.", 403);
@@ -647,6 +709,18 @@ export async function updateVariant(db, productId, variantId, body, now = Date.n
       await tx.prepare(`INSERT INTO product_prices (product_id, variant_id, price, updated_at) VALUES (?, ?, ?, ?)
         ON CONFLICT(product_id, variant_id) DO UPDATE SET price = excluded.price, updated_at = excluded.updated_at`)
         .run(productId, variantId, price, effectiveNow);
+      if (body.stock !== undefined || body.soldCount !== undefined) {
+        let existing = null;
+        try {
+          existing = await tx.prepare("SELECT stock, sold_count FROM product_inventory WHERE product_id = ? AND variant_id = ?").get(productId, variantId);
+        } catch {}
+        const nextStock = body.stock !== undefined && body.stock !== null ? integer(Number(body.stock), 0, 1000000, "Số lượng còn") : (existing ? existing.stock : 99);
+        const nextSold = body.soldCount !== undefined && body.soldCount !== null ? integer(Number(body.soldCount), 0, 10000000, "Số lượng đã bán") : (existing ? existing.sold_count : 0);
+        await tx.prepare(`INSERT INTO product_inventory (product_id, variant_id, stock, sold_count, updated_at)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(product_id, variant_id) DO UPDATE SET stock = excluded.stock, sold_count = excluded.sold_count, updated_at = excluded.updated_at`)
+          .run(productId, variantId, nextStock, nextSold, effectiveNow);
+      }
     });
   }
   const cat = await getCatalog(db, effectiveNow, true);
@@ -663,6 +737,7 @@ export async function deleteVariant(db, productId, variantId, now = Date.now(), 
       await tx.prepare("DELETE FROM custom_variants WHERE product_id = ? AND id = ?").run(productId, variantId);
       await tx.prepare("DELETE FROM product_prices WHERE product_id = ?").run(productId, variantId);
       await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("variant:" + productId + ":" + variantId);
+      await tx.prepare("DELETE FROM product_inventory WHERE product_id = ? AND variant_id = ?").run(productId, variantId);
     });
     return { productId, variantId, deleted: true };
   } else {
@@ -676,6 +751,7 @@ export async function deleteVariant(db, productId, variantId, now = Date.now(), 
         .run("variant:" + productId + ":" + variantId, -1, effectiveNow);
       await tx.prepare("DELETE FROM catalog_item_overrides WHERE item_key = ?").run("variant:" + productId + ":" + variantId);
       await tx.prepare("DELETE FROM product_prices WHERE product_id = ? AND variant_id = ?").run(productId, variantId);
+      await tx.prepare("DELETE FROM product_inventory WHERE product_id = ? AND variant_id = ?").run(productId, variantId);
     });
     return { productId, variantId, deleted: true };
   }
@@ -721,3 +797,74 @@ export async function quoteOrder(db, items, couponCode = "", userId = null, now 
   quote.fingerprint = createHash("sha256").update(JSON.stringify(quote)).digest("hex");
   return quote;
 }
+
+export async function getInventory(db) {
+  try {
+    const rows = await db.prepare("SELECT * FROM product_inventory").all();
+    const inventory = {};
+    for (const r of rows) {
+      if (!inventory[r.product_id]) {
+        inventory[r.product_id] = { stock: 99, soldCount: 0, variants: {} };
+      }
+      if (!r.variant_id) {
+        inventory[r.product_id].stock = Number(r.stock);
+        inventory[r.product_id].soldCount = Number(r.sold_count);
+      } else {
+        inventory[r.product_id].variants[r.variant_id] = {
+          stock: Number(r.stock),
+          soldCount: Number(r.sold_count),
+        };
+      }
+    }
+    return inventory;
+  } catch {
+    return {};
+  }
+}
+
+export async function updateInventory(db, payload, now = Date.now(), caller = null) {
+  const { now: effectiveNow, caller: effectiveCaller } = normalizeNowCaller(now, caller);
+  const items = Array.isArray(payload) ? payload : (Array.isArray(payload?.items) ? payload.items : [payload]);
+  if (!items.length) throw fail("Dữ liệu cập nhật kho không hợp lệ.");
+
+  const results = [];
+  await db.transaction(async (tx) => {
+    for (const item of items) {
+      const productId = String(item.productId || "").trim();
+      if (!productId) throw fail("Mã mặt hàng không hợp lệ.");
+      await assertProductOwner(tx, productId, effectiveCaller);
+
+      const variantId = String(item.variantId || "").trim();
+      const stock = item.stock !== undefined && item.stock !== null
+        ? integer(Number(item.stock), 0, 1000000, "Số lượng còn lại")
+        : null;
+      const soldCount = item.soldCount !== undefined && item.soldCount !== null
+        ? integer(Number(item.soldCount), 0, 10000000, "Số lượng đã bán")
+        : null;
+
+      if (stock === null && soldCount === null) throw fail("Cần nhập số lượng hàng còn hoặc số lượng đã bán.");
+
+      let existing = null;
+      try {
+        existing = await tx.prepare("SELECT stock, sold_count FROM product_inventory WHERE product_id = ? AND variant_id = ?").get(productId, variantId);
+      } catch {}
+
+      const nextStock = stock !== null ? stock : (existing ? existing.stock : 99);
+      const nextSold = soldCount !== null ? soldCount : (existing ? existing.sold_count : 0);
+
+      await tx.prepare(`
+        INSERT INTO product_inventory (product_id, variant_id, stock, sold_count, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(product_id, variant_id) DO UPDATE SET
+          stock = excluded.stock,
+          sold_count = excluded.sold_count,
+          updated_at = excluded.updated_at
+      `).run(productId, variantId, nextStock, nextSold, effectiveNow);
+
+      results.push({ productId, variantId, stock: nextStock, soldCount: nextSold });
+    }
+  });
+
+  return results.length === 1 ? results[0] : results;
+}
+

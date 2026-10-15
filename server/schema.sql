@@ -177,6 +177,12 @@ CREATE TABLE IF NOT EXISTS admin_tokens (
   expires_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS admin_tokens_expiry ON admin_tokens(expires_at);
-
-
+CREATE TABLE IF NOT EXISTS product_inventory (
+  product_id TEXT NOT NULL,
+  variant_id TEXT NOT NULL DEFAULT '',
+  stock INTEGER NOT NULL DEFAULT 99,
+  sold_count INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY(product_id, variant_id)
+);
 

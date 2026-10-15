@@ -858,6 +858,8 @@ window.initAdminPricing = (() => {
                     ${p.service ? '<span class="status-badge service-sm">🛠️ Dịch vụ</span>' : ""}
                     ${p.isCustom ? '<span class="status-badge custom">Tự tạo</span>' : ""}
                     ${p.isActive ? '<span class="status-badge active">Đang bán</span>' : '<span class="status-badge disabled">Đã ẩn / Bỏ bán</span>'}
+                    <span class="product-stock-pill ${p.stock <= 0 ? 'is-out' : (p.stock <= 5 ? 'is-low' : '')}" title="Số lượng còn lại trong kho">📦 Kho: <strong>${p.stock != null ? p.stock : 99}</strong></span>
+                    <span class="product-sold-pill" title="Tổng số lượng đã bán">🔥 Đã bán: <strong>${p.soldCount != null ? p.soldCount : 0}</strong></span>
                   </div>
                   <p class="product-desc-snippet">${esc(p.description || "Chưa có mô tả.")}</p>
                 </div>
@@ -871,6 +873,7 @@ window.initAdminPricing = (() => {
                     </select>
                   </div>
                   ` : ''}
+                  <button type="button" class="button secondary btn-small btn-inventory-trigger" data-inventory-edit="${p.id}" title="Chỉnh nhanh số lượng kho và đã bán">📦 Kho & Đã bán</button>
                   <button type="button" class="button secondary btn-small" data-variant-new="${p.id}">+ Thêm gói</button>
                   <button type="button" class="button secondary btn-small" data-product-edit="${p.id}" title="Chỉnh sửa thông tin mặt hàng">✏️ Sửa</button>
                   <button type="button" class="button secondary btn-small" data-product-toggle="${p.id}">${p.isActive ? "Bỏ bán (Ẩn)" : "Mở bán lại"}</button>
@@ -1249,6 +1252,45 @@ window.initAdminPricing = (() => {
     `).join("");
   }
 
+  function openInventoryEditor(productId) {
+    const p = products.find(x => x.id === productId);
+    if (!p) return;
+    const isPartner = currentUser.role === "partner";
+    if (isPartner && String(p.partnerEmail || "").toLowerCase() !== currentUser.email.toLowerCase()) {
+      notify("Bạn chỉ có quyền quản lý mặt hàng của chính mình.");
+      return;
+    }
+
+    $("#catalog-editor").innerHTML = `<form id="inventory-edit-form" class="pricing-card promotion-form" data-product-id="${p.id}">
+      <div class="promotion-title">
+        <h3>📦 Quản lý Kho hàng & Số lượng Đã bán: ${esc(p.name)}</h3>
+        <button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button>
+      </div>
+      <p style="font-size:12px; color:var(--muted); margin-bottom:14px;">
+        Chỉnh sửa số lượng sản phẩm còn lại và số lượng đã bán. Khi khách đặt mua đơn hàng mới, số lượng kho sẽ tự động giảm và số lượng đã bán sẽ tự động tăng theo thời gian thật.
+      </p>
+      <div class="pricing-form-grid" style="grid-template-columns: 1fr 1fr; gap:14px;">
+        <label>
+          <strong>Số lượng còn trong kho (Stock) *</strong>
+          <small style="display:block; color:var(--muted); margin-bottom:4px;">Nhập 0 để báo hết hàng và khóa nút mua ngoài web.</small>
+          <input type="number" name="stock" min="0" max="1000000" step="1" required value="${p.stock != null ? p.stock : 99}">
+        </label>
+        <label>
+          <strong>Số lượng đã bán (Sold count) *</strong>
+          <small style="display:block; color:var(--muted); margin-bottom:4px;">Số lượng hiển thị cạnh biểu tượng 🔥 ngoài cửa hàng.</small>
+          <input type="number" name="soldCount" min="0" max="10000000" step="1" required value="${p.soldCount != null ? p.soldCount : 0}">
+        </label>
+      </div>
+      <p class="pricing-form-message" role="status" aria-live="polite" style="margin-top:10px; font-size:13px; color:#f87171;"></p>
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+        <button type="button" class="button secondary" data-catalog-close>Hủy</button>
+        <button type="submit" class="button primary">Lưu số lượng kho & đã bán 💾</button>
+      </div>
+    </form>`;
+    const stockInp = $("#inventory-edit-form [name=stock]");
+    if (stockInp) stockInp.focus();
+  }
+
   function openProductEditor(productId = null) {
     const isPartner = currentUser.role === "partner";
     const standardImages = [
@@ -1270,6 +1312,8 @@ window.initAdminPricing = (() => {
         <div class="promotion-title"><h3>✏️ Chỉnh sửa mặt hàng: ${esc(p.name)}</h3><button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button></div>
         <div class="pricing-form-grid">
           <label>Tên mặt hàng *<input name="name" required maxlength="100" value="${esc(p.name)}"></label>
+          <label>Số lượng còn trong kho (Stock) *<input type="number" name="stock" min="0" max="1000000" step="1" required value="${p.stock != null ? p.stock : 99}"></label>
+          <label>Số lượng đã bán (Sold count) *<input type="number" name="soldCount" min="0" max="10000000" step="1" required value="${p.soldCount != null ? p.soldCount : 0}"></label>
           <label>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
               <span>Danh mục / Hạng mục *</span>
@@ -1413,6 +1457,8 @@ window.initAdminPricing = (() => {
       <div class="promotion-title"><h3>+ Thêm ${isPartner ? "dịch vụ mới" : "mặt hàng mới"}</h3><button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button></div>
       <div class="pricing-form-grid">
         <label>Tên mặt hàng *<input name="name" required maxlength="100" placeholder="Ví dụ: Spotify Premium, Canva Pro..."></label>
+        <label>Số lượng còn trong kho (Stock) *<input type="number" name="stock" min="0" max="1000000" step="1" required value="99"></label>
+        <label>Số lượng đã bán (Sold count) *<input type="number" name="soldCount" min="0" max="10000000" step="1" required value="0"></label>
         <label>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
             <span>Danh mục / Hạng mục *</span>
@@ -1903,6 +1949,7 @@ window.initAdminPricing = (() => {
       "category-add-form",
       "partner-create-form",
       "contact-edit-form",
+      "inventory-edit-form",
     ].includes(form.id)) return;
     event.preventDefault();
     const button = form.querySelector('[type="submit"]'), message = form.querySelector(".pricing-form-message");
@@ -1954,6 +2001,17 @@ window.initAdminPricing = (() => {
         });
         guideData = res.guide;
         notify(guideId === "new" ? "Đã đăng bài viết mới thành công!" : "Đã lưu cập nhật bài viết!");
+        $("#catalog-editor").replaceChildren();
+      } else if (form.id === "inventory-edit-form") {
+        const data = new FormData(form);
+        const productId = form.dataset.productId;
+        const stock = Number(data.get("stock"));
+        const soldCount = Number(data.get("soldCount"));
+        await api("/api/admin/inventory", {
+          method: "PUT",
+          body: JSON.stringify({ productId, stock, soldCount }),
+        });
+        notify("Đã cập nhật số lượng kho và đã bán thành công!");
         $("#catalog-editor").replaceChildren();
       } else if (form.id === "contact-edit-form") {
         const data = new FormData(form);
@@ -2113,7 +2171,7 @@ window.initAdminPricing = (() => {
           title: checkoutNoticeTitle,
           content: checkoutNoticeContent
         } : null;
-        await api("/api/admin/products", { method: "POST", body: JSON.stringify({ name, category, badge, description, image, partnerEmail, variants, detail, features, checkoutNotice }) });
+        await api("/api/admin/products", { method: "POST", body: JSON.stringify({ name, category, badge, description, image, partnerEmail, variants, detail, features, stock: Number(data.get("stock") || 99), soldCount: Number(data.get("soldCount") || 0), checkoutNotice }) });
         notify(currentUser.role === "partner" ? "Đã đăng dịch vụ mới thành công!" : "Đã thêm mặt hàng mới.");
         $("#catalog-editor").replaceChildren();
       } else if (form.id === "product-edit-form") {
@@ -2160,7 +2218,7 @@ window.initAdminPricing = (() => {
           : ((data.get("partnerEmail") || "").trim() || null);
         await api("/api/admin/products/" + productId, {
           method: "PUT",
-          body: JSON.stringify({ name, category, badge, description, image: editImage, partnerEmail, detail, features, checkoutNotice: {
+          body: JSON.stringify({ name, category, badge, description, image: editImage, partnerEmail, detail, features, stock: Number(data.get("stock") || 99), soldCount: Number(data.get("soldCount") || 0), checkoutNotice: {
             title: String(data.get('checkoutNoticeTitle') || ''),
             content: String(data.get('checkoutNoticeContent') || '')
           } }),
@@ -2861,6 +2919,7 @@ window.initAdminPricing = (() => {
           $("#catalog-editor").replaceChildren();
         }
         if (button.hasAttribute("data-product-new")) openProductEditor();
+        if (button.dataset.inventoryEdit) openInventoryEditor(button.dataset.inventoryEdit);
         if (button.dataset.productEdit) openProductEditor(button.dataset.productEdit);
         if (button.dataset.variantNew) openVariantEditor(button.dataset.variantNew);
         if (button.dataset.variantEdit) {

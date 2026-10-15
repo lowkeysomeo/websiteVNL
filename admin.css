@@ -1504,3 +1504,55 @@ body {
 
 .admin-stats-feedback { color: var(--muted); font-size: 12px; margin: -12px 0 20px; }
 
+
+/* ==========================================================================
+   ADMIN INVENTORY & SOLD BADGES
+   ========================================================================== */
+.product-stock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  font-weight: 500;
+}
+
+.product-stock-pill.is-low {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.product-stock-pill.is-out {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.product-sold-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255, 209, 92, 0.1);
+  color: #ffd15c;
+  border: 1px solid rgba(255, 209, 92, 0.25);
+  font-weight: 500;
+}
+
+.btn-inventory-trigger {
+  background: rgba(217, 119, 6, 0.12) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(217, 119, 6, 0.35) !important;
+}
+
+.btn-inventory-trigger:hover {
+  background: rgba(217, 119, 6, 0.22) !important;
+  border-color: #fbbf24 !important;
+}

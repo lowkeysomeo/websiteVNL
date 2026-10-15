@@ -376,6 +376,7 @@ function visibleProducts() {
 
 function renderProductCard(product) {
   const favorite = state.favorites.includes(product.id);
+  const isOutOfStock = !product.service && product.stock <= 0;
   const price = product.service
     ? "Liên hệ"
     : variantPriceHtml(product.variants.reduce((lowest, variant) => variant.price < lowest.price ? variant : lowest));
@@ -391,15 +392,30 @@ function renderProductCard(product) {
     <button class="product-heading" data-detail="${product.id}">${escapeHtml(product.name)}</button>
     <p class="product-description">${escapeHtml(product.description)}</p>
     <ul class="product-features">${(product.features || []).map((feature) => `<li>${icon("check")}<span>${escapeHtml(feature)}</span></li>`).join("")}</ul>
+    <div class="product-stock-bar" data-product-inventory="${product.id}">
+      <span class="stock-badge ${isOutOfStock ? 'is-out' : (product.stock <= 5 && !product.service ? 'is-low' : 'in-stock')}">
+        <span class="stock-dot"></span>
+        <span class="stock-text">${product.service ? 'Nhận đơn' : (product.stock > 0 ? `Còn: <strong>${product.stock}</strong>` : '<strong>Hết hàng</strong>')}</span>
+      </span>
+      <span class="sold-badge" title="Đã bán được ${product.soldCount || 0} sản phẩm">
+        🔥 Đã bán: <strong>${product.soldCount || 0}</strong>
+      </span>
+    </div>
     <div class="product-bottom">
       <div><span class="price-label">${product.service ? "BÁO GIÁ THEO YÊU CẦU" : "GIÁ TỪ"}</span><span class="price ${product.service ? "service-price" : ""}">${price}</span></div>
       ${
         product.service
           ? `<button class="add-button" data-detail="${product.id}">Tư vấn ${icon("arrow")}</button>`
-          : `<div class="product-card-actions">
-              <button class="add-button" data-add="${product.id}" ${catalogReady ? "" : "disabled"} title="Thêm vào giỏ hàng">${icon("bag")} Thêm giỏ</button>
-              <button class="buy-button" data-buy="${product.id}" ${catalogReady ? "" : "disabled"} title="Mua trực tiếp không cần giỏ">Mua ngay ⚡</button>
-            </div>`
+          : (isOutOfStock
+              ? `<div class="product-card-actions">
+                  <button class="add-button is-out-btn" disabled title="Mặt hàng hiện đã hết">${icon("bag")} Hết hàng</button>
+                  <button class="buy-button is-out-btn" disabled title="Mặt hàng hiện đã hết">Tạm hết ⚡</button>
+                </div>`
+              : `<div class="product-card-actions">
+                  <button class="add-button" data-add="${product.id}" ${catalogReady ? "" : "disabled"} title="Thêm vào giỏ hàng">${icon("bag")} Thêm giỏ</button>
+                  <button class="buy-button" data-buy="${product.id}" ${catalogReady ? "" : "disabled"} title="Mua trực tiếp không cần giỏ">Mua ngay ⚡</button>
+                </div>`
+            )
       }
     </div>
   </div>
@@ -498,13 +514,31 @@ function showProduct(id, isDirectBuy = false) {
         ${isDirectBuy ? '<div class="direct-buy-banner">⚡ MUA TRỰC TIẾP · Chọn gói bạn muốn để tiến hành thanh toán ngay</div>' : ""}
         <p>${product.detail}</p>
         <ul class="product-features">${product.features.map((feature) => `<li>${icon("check")}${feature}</li>`).join("")}</ul>
+        <div class="detail-inventory-bar">
+          <span class="detail-stock-pill ${(!product.service && product.stock <= 0) ? 'is-out' : (product.stock <= 5 && !product.service ? 'is-low' : 'in-stock')}">
+            <span class="stock-dot"></span>
+            ${product.service ? 'Sẵn sàng phục vụ' : (product.stock > 0 ? `Còn trong kho: <strong>${product.stock}</strong>` : '<strong>Tạm thời hết hàng</strong>')}
+          </span>
+          <span class="detail-sold-pill">🔥 Đã bán: <strong>${product.soldCount || 0}</strong></span>
+        </div>
         ${
           product.service
             ? `
           <a class="button primary full-width" href="${storeConfig.discordUrl}" target="_blank" rel="noopener noreferrer">Trao đổi trên Discord ${icon("arrow")}</a>
           <p class="fine-print">Báo giá sau khi thống nhất yêu cầu và phạm vi thực hiện.</p>
         `
-            : `
+            : (product.stock <= 0
+              ? `
+          <label for="variant">Chọn gói sản phẩm</label>
+          <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name} — ${money(variant.price)}</option>`).join("")}</select>
+          <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
+          <div class="detail-actions">
+            <button class="button secondary is-out-btn" id="detail-add" disabled>${icon("bag")} Hết hàng</button>
+            <button class="button primary detail-buy-btn is-out-btn" id="detail-buy" disabled>Tạm hết ⚡</button>
+          </div>
+          <p class="fine-print" style="color:#f87171;">Mặt hàng này hiện đang tạm hết trong kho. Vui lòng quay lại sau.</p>
+        `
+              : `
           <label for="variant">Chọn gói sản phẩm</label>
           <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name} — ${money(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
@@ -514,10 +548,11 @@ function showProduct(id, isDirectBuy = false) {
           </div>
           <p class="fine-print">Thanh toán an toàn qua số dư ví VietNam Legacy.</p>
         `
+            )
         }
       </div>
     </div>`;
-  if (!product.service) {
+  if (!product.service && product.stock > 0) {
     const select = document.querySelector("#variant");
     select.addEventListener("change", () => {
       document.querySelector("#detail-price").innerHTML = variantPriceHtml(getVariant(product, select.value));
@@ -1768,6 +1803,8 @@ document
 
       form.reset();
       checkoutDialog.close();
+      refreshCatalog();
+      syncInventoryRealtime();
 
       // Update wallet balance label in topbar
       const walletLabel = document.querySelector("#wallet-label");
@@ -1900,6 +1937,51 @@ renderProducts();
 refreshCatalog();
 setInterval(() => { if (!document.hidden) refreshCatalog(); }, 60000);
 window.addEventListener("focus", refreshCatalog);
+
+async function syncInventoryRealtime() {
+  try {
+    const res = await fetch("/api/inventory", { cache: "no-store" });
+    if (!res.ok) return;
+    const { inventory } = await res.json();
+    if (!inventory) return;
+
+    let hasChanged = false;
+    products.forEach(p => {
+      const inv = inventory[p.id];
+      if (inv) {
+        if (p.stock !== inv.stock || p.soldCount !== inv.soldCount) {
+          p.stock = inv.stock;
+          p.soldCount = inv.soldCount;
+          hasChanged = true;
+          const stockBar = document.querySelector(`[data-product-inventory="${p.id}"]`);
+          if (stockBar) {
+            const isOutOfStock = !p.service && p.stock <= 0;
+            const stockBadge = stockBar.querySelector(".stock-badge");
+            if (stockBadge) {
+              stockBadge.className = `stock-badge ${isOutOfStock ? 'is-out' : (p.stock <= 5 && !p.service ? 'is-low' : 'in-stock')}`;
+            }
+            const stockText = stockBar.querySelector(".stock-text");
+            if (stockText) {
+              stockText.innerHTML = p.service ? "Nhận đơn" : (p.stock > 0 ? `Còn: <strong>${p.stock}</strong>` : "<strong>Hết hàng</strong>");
+            }
+            const soldText = stockBar.querySelector(".sold-badge");
+            if (soldText) {
+              soldText.innerHTML = `🔥 Đã bán: <strong>${p.soldCount || 0}</strong>`;
+            }
+          }
+        }
+      }
+    });
+
+    if (hasChanged && productDialog?.open) {
+      const openProdId = document.querySelector(".detail-copy")?.dataset?.product;
+      if (openProdId) showProduct(openProdId);
+    }
+  } catch {}
+}
+
+setInterval(() => { if (!document.hidden) syncInventoryRealtime(); }, 15000);
+window.addEventListener("focus", syncInventoryRealtime);
 closeMenu();
 window.matchMedia("(max-width: 760px)").addEventListener("change", closeMenu);
 

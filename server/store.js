@@ -278,6 +278,60 @@ export async function createOrder(db, orderData) {
       }
     }
 
+    // Kiểm tra và trừ số lượng hàng còn trong kho, tăng số lượng đã bán theo thời gian thật
+    for (const item of (items || [])) {
+      const qty = Number(item.quantity) || 1;
+      let currentStock = 99;
+      let currentSold = 0;
+      try {
+        const invRow = await tx.prepare(
+          "SELECT stock, sold_count FROM product_inventory WHERE product_id = ? AND variant_id = ''"
+        ).get(item.productId);
+        if (invRow) {
+          currentStock = Number(invRow.stock);
+          currentSold = Number(invRow.sold_count);
+        }
+      } catch {}
+
+      if (currentStock < qty) {
+        throw Object.assign(
+          new Error(`Mặt hàng "${item.name || item.productId}" đã hết hàng hoặc không đủ số lượng trong kho (còn ${currentStock}).`),
+          { status: 400 }
+        );
+      }
+
+      const nextStock = Math.max(0, currentStock - qty);
+      const nextSold = currentSold + qty;
+
+      try {
+        await tx.prepare(`
+          INSERT INTO product_inventory (product_id, variant_id, stock, sold_count, updated_at)
+          VALUES (?, '', ?, ?, ?)
+          ON CONFLICT(product_id, variant_id) DO UPDATE SET
+            stock = excluded.stock,
+            sold_count = excluded.sold_count,
+            updated_at = excluded.updated_at
+        `).run(item.productId, nextStock, nextSold, now);
+
+        if (item.variantId) {
+          const vRow = await tx.prepare(
+            "SELECT stock, sold_count FROM product_inventory WHERE product_id = ? AND variant_id = ?"
+          ).get(item.productId, item.variantId);
+          if (vRow) {
+            await tx.prepare(`
+              UPDATE product_inventory SET
+                stock = MAX(0, stock - ?),
+                sold_count = sold_count + ?,
+                updated_at = ?
+              WHERE product_id = ? AND variant_id = ?
+            `).run(qty, qty, now, item.productId, item.variantId);
+          }
+        }
+      } catch (err) {
+        console.error("[Inventory deduction error]", err);
+      }
+    }
+
     const orderId = "VNL-" + randomBytes(4).toString("hex").toUpperCase();
     const initialStatus = paymentMethod === "wallet" ? "processing" : "pending";
 
@@ -512,6 +566,31 @@ export async function updateAdminOrder(db, orderId, { status, claimLink }, partn
       "UPDATE orders SET status = ?, claim_link = ?, completed_at = ? WHERE id = ?",
     )
     .run(nextStatus, nextClaimLink, completedAt, orderId);
+
+  if (order.status !== "cancelled" && nextStatus === "cancelled") {
+    try {
+      const items = JSON.parse(order.items_json);
+      for (const item of (items || [])) {
+        const qty = Number(item.quantity) || 1;
+        await db.prepare(`
+          UPDATE product_inventory SET
+            stock = stock + ?,
+            sold_count = MAX(0, sold_count - ?),
+            updated_at = ?
+          WHERE product_id = ? AND variant_id = ''
+        `).run(qty, qty, Date.now(), item.productId);
+        if (item.variantId) {
+          await db.prepare(`
+            UPDATE product_inventory SET
+              stock = stock + ?,
+              sold_count = MAX(0, sold_count - ?),
+              updated_at = ?
+            WHERE product_id = ? AND variant_id = ?
+          `).run(qty, qty, Date.now(), item.productId, item.variantId);
+        }
+      }
+    } catch {}
+  }
 
   return {
     id: order.id,

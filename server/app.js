@@ -50,6 +50,8 @@ import {
   getCategories,
   saveCategories,
   saveCatalogOrder,
+  getInventory,
+  updateInventory,
 } from "./pricing.js";
 import {
   digest,
@@ -484,6 +486,9 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
         if (req.method === "GET" && route === "/api/catalog") {
           return json(200, { products: await getCatalog(db), categories: await getCategories(db) });
         }
+        if (req.method === "GET" && route === "/api/inventory") {
+          return json(200, { success: true, inventory: await getInventory(db) });
+        }
         if (req.method === "GET" && route === "/api/categories") {
           return json(200, { categories: await getCategories(db) });
         }
@@ -515,6 +520,13 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           const body = parse(await readBody(req));
           const categories = await saveCategories(db, body.categories, Date.now(), caller);
           return json(200, { categories });
+        }
+        if (req.method === "PUT" && route === "/api/admin/inventory") {
+          const caller = await requireAdminOrPartner(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const updated = await updateInventory(db, body, Date.now(), caller);
+          return json(200, { success: true, updated, products: await getCatalog(db, Date.now(), true) });
         }
         if (req.method === "PUT" && route === "/api/admin/prices") {
           await requireAdmin(req);
