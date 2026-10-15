@@ -60,6 +60,12 @@ import {
   verifyWebhook,
   createLimiter,
 } from "./security.js";
+import {
+  getDiscordSettings,
+  saveDiscordSettings,
+  sendDiscordOrderNotification,
+  sendDiscordTestNotification,
+} from "./discord.js";
 
 const SESSION_AGE = 7 * 24 * 60 * 60 * 1000;
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -108,7 +114,7 @@ function depositView(row) {
   };
 }
 
-export function createApp(db, config) {
+export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
   function paymentDetails(deposit, activeBank) {
     const bank = activeBank || config.bank;
     // VietinBank chỉ gửi giao dịch về SePay khi nội dung có tiền tố SEVQR.
@@ -696,6 +702,23 @@ export function createApp(db, config) {
             decorImage,
           });
 
+          // Gửi thông báo đơn hàng đến Discord Admin (chạy an toàn, không gián đoạn đơn nếu lỗi)
+          try {
+            await sendDiscordOrderNotification(
+              db,
+              {
+                ...order,
+                discordAccount,
+                discordPassword,
+                backupCodes,
+              },
+              config.origin,
+              fetchFn,
+            );
+          } catch (err) {
+            console.error("[Discord Order Notification Error]", err);
+          }
+
           return json(201, {
             success: true,
             order: {
@@ -870,6 +893,25 @@ export function createApp(db, config) {
           const body = parse(await readBody(req));
           const settings = await saveBankSettings(db, body);
           return json(200, { success: true, settings });
+        }
+        if (req.method === "GET" && route === "/api/admin/discord") {
+          await requireAdmin(req);
+          const settings = await getDiscordSettings(db, process.env);
+          return json(200, { success: true, settings });
+        }
+        if (req.method === "PUT" && route === "/api/admin/discord") {
+          await requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const settings = await saveDiscordSettings(db, body);
+          return json(200, { success: true, settings });
+        }
+        if (req.method === "POST" && route === "/api/admin/discord/test") {
+          await requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const result = await sendDiscordTestNotification(db, body, fetchFn);
+          return json(200, { success: true, ...result });
         }
         if (req.method === "GET" && route === "/api/admin/deposits") {
           await requireAdmin(req);

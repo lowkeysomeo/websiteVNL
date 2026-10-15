@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="admin.css?v=20261014-guide2" />
     <script src="admin-pricing.js?v=20261014-notice-edit1" defer></script>
-    <script src="admin.js?v=20261013-notice2" defer></script>
+    <script src="admin.js?v=20261015-discord1" defer></script>
   </head>
   <body>
     <!-- Login Screen -->
@@ -129,7 +129,7 @@
         <section id="admin-pricing-view" hidden aria-label="Giá và ưu đãi"></section>
         <div id="admin-orders-view">
         <!-- Announcement Banner Control -->
-        <section class="admin-announcement-card">
+        <section class="admin-announcement-card" id="admin-announcement-card">
           <div class="admin-card-header">
             <div>
               <h3>📢 Quản lý thông báo chạy đầu trang</h3>
@@ -156,6 +156,65 @@
               <span class="char-counter" id="admin-announcement-counter">0 / 400 ký tự</span>
               <button class="button primary btn-small" id="admin-save-announcement-btn">
                 Lưu & Đăng thông báo ⚡
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Discord Admin Notification Control -->
+        <section class="admin-announcement-card" id="admin-discord-card">
+          <div class="admin-card-header">
+            <div>
+              <h3><span style="font-size: 16px;">🔔</span> Thông báo đơn hàng qua Discord Admin</h3>
+              <p>Tự động gửi thông báo kèm ping Discord Admin khi có khách hàng đặt hàng mới trên website.</p>
+            </div>
+            <div class="announcement-toggle-group">
+              <label class="switch-label">
+                <input type="checkbox" id="admin-discord-active" aria-label="Bật thông báo đơn hàng qua Discord" checked />
+                <span class="switch-slider"></span>
+              </label>
+              <span id="admin-discord-status-text" class="status-active">Bật thông báo</span>
+            </div>
+          </div>
+          <div class="admin-announcement-form" style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="admin-discord-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+              <div>
+                <label for="admin-discord-webhook" style="display: block; font-size: 12px; font-weight: 600; color: #d8b4fe; margin-bottom: 6px;">
+                  Discord Webhook URL
+                </label>
+                <input
+                  type="url"
+                  id="admin-discord-webhook"
+                  placeholder="https://discord.com/api/webhooks/..."
+                  style="width: 100%; box-sizing: border-box; padding: 9px 12px; background: #140b0e; border: 1px solid var(--line); border-radius: 8px; color: #fff; font-size: 13px;"
+                />
+                <small style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted, #94a3b8);">
+                  Dán link Webhook của kênh nhận thông báo Discord (Cài đặt kênh &gt; Tích hợp &gt; Webhooks).
+                </small>
+              </div>
+              <div>
+                <label for="admin-discord-admin-id" style="display: block; font-size: 12px; font-weight: 600; color: #d8b4fe; margin-bottom: 6px;">
+                  ID Discord Admin (để ping khi có đơn)
+                </label>
+                <input
+                  type="text"
+                  id="admin-discord-admin-id"
+                  placeholder="604729446649298963"
+                  value="604729446649298963"
+                  style="width: 100%; box-sizing: border-box; padding: 9px 12px; background: #140b0e; border: 1px solid var(--line); border-radius: 8px; color: #fff; font-size: 13px;"
+                />
+                <small style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted, #94a3b8);">
+                  Mặc định: <code style="color: #c084fc;">604729446649298963</code> (bot sẽ gắn thẻ <code>&lt;@604729446649298963&gt;</code>).
+                </small>
+              </div>
+            </div>
+            <p id="admin-discord-feedback" class="announcement-feedback" role="status" aria-live="polite" style="margin: 0;"></p>
+            <div class="admin-announcement-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 2px;">
+              <button type="button" class="button secondary btn-small" id="admin-test-discord-btn">
+                Gửi tin thử nghiệm 🧪
+              </button>
+              <button type="button" class="button primary btn-small" id="admin-save-discord-btn">
+                Lưu cấu hình Discord ⚡
               </button>
             </div>
           </div>

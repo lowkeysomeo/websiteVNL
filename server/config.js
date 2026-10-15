@@ -45,6 +45,8 @@ export function readConfig(env = process.env) {
       accountName: env.BANK_ACCOUNT_NAME || "",
     },
     webhookSecret: env.SEPAY_WEBHOOK_SECRET || "",
+    discordWebhookUrl: env.DISCORD_WEBHOOK_URL || "",
+    discordAdminId: env.DISCORD_ADMIN_ID || "604729446649298963",
   };
   if (!["disabled", "live"].includes(config.paymentsMode))
     throw new Error("PAYMENTS_MODE must be disabled or live.");

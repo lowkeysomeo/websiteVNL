@@ -133,7 +133,8 @@
 
     const brandTitle = document.querySelector("#admin-brand-title");
     const brandSubtitle = document.querySelector("#admin-brand-subtitle");
-    const annCard = document.querySelector(".admin-announcement-card");
+    const annCard = document.querySelector("#admin-announcement-card") || document.querySelector(".admin-announcement-card");
+    const discordCard = document.querySelector("#admin-discord-card");
 
     const ordersBtn = document.querySelector('[data-admin-view="orders"]');
     const pricesBtn = document.querySelector('[data-admin-view="prices"]');
@@ -150,6 +151,7 @@
         userBadge.innerHTML = `<span class="user-badge-role partner">🤝 Đối tác: <b>${escapeHtml(name || email)}</b></span>`;
       }
       if (annCard) annCard.hidden = true;
+      if (discordCard) discordCard.hidden = true;
 
       if (ordersBtn) ordersBtn.textContent = "📦 Đơn hàng của tôi";
       if (pricesBtn) pricesBtn.textContent = "🏷️ Dịch vụ của tôi";
@@ -165,6 +167,7 @@
         userBadge.innerHTML = `<span class="user-badge-role admin">👑 Quản trị viên</span>`;
       }
       if (annCard) annCard.hidden = false;
+      if (discordCard) discordCard.hidden = false;
 
       if (ordersBtn) ordersBtn.textContent = "Đơn hàng & thông báo";
       if (pricesBtn) pricesBtn.textContent = "Giá sản phẩm";
@@ -178,6 +181,7 @@
     loadOrders();
     if (role === "admin") {
       loadAnnouncement();
+      loadDiscordSettings();
     }
     if (window.initAdminPricing) {
       window.initAdminPricing({ api, notify, user: { role, email, name } });
@@ -756,6 +760,137 @@
       } finally {
         saveAnnouncementBtn.disabled = false;
         saveAnnouncementBtn.textContent = "Lưu & Đăng thông báo ⚡";
+      }
+    });
+  }
+
+  // Discord Admin Notification Management
+  const discordWebhookInput = document.querySelector("#admin-discord-webhook");
+  const discordAdminIdInput = document.querySelector("#admin-discord-admin-id");
+  const discordActive = document.querySelector("#admin-discord-active");
+  const discordStatusText = document.querySelector("#admin-discord-status-text");
+  const discordFeedback = document.querySelector("#admin-discord-feedback");
+  const saveDiscordBtn = document.querySelector("#admin-save-discord-btn");
+  const testDiscordBtn = document.querySelector("#admin-test-discord-btn");
+
+  function discordStatus(message, error = false) {
+    if (!discordFeedback) return;
+    discordFeedback.textContent = message;
+    discordFeedback.classList.toggle("is-error", error);
+  }
+
+  function updateDiscordStatusLabel() {
+    if (!discordActive || !discordStatusText) return;
+    const isEnabled = discordActive.checked;
+    discordStatusText.textContent = isEnabled ? "Bật thông báo" : "Tắt thông báo";
+    discordStatusText.classList.toggle("status-active", isEnabled);
+    discordStatusText.classList.toggle("status-inactive", !isEnabled);
+  }
+
+  if (discordActive) {
+    discordActive.addEventListener("change", updateDiscordStatusLabel);
+  }
+
+  async function loadDiscordSettings() {
+    if (!discordWebhookInput) return;
+    try {
+      const data = await api("/api/admin/discord");
+      if (data.settings) {
+        discordWebhookInput.value = data.settings.webhookUrl || "";
+        if (discordAdminIdInput) {
+          discordAdminIdInput.value = data.settings.adminId || "604729446649298963";
+        }
+        if (discordActive) {
+          discordActive.checked = Boolean(data.settings.enabled);
+        }
+        updateDiscordStatusLabel();
+      }
+    } catch (err) {
+      discordStatus("Chưa tải được cấu hình Discord: " + err.message, true);
+    }
+  }
+
+  if (saveDiscordBtn) {
+    saveDiscordBtn.addEventListener("click", async () => {
+      const webhookUrl = discordWebhookInput ? discordWebhookInput.value.trim() : "";
+      const adminId = discordAdminIdInput ? discordAdminIdInput.value.trim() : "604729446649298963";
+      const enabled = discordActive ? discordActive.checked : false;
+
+      if (enabled && !webhookUrl) {
+        discordStatus("Vui lòng nhập Discord Webhook URL trước khi bật thông báo.", true);
+        notify("Vui lòng nhập Discord Webhook URL.");
+        discordWebhookInput?.focus();
+        return;
+      }
+
+      saveDiscordBtn.disabled = true;
+      saveDiscordBtn.textContent = "Đang lưu...";
+      discordStatus("Đang lưu cấu hình...");
+
+      try {
+        const data = await api("/api/admin/discord", {
+          method: "PUT",
+          body: JSON.stringify({
+            webhookUrl,
+            adminId: adminId || "604729446649298963",
+            enabled,
+          }),
+        });
+
+        if (discordWebhookInput) discordWebhookInput.value = data.settings.webhookUrl || "";
+        if (discordAdminIdInput) discordAdminIdInput.value = data.settings.adminId || "604729446649298963";
+        if (discordActive) discordActive.checked = Boolean(data.settings.enabled);
+        updateDiscordStatusLabel();
+
+        const savedAt = new Date().toLocaleTimeString("vi-VN");
+        discordStatus(
+          data.settings.enabled
+            ? `Đã lưu lúc ${savedAt}. Đang bật thông báo đơn hàng qua Discord (Admin: ${data.settings.adminId}).`
+            : `Đã lưu lúc ${savedAt}. Thông báo qua Discord đang tắt.`,
+        );
+        notify("Đã lưu cấu hình thông báo Discord.");
+      } catch (err) {
+        discordStatus("Chưa lưu được: " + err.message, true);
+        notify("Lỗi khi lưu cấu hình Discord: " + err.message);
+      } finally {
+        saveDiscordBtn.disabled = false;
+        saveDiscordBtn.textContent = "Lưu cấu hình Discord ⚡";
+      }
+    });
+  }
+
+  if (testDiscordBtn) {
+    testDiscordBtn.addEventListener("click", async () => {
+      const webhookUrl = discordWebhookInput ? discordWebhookInput.value.trim() : "";
+      const adminId = discordAdminIdInput ? discordAdminIdInput.value.trim() : "604729446649298963";
+
+      if (!webhookUrl) {
+        discordStatus("Vui lòng nhập Discord Webhook URL để gửi tin thử nghiệm.", true);
+        notify("Vui lòng nhập Discord Webhook URL.");
+        discordWebhookInput?.focus();
+        return;
+      }
+
+      testDiscordBtn.disabled = true;
+      testDiscordBtn.textContent = "Đang gửi...";
+      discordStatus("Đang gửi tin thử nghiệm tới Discord...");
+
+      try {
+        const data = await api("/api/admin/discord/test", {
+          method: "POST",
+          body: JSON.stringify({
+            webhookUrl,
+            adminId: adminId || "604729446649298963",
+          }),
+        });
+        discordStatus("✅ " + (data.message || "Đã gửi thông báo thử nghiệm thành công! Hãy kiểm tra Discord."));
+        notify("Gửi thử nghiệm thành công! Kiểm tra Discord.");
+      } catch (err) {
+        discordStatus("❌ Gửi thử nghiệm thất bại: " + err.message, true);
+        notify("Lỗi thử nghiệm: " + err.message);
+      } finally {
+        testDiscordBtn.disabled = false;
+        testDiscordBtn.textContent = "Gửi tin thử nghiệm 🧪";
       }
     });
   }
