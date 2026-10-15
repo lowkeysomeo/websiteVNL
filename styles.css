@@ -2515,65 +2515,78 @@ form textarea {
 }
 
 /* ==========================================================================
-   INTERACTIVE CURSOR & MOUSE EFFECTS
+   CON TRỎ 3D ĐỒNG BỘ (BG3D CURSOR BEACON & ROTATING GOLD AURA RING)
+   Bản nâng cấp thay thế hoàn toàn con trỏ cũ, tích hợp cùng nền 3D
    ========================================================================== */
 
-/* Con trỏ kép và sao nhỏ: điểm nhấn vàng–tím, không phủ ánh sáng lên nền. */
 .cursor-dot, .cursor-ring {
   position: fixed;
   top: 0;
   left: 0;
-  pointer-events: none;
+  pointer-events: none !important;
   border-radius: 50%;
   opacity: 0;
   transform: translate(-50%, -50%);
   will-change: transform;
 }
+/* 1. Hạt Tâm Năng Lượng (Cursor Beacon) */
 .cursor-dot {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
   z-index: 9999;
   background: #ffd15c;
-  box-shadow: 0 0 5px rgba(255, 209, 92, 0.9), 0 0 12px rgba(192, 132, 252, 0.25);
-  transition: opacity 120ms ease, background-color 160ms ease;
+  box-shadow: 0 0 6px #ffb703, 0 0 14px #ff2d55, 0 0 22px rgba(255, 45, 85, 0.6);
+  transition: opacity 140ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
-.cursor-ring {
-  width: 18px;
-  height: 18px;
-  z-index: 9998;
-  border: 1px solid rgba(255, 209, 92, 0.65);
-  background: rgba(255, 209, 92, 0.025);
-  transition: opacity 140ms ease, width 180ms ease, height 180ms ease,
-    border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+.cursor-dot.active { opacity: 1; }
+.cursor-dot.hover {
+  background: #ffffff;
+  box-shadow: 0 0 10px #ffd15c, 0 0 20px #ff2d55, 0 0 30px rgba(255, 45, 85, 0.75);
 }
-.cursor-dot.active, .cursor-ring.active { opacity: 1; }
-.cursor-ring.hover {
-  width: 30px;
-  height: 30px;
-  border-color: rgba(255, 231, 173, 0.85);
-  background: rgba(192, 132, 252, 0.07);
-  box-shadow: 0 0 14px rgba(255, 209, 92, 0.14), 0 0 22px rgba(192, 132, 252, 0.08);
+.cursor-dot.clicking {
+  background: #ffffff;
+  box-shadow: 0 0 16px #ffffff, 0 0 28px #ffb703;
 }
-.cursor-dot.hover { background: #fff1c7; }
-.cursor-ring.clicking {
-  width: 11px;
-  height: 11px;
-  border-color: #fff1c7;
-  background: rgba(255, 209, 92, 0.15);
-}
-.cursor-dot.clicking { background: #fff; }
-.cursor-particles {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 9997;
-  pointer-events: none;
-  opacity: 0;
-}
-.cursor-particles.active { opacity: 1; }
 
-/* Chỉ giấu con trỏ thật sau khi bộ con trỏ tùy biến đã sẵn sàng. */
+/* 2. Vòng Hào Quang 3D Tinh Thể (Rotating Gold Aura Ring) */
+.cursor-ring {
+  width: 22px;
+  height: 22px;
+  z-index: 9998;
+  border: 1.5px solid rgba(255, 183, 3, 0.75);
+  border-top-color: rgba(255, 225, 120, 0.95);
+  border-bottom-color: rgba(255, 45, 85, 0.85);
+  background: radial-gradient(circle, rgba(255, 183, 3, 0.12) 0%, rgba(255, 45, 85, 0.04) 55%, transparent 75%);
+  box-shadow: 0 0 12px rgba(255, 183, 3, 0.35), inset 0 0 8px rgba(255, 45, 85, 0.2);
+  transition: opacity 160ms ease, width 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 220ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms ease,
+    background-color 200ms ease, box-shadow 200ms ease;
+}
+.cursor-ring.active { opacity: 1; }
+.cursor-ring.hover {
+  width: 38px;
+  height: 38px;
+  border-color: rgba(255, 215, 95, 0.95);
+  border-top-color: #ffd15c;
+  border-bottom-color: #ff2d55;
+  background: radial-gradient(circle, rgba(255, 183, 3, 0.22) 0%, rgba(255, 45, 85, 0.1) 60%, transparent 80%);
+  box-shadow: 0 0 18px rgba(255, 183, 3, 0.55), 0 0 30px rgba(255, 45, 85, 0.35), inset 0 0 10px rgba(255, 183, 3, 0.3);
+}
+.cursor-ring.clicking {
+  width: 50px;
+  height: 50px;
+  border-color: rgba(255, 255, 255, 0.95);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(255, 183, 3, 0.25) 45%, transparent 75%);
+  box-shadow: 0 0 28px rgba(255, 183, 3, 0.85), 0 0 45px rgba(255, 45, 85, 0.65);
+  transition: width 90ms ease-out, height 90ms ease-out;
+}
+
+/* Đã loại bỏ hoàn toàn hạt sao 2D cũ */
+.cursor-particles {
+  display: none !important;
+}
+
+/* Chỉ giấu con trỏ chuột mặc định khi con trỏ 3D đã sẵn sàng */
 body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])),
 body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) * { cursor: none !important; }
 body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) input,
@@ -2593,14 +2606,14 @@ body.modal-open .floating-contacts {
 }
 body.modal-open :is(.cursor-dot, .cursor-ring, .cursor-particles),
 body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
-  opacity: 0;
-  visibility: hidden;
+  opacity: 0 !important;
+  visibility: hidden !important;
 }
 
-/* Lớp mặt và đường viền nhận cùng tọa độ, không ngăn việc bấm sản phẩm. */
+/* Hiệu ứng hào quang viền thẻ sản phẩm nhận tọa độ từ chuột đồng bộ */
 .product-card.cursor-lit::before {
-  background: radial-gradient(220px circle at var(--mouse-x) var(--mouse-y),
-    rgba(255, 209, 92, 0.12), rgba(192, 132, 252, 0.06) 42%, transparent 75%);
+  background: radial-gradient(240px circle at var(--mouse-x) var(--mouse-y),
+    rgba(255, 183, 3, 0.12), rgba(255, 45, 85, 0.07) 45%, transparent 75%);
   opacity: 1;
 }
 .product-card::after {
@@ -2611,8 +2624,8 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   border-radius: inherit;
   pointer-events: none;
   z-index: 3;
-  background: radial-gradient(150px circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
-    rgba(255, 209, 92, 0.9), rgba(192, 132, 252, 0.55) 45%, transparent 78%);
+  background: radial-gradient(160px circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
+    rgba(255, 183, 3, 0.85), rgba(255, 45, 85, 0.55) 45%, transparent 78%);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -2621,14 +2634,15 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   transition: opacity 200ms ease;
 }
 .product-card.cursor-lit::after { opacity: 1; }
-@media (any-hover: none), (any-pointer: none) {
-  .cursor-dot, .cursor-ring, .cursor-particles { display: none; }
+@media (any-hover: none), (any-pointer: none), (max-width: 768px) {
+  .cursor-dot, .cursor-ring, .cursor-particles { display: none !important; }
+  body.has-custom-cursor,
+  body.has-custom-cursor * { cursor: auto !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   .cursor-ring { transition: opacity 120ms ease; }
   .product-card::after { transition: none; }
 }
-
 
 /* ==========================================================================
    SMOOTH SCROLL REVEAL ANIMATIONS

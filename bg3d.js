@@ -1,26 +1,29 @@
 /**
- * VietNam Legacy - Ultra-Light 3D WebGL Background (bg3d.js - Bản Tương Tác Chuột Nâng Cao)
- * Dung lượng: ~6 KB | Không tải thêm thư viện (dùng chung three.min.js sẵn có của shop)
+ * VietNam Legacy - Ultra-Light 3D WebGL Background & Unified 3D Cursor Engine (bg3d.js)
+ * Dung lượng: ~7 KB | Không tải thêm thư viện (dùng chung three.min.js sẵn có của shop)
  * Chế độ: MẠNG TINH THỂ TƯƠNG TÁC CHUỘT (INTERACTIVE NEURAL PLEXUS) | Bảng màu: Đỏ Di Sản (#140b0d)
  *
- * HIỆU ỨNG DI CHUỘT TÍCH HỢP:
- * 1. Hạt Tâm Năng Lượng 3D (Cursor Beacon) bám theo vị trí chuột trong không gian 3D
- * 2. Tia Liên Kết Từ Trường: Tự động phóng tia sáng nối từ con trỏ chuột tới các hạt xung quanh
- * 3. Lực Đẩy & Xoáy Từ Trường 3D: Lướt chuột tới đâu các hạt tinh thể dạt ra và xoáy nhẹ tới đó
- * 4. Sóng Xung Kích Khi Click: Nhấp chuột tạo xung năng lượng đẩy bật các hạt tinh thể xung quanh
- * 5. Nghiêng Góc Nhìn 3D (Camera Parallax) mượt mà theo hướng di chuột & cuộn trang
+ * HIỆU ỨNG DI CHUỘT 3D TÍCH HỢP ĐỒNG BỘ:
+ * 1. Hạt Tâm Năng Lượng 3D (Cursor Beacon): Lõi năng lượng vàng–đỏ rực rỡ bám chuẩn tọa độ chuột
+ * 2. Vòng Hào Quang 3D (Rotating Gold Aura Ring): Xoay liên tục theo nhịp thời gian, phóng to khi hover nút/sản phẩm
+ * 3. Tia Liên Kết Từ Trường 3D: Tự động phóng tia sáng từ con trỏ chuột tới các hạt tinh thể xung quanh
+ * 4. Lực Đẩy & Xoáy Từ Trường 3D: Lướt chuột tới đâu các hạt dạt ra và xoáy nhẹ tới đó
+ * 5. Sóng Xung Kích Khi Click: Nhấp chuột tạo xung năng lượng đẩy bật các hạt tinh thể xung quanh và kích hoạt shockwave ring
+ * 6. Nghiêng Góc Nhìn 3D (Camera Parallax) mượt mà theo hướng di chuột & cuộn trang
+ * 7. Tự động trả về con trỏ mặc định trên ô nhập liệu (input, textarea), dialog và modal để không gây cản trở
  */
 (function () {
   'use strict';
 
   const isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
   const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const finePointer = window.matchMedia && window.matchMedia('(any-hover: hover) and (any-pointer: fine)');
 
   const CONFIG = {
     bgHex: '#140b0d',
     primaryHex: 0xff2d55,     // Đỏ Ruby VietNam Legacy
     secondaryHex: 0xa855f7,   // Tím Discord Nitro
-    cursorHex: 0xffb703,      // Vàng Gold cho tia năng lượng chuột
+    cursorHex: 0xffb703,      // Vàng Gold cho tia năng lượng chuột & Vòng hào quang
     speed: prefersReduced ? 0.08 : 0.22,
     parallax: prefersReduced ? 0 : (isMobile ? 0.45 : 1.15),
     nodeCount: isMobile ? 50 : 92,
@@ -168,7 +171,7 @@
     });
     scene.add(new THREE.LineSegments(mouseLineGeo, mouseLineMat));
 
-    // 6. Vòng Hào Quang 3D nhẹ đi theo con trỏ chuột
+    // 6. Vòng Hào Quang 3D đi theo con trỏ chuột trong không gian 3D
     const cursorRingGeo = new THREE.RingGeometry(0.45, 0.62, 24);
     const cursorRingMat = new THREE.MeshBasicMaterial({
       color: CONFIG.cursorHex,
@@ -181,7 +184,57 @@
     cursorRing.position.set(999, 999, 2);
     scene.add(cursorRing);
 
-    // 7. Theo dõi tọa độ chuột chuyển đổi sang không gian 3D thực tế
+    // 7. Đồng bộ hệ thống con trỏ chuột 3D: Hạt tâm năng lượng & Vòng hào quang quay
+    let dot = document.querySelector('#cursor-dot');
+    let ring = document.querySelector('#cursor-ring');
+    if (!dot) {
+      dot = document.createElement('div');
+      dot.className = 'cursor-dot';
+      dot.id = 'cursor-dot';
+      dot.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(dot);
+    }
+    if (!ring) {
+      ring = document.createElement('div');
+      ring.className = 'cursor-ring';
+      ring.id = 'cursor-ring';
+      ring.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(ring);
+    }
+
+    const interactiveSelector = 'a[href], button, [role="button"], summary, .product-card, label[style*="cursor:pointer"], input[type="button"], input[type="submit"]';
+    const nativeControls = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), iframe';
+    const surfaceSelector = '.hero, .product-card, .support-card, .bottom-banner, .benefit-item, .order-card, .catalog-controls';
+
+    let clientX = -999, clientY = -999;
+    let ringCurX = -999, ringCurY = -999;
+    let isCursorVisible = false;
+    let activeSurface = null;
+    let clickReleaseTimer = null;
+
+    function isBlocked() {
+      return !finePointer.matches || document.hidden || document.body.classList.contains('modal-open') || Boolean(document.querySelector('dialog[open]'));
+    }
+
+    function clearActiveSurface() {
+      if (activeSurface) {
+        activeSurface.style.removeProperty('--mouse-x');
+        activeSurface.style.removeProperty('--mouse-y');
+        activeSurface.classList.remove('cursor-lit');
+        activeSurface = null;
+      }
+    }
+
+    function hideCustomCursor() {
+      if (!isCursorVisible) return;
+      isCursorVisible = false;
+      document.body.classList.remove('has-custom-cursor');
+      if (dot) dot.classList.remove('active', 'hover', 'clicking');
+      if (ring) ring.classList.remove('active', 'hover', 'clicking');
+      clearActiveSurface();
+    }
+
+    // 8. Theo dõi tọa độ chuột chuyển đổi sang không gian 3D thực tế
     let normX = 0, normY = 0;
     let smoothNormX = 0, smoothNormY = 0;
     let mouse3DX = 999, mouse3DY = 999;
@@ -193,10 +246,10 @@
 
     const rayPlaneZ = 2; // Mặt phẳng 3D nơi con trỏ tương tác với hạt
 
-    function updatePointer(clientX, clientY) {
+    function updatePointer(cx, cy) {
       hasMouseMoved = true;
-      normX = (clientX / window.innerWidth - 0.5) * 2;
-      normY = -(clientY / window.innerHeight - 0.5) * 2;
+      normX = (cx / window.innerWidth - 0.5) * 2;
+      normY = -(cy / window.innerHeight - 0.5) * 2;
 
       // Quy đổi tọa độ màn hình sang tọa độ thế giới 3D tại mặt phẳng z = rayPlaneZ
       const fovRad = (camera.fov * Math.PI) / 180;
@@ -208,8 +261,56 @@
       targetMouse3DY = normY * halfH + camera.position.y * 0.85;
     }
 
-    window.addEventListener('mousemove', (e) => {
+    window.addEventListener('pointermove', (e) => {
+      // Cập nhật tọa độ 3D
       updatePointer(e.clientX, e.clientY);
+
+      // Kiểm tra con trỏ chuột desktop
+      if (e.pointerType !== 'mouse' || isBlocked()) {
+        hideCustomCursor();
+        return;
+      }
+
+      const targetEl = e.target instanceof Element ? e.target : null;
+      if (!targetEl || targetEl.closest(nativeControls) || targetEl.closest(':disabled, [aria-disabled="true"]')) {
+        hideCustomCursor();
+        return;
+      }
+
+      clientX = e.clientX;
+      clientY = e.clientY;
+
+      if (!isCursorVisible) {
+        isCursorVisible = true;
+        ringCurX = clientX;
+        ringCurY = clientY;
+        document.body.classList.add('has-custom-cursor');
+        if (dot) dot.classList.add('active');
+        if (ring) ring.classList.add('active');
+      }
+
+      // Hạt tâm năng lượng bám chuẩn vị trí trỏ chuột tức thì (zero delay)
+      if (dot) {
+        dot.style.transform = `translate3d(${clientX}px, ${clientY}px, 0) translate(-50%, -50%)`;
+      }
+
+      // Nhận diện trạng thái hover trên nút bấm, liên kết, thẻ sản phẩm
+      const isHover = Boolean(targetEl.closest(interactiveSelector));
+      if (ring) ring.classList.toggle('hover', isHover);
+      if (dot) dot.classList.toggle('hover', isHover);
+
+      // Đồng bộ luồng ánh sáng viền hào quang thẻ sản phẩm
+      const surface = targetEl.closest(surfaceSelector);
+      if (surface !== activeSurface) {
+        clearActiveSurface();
+        activeSurface = surface;
+        if (activeSurface) activeSurface.classList.add('cursor-lit');
+      }
+      if (activeSurface && activeSurface.isConnected) {
+        const rect = activeSurface.getBoundingClientRect();
+        activeSurface.style.setProperty('--mouse-x', `${clientX - rect.left}px`);
+        activeSurface.style.setProperty('--mouse-y', `${clientY - rect.top}px`);
+      }
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
@@ -218,17 +319,51 @@
       }
     }, { passive: true });
 
-    // Click chuột tạo sóng xung kích 3D đẩy các hạt bung ra
-    window.addEventListener('mousedown', () => {
+    // Click chuột tạo sóng xung kích 3D đẩy các hạt bung ra & kích hoạt hiệu ứng shockwave trên vòng hào quang
+    window.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
       clickPulse = 1.0;
+      if (isCursorVisible) {
+        clearTimeout(clickReleaseTimer);
+        if (ring) ring.classList.add('clicking');
+        if (dot) dot.classList.add('clicking');
+      }
     }, { passive: true });
+
+    window.addEventListener('pointerup', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      clearTimeout(clickReleaseTimer);
+      clickReleaseTimer = setTimeout(() => {
+        if (ring) ring.classList.remove('clicking');
+        if (dot) dot.classList.remove('clicking');
+      }, 140);
+    }, { passive: true });
+
+    window.addEventListener('pointerleave', hideCustomCursor, { passive: true });
+    window.addEventListener('pointercancel', hideCustomCursor, { passive: true });
+    window.addEventListener('blur', hideCustomCursor);
+    window.addEventListener('pagehide', hideCustomCursor);
 
     window.addEventListener('scroll', () => {
       scrollY = window.scrollY || 0;
+      if (isCursorVisible && activeSurface && activeSurface.isConnected) {
+        const rect = activeSurface.getBoundingClientRect();
+        activeSurface.style.setProperty('--mouse-x', `${clientX - rect.left}px`);
+        activeSurface.style.setProperty('--mouse-y', `${clientY - rect.top}px`);
+      }
     }, { passive: true });
 
     document.addEventListener('visibilitychange', () => {
       isTabVisible = !document.hidden;
+      if (document.hidden) hideCustomCursor();
+    });
+
+    const dialogObserver = new MutationObserver(() => {
+      if (isBlocked()) hideCustomCursor();
+    });
+    dialogObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    document.querySelectorAll('dialog').forEach(d => {
+      dialogObserver.observe(d, { attributes: true, attributeFilter: ['open'] });
     });
 
     let resizeTimer = null;
@@ -241,7 +376,7 @@
       }, 120);
     }, { passive: true });
 
-    // 8. Vòng lặp 60FPS siêu nhẹ
+    // 9. Vòng lặp 60FPS siêu nhẹ
     const maxDistSq = CONFIG.linkDist * CONFIG.linkDist;
     const mouseLinkDistSq = CONFIG.mouseLinkDist * CONFIG.mouseLinkDist;
     const pArr = pGeo.attributes.position.array;
@@ -264,7 +399,21 @@
       camera.position.y += (py - camera.position.y) * 0.08;
       camera.lookAt(0, -scrollY * 0.0025, 0);
 
-      // Nội suy mượt vị trí con trỏ 3D
+      // Cập nhật Vòng Hào Quang 3D của con trỏ trên lớp DOM (xoay nhịp nhàng và lướt mượt mà)
+      if (isCursorVisible && ring) {
+        if (prefersReduced) {
+          ringCurX = clientX;
+          ringCurY = clientY;
+          ring.style.transform = `translate3d(${ringCurX}px, ${ringCurY}px, 0) translate(-50%, -50%)`;
+        } else {
+          ringCurX += (clientX - ringCurX) * 0.28;
+          ringCurY += (clientY - ringCurY) * 0.28;
+          const ringRotation = (time * 95) % 360;
+          ring.style.transform = `translate3d(${ringCurX}px, ${ringCurY}px, 0) translate(-50%, -50%) rotate(${ringRotation}deg)`;
+        }
+      }
+
+      // Nội suy mượt vị trí con trỏ trong không gian 3D
       if (hasMouseMoved) {
         if (mouse3DX > 500) {
           mouse3DX = targetMouse3DX;
