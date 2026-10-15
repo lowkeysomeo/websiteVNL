@@ -1,16 +1,15 @@
 /**
  * VietNam Legacy - Ultra-Light 3D WebGL Background & Unified 3D Cursor Engine (bg3d.js)
- * Dung lượng: ~7 KB | Không tải thêm thư viện (dùng chung three.min.js sẵn có của shop)
+ * Dung lượng: ~6.5 KB | Không tải thêm thư viện (dùng chung three.min.js sẵn có của shop)
  * Chế độ: MẠNG TINH THỂ TƯƠNG TÁC CHUỘT (INTERACTIVE NEURAL PLEXUS) | Bảng màu: Đỏ Di Sản (#140b0d)
  *
- * HIỆU ỨNG DI CHUỘT 3D TÍCH HỢP ĐỒNG BỘ:
- * 1. Hạt Tâm Năng Lượng 3D (Cursor Beacon): Lõi năng lượng vàng–đỏ rực rỡ bám chuẩn tọa độ chuột
- * 2. Vòng Hào Quang 3D (Rotating Gold Aura Ring): Xoay liên tục theo nhịp thời gian, phóng to khi hover nút/sản phẩm
- * 3. Tia Liên Kết Từ Trường 3D: Tự động phóng tia sáng từ con trỏ chuột tới các hạt tinh thể xung quanh
- * 4. Lực Đẩy & Xoáy Từ Trường 3D: Lướt chuột tới đâu các hạt dạt ra và xoáy nhẹ tới đó
- * 5. Sóng Xung Kích Khi Click: Nhấp chuột tạo xung năng lượng đẩy bật các hạt tinh thể xung quanh và kích hoạt shockwave ring
- * 6. Nghiêng Góc Nhìn 3D (Camera Parallax) mượt mà theo hướng di chuột & cuộn trang
- * 7. Tự động trả về con trỏ mặc định trên ô nhập liệu (input, textarea), dialog và modal để không gây cản trở
+ * TÍNH NĂNG ĐỒNG BỘ:
+ * 1. Hạt Tâm Năng Lượng (Cursor Beacon): Lõi năng lượng vàng–đỏ sắc nét bám chuẩn tọa độ chuột (4px)
+ * 2. Vòng Hào Quang 3D Tinh Thể (Rotating Gold Aura Ring): Nhỏ gọn (15px), xoay nhẹ nhịp nhàng, nở vừa phải (23px) khi hover nút/sản phẩm
+ * 3. Lực Đẩy & Xoáy Từ Trường 3D: Lướt chuột tới đâu các hạt tinh thể dạt ra và xoáy nhẹ tới đó (KHÔNG nối dây vướng víu vào chuột)
+ * 4. Sóng Xung Kích Khi Click: Nhấp chuột tạo xung năng lượng đẩy bật các hạt tinh thể xung quanh và kích hoạt shockwave pulse
+ * 5. Nghiêng Góc Nhìn 3D (Camera Parallax) mượt mà theo hướng di chuột & cuộn trang
+ * 6. Tự động trả về con trỏ mặc định trên ô nhập liệu (input, textarea), dialog và modal để không gây cản trở
  */
 (function () {
   'use strict';
@@ -23,12 +22,10 @@
     bgHex: '#140b0d',
     primaryHex: 0xff2d55,     // Đỏ Ruby VietNam Legacy
     secondaryHex: 0xa855f7,   // Tím Discord Nitro
-    cursorHex: 0xffb703,      // Vàng Gold cho tia năng lượng chuột & Vòng hào quang
     speed: prefersReduced ? 0.08 : 0.22,
     parallax: prefersReduced ? 0 : (isMobile ? 0.45 : 1.15),
     nodeCount: isMobile ? 50 : 92,
     linkDist: isMobile ? 8.5 : 9.4,
-    mouseLinkDist: 13.5,      // Bán kính bắt tia sét từ chuột tới các hạt
     mouseRepelDist: 10.5,     // Bán kính lực đẩy/xoáy từ trường khi di chuột
     mouseForce: 0.085,        // Độ mạnh lực tương tác chuột
     maxPixelRatio: isMobile ? 1.0 : 1.5
@@ -102,11 +99,10 @@
 
     const glowTex = createGlowTexture();
 
-    // 3. Khởi tạo các nút mạng tinh thể + 1 hạt tâm năng lượng chuột (nút cuối cùng)
+    // 3. Khởi tạo các nút mạng tinh thể trong không gian 3D
     const nodeCount = CONFIG.nodeCount;
-    const totalPoints = nodeCount + 1; // +1 cho hạt năng lượng tại đầu con trỏ chuột
     const nodes = new Array(nodeCount);
-    const nodePos = new Float32Array(totalPoints * 3);
+    const nodePos = new Float32Array(nodeCount * 3);
 
     for (let i = 0; i < nodeCount; i++) {
       const x = (Math.random() - 0.5) * 54;
@@ -127,11 +123,6 @@
       };
     }
 
-    // Đặt hạt con trỏ ban đầu ở ngoài màn hình cho tới khi người dùng di chuột
-    nodePos[nodeCount * 3] = 999;
-    nodePos[nodeCount * 3 + 1] = 999;
-    nodePos[nodeCount * 3 + 2] = 0;
-
     const pGeo = new THREE.BufferGeometry();
     pGeo.setAttribute('position', new THREE.BufferAttribute(nodePos, 3));
     const pMat = new THREE.PointsMaterial({
@@ -145,7 +136,7 @@
     });
     scene.add(new THREE.Points(pGeo, pMat));
 
-    // 4. Lưới dây nối giữa các hạt (Màu Tím Nitro)
+    // 4. Lưới dây nối giữa các hạt với nhau (Màu Tím Nitro)
     const maxLines = nodeCount * 6;
     const linePositions = new Float32Array(maxLines * 6);
     const lineGeo = new THREE.BufferGeometry();
@@ -158,33 +149,7 @@
     });
     scene.add(new THREE.LineSegments(lineGeo, lineMat));
 
-    // 5. Lưới tia năng lượng nối trực tiếp từ Chuột tới các hạt gần chuột (Màu Đỏ/Vàng Sáng)
-    const maxMouseLines = 28;
-    const mouseLinePositions = new Float32Array(maxMouseLines * 6);
-    const mouseLineGeo = new THREE.BufferGeometry();
-    mouseLineGeo.setAttribute('position', new THREE.BufferAttribute(mouseLinePositions, 3));
-    const mouseLineMat = new THREE.LineBasicMaterial({
-      color: CONFIG.primaryHex,
-      transparent: true,
-      opacity: 0.72,
-      blending: THREE.AdditiveBlending
-    });
-    scene.add(new THREE.LineSegments(mouseLineGeo, mouseLineMat));
-
-    // 6. Vòng Hào Quang 3D đi theo con trỏ chuột trong không gian 3D
-    const cursorRingGeo = new THREE.RingGeometry(0.32, 0.44, 24);
-    const cursorRingMat = new THREE.MeshBasicMaterial({
-      color: CONFIG.cursorHex,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.45,
-      blending: THREE.AdditiveBlending
-    });
-    const cursorRing = new THREE.Mesh(cursorRingGeo, cursorRingMat);
-    cursorRing.position.set(999, 999, 2);
-    scene.add(cursorRing);
-
-    // 7. Đồng bộ hệ thống con trỏ chuột 3D: Hạt tâm năng lượng & Vòng hào quang quay
+    // 5. Đồng bộ hệ thống con trỏ chuột: Hạt tâm năng lượng & Vòng hào quang quay
     let dot = document.querySelector('#cursor-dot');
     let ring = document.querySelector('#cursor-ring');
     if (!dot) {
@@ -234,7 +199,7 @@
       clearActiveSurface();
     }
 
-    // 8. Theo dõi tọa độ chuột chuyển đổi sang không gian 3D thực tế
+    // 6. Theo dõi tọa độ chuột chuyển đổi sang không gian 3D thực tế
     let normX = 0, normY = 0;
     let smoothNormX = 0, smoothNormY = 0;
     let mouse3DX = 999, mouse3DY = 999;
@@ -244,7 +209,7 @@
     let scrollY = 0;
     let isTabVisible = !document.hidden;
 
-    const rayPlaneZ = 2; // Mặt phẳng 3D nơi con trỏ tương tác với hạt
+    const rayPlaneZ = 2; // Mặt phẳng 3D nơi con trỏ tạo lực đẩy/xoáy với các hạt
 
     function updatePointer(cx, cy) {
       hasMouseMoved = true;
@@ -376,12 +341,10 @@
       }, 120);
     }, { passive: true });
 
-    // 9. Vòng lặp 60FPS siêu nhẹ
+    // 7. Vòng lặp 60FPS siêu nhẹ
     const maxDistSq = CONFIG.linkDist * CONFIG.linkDist;
-    const mouseLinkDistSq = CONFIG.mouseLinkDist * CONFIG.mouseLinkDist;
     const pArr = pGeo.attributes.position.array;
     const lArr = lineGeo.attributes.position.array;
-    const mArr = mouseLineGeo.attributes.position.array;
     let time = 0;
 
     function tick() {
@@ -399,7 +362,7 @@
       camera.position.y += (py - camera.position.y) * 0.08;
       camera.lookAt(0, -scrollY * 0.0025, 0);
 
-      // Cập nhật Vòng Hào Quang 3D của con trỏ trên lớp DOM (xoay nhịp nhàng và lướt mượt mà)
+      // Cập nhật Vòng Hào Quang của con trỏ trên lớp DOM (xoay nhịp nhàng và lướt mượt mà)
       if (isCursorVisible && ring) {
         if (prefersReduced) {
           ringCurX = clientX;
@@ -413,7 +376,7 @@
         }
       }
 
-      // Nội suy mượt vị trí con trỏ trong không gian 3D
+      // Cập nhật tâm điểm lực đẩy từ trường chuột trong không gian 3D
       if (hasMouseMoved) {
         if (mouse3DX > 500) {
           mouse3DX = targetMouse3DX;
@@ -422,15 +385,6 @@
           mouse3DX += (targetMouse3DX - mouse3DX) * 0.18;
           mouse3DY += (targetMouse3DY - mouse3DY) * 0.18;
         }
-        const cIdx = nodeCount * 3;
-        pArr[cIdx] = mouse3DX;
-        pArr[cIdx + 1] = mouse3DY;
-        pArr[cIdx + 2] = rayPlaneZ;
-
-        cursorRing.position.set(mouse3DX, mouse3DY, rayPlaneZ);
-        cursorRing.rotation.z = time * 1.5;
-        const ringScale = 1 + Math.sin(time * 3) * 0.12 + clickPulse * 0.8;
-        cursorRing.scale.setScalar(ringScale);
       }
 
       if (clickPulse > 0.01) {
@@ -443,7 +397,6 @@
       const repelDistSq = activeRepelRadius * activeRepelRadius;
 
       let lineIdx = 0;
-      let mouseLineIdx = 0;
 
       for (let i = 0; i < nodeCount; i++) {
         const n = nodes[i];
@@ -455,23 +408,11 @@
         if (n.y > 16 || n.y < -16) n.vy = -n.vy;
         if (n.z > 11 || n.z < -11) n.vz = -n.vz;
 
-        // Tương tác lực từ trường & tia nối với con trỏ chuột
+        // Tương tác lực từ trường (đẩy & xoáy) khi di chuột qua các hạt
         if (hasMouseMoved) {
           const mdx = (n.x + n.ox) - mouse3DX;
           const mdy = (n.y + n.oy) - mouse3DY;
           const mDistSq = mdx * mdx + mdy * mdy;
-
-          // Phóng tia liên kết từ chuột tới các hạt nằm trong vùng cảm ứng
-          if (mDistSq < mouseLinkDistSq && mouseLineIdx < maxMouseLines) {
-            const ml6 = mouseLineIdx * 6;
-            mArr[ml6] = mouse3DX;
-            mArr[ml6 + 1] = mouse3DY;
-            mArr[ml6 + 2] = rayPlaneZ;
-            mArr[ml6 + 3] = n.x + n.ox;
-            mArr[ml6 + 4] = n.y + n.oy;
-            mArr[ml6 + 5] = n.z;
-            mouseLineIdx++;
-          }
 
           // Đẩy & xoáy nhẹ các hạt khi di chuột hoặc click gần đó
           if (mDistSq < repelDistSq && mDistSq > 0.001) {
@@ -519,10 +460,8 @@
       }
 
       lineGeo.setDrawRange(0, lineIdx * 2);
-      mouseLineGeo.setDrawRange(0, mouseLineIdx * 2);
       pGeo.attributes.position.needsUpdate = true;
       lineGeo.attributes.position.needsUpdate = true;
-      mouseLineGeo.attributes.position.needsUpdate = true;
 
       renderer.render(scene, camera);
     }
