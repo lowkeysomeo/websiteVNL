@@ -172,7 +172,7 @@
     scene.add(new THREE.LineSegments(mouseLineGeo, mouseLineMat));
 
     // 6. Vòng Hào Quang 3D đi theo con trỏ chuột trong không gian 3D
-    const cursorRingGeo = new THREE.RingGeometry(0.45, 0.62, 24);
+    const cursorRingGeo = new THREE.RingGeometry(0.32, 0.44, 24);
     const cursorRingMat = new THREE.MeshBasicMaterial({
       color: CONFIG.cursorHex,
       side: THREE.DoubleSide,
@@ -429,7 +429,7 @@
 
         cursorRing.position.set(mouse3DX, mouse3DY, rayPlaneZ);
         cursorRing.rotation.z = time * 1.5;
-        const ringScale = 1 + Math.sin(time * 3) * 0.15 + clickPulse * 1.8;
+        const ringScale = 1 + Math.sin(time * 3) * 0.12 + clickPulse * 0.8;
         cursorRing.scale.setScalar(ringScale);
       }
 
