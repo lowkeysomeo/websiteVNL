@@ -848,7 +848,7 @@ window.initAdminPricing = (() => {
             return `
             <section class="pricing-card product-manage-card ${p.isActive ? "" : "is-inactive"}">
               <div class="product-card-top">
-                <div>
+                <div class="product-card-header">
                   <div class="product-title-row">
                     ${!isPartner ? `<span class="product-pos-badge" title="Thứ tự vị trí hiển thị trên cửa hàng">#${globalIdx + 1}</span>` : ""}
                     <img src="${esc(p.image || 'assets/nitro.svg')}" style="width:24px; height:24px; object-fit:contain; border-radius:4px; vertical-align:middle; background:#11080a; border:1px solid #382428;" alt="" />

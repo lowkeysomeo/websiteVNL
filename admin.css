@@ -723,11 +723,29 @@ body {
 
 /* Product and Variant Management Controls */
 .product-manage-card.is-inactive { opacity: 0.75; border-style: dashed; border-color: #59434a; }
-.product-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+.product-manage-card { position: relative; overflow: hidden; }
+.product-card-top { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; width: 100%; min-width: 0; }
+.product-card-header { width: 100%; min-width: 0; }
 .product-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .product-title-row h3 { margin: 0; }
 .product-desc-snippet { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
-.product-card-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.product-card-actions,
+.product-manage-card .product-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.product-manage-card .product-card-actions .button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 .status-badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
 .status-badge.active { color: #90e6bb; background: rgba(144, 230, 187, 0.12); border: 1px solid rgba(144, 230, 187, 0.3); }
 .status-badge.disabled { color: #ffaca4; background: rgba(255, 172, 164, 0.12); border: 1px solid rgba(255, 172, 164, 0.3); }
