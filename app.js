@@ -2251,6 +2251,15 @@ function renderContactIcon(platform) {
   return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>';
 }
 
+function getContactBadgeClass(badge) {
+  const b = String(badge || "").trim().toUpperCase();
+  if (b === "CN") return "badge-cn";
+  if (b === "GR") return "badge-gr";
+  if (b === "VIP") return "badge-vip";
+  if (b === "24/7" || b === "HOT") return "badge-hot";
+  return "badge-default";
+}
+
 async function initFloatingContacts() {
   const container = document.getElementById("floating-contacts");
   if (!container) return;
@@ -2264,10 +2273,11 @@ async function initFloatingContacts() {
       return;
     }
 
-    const html = data.items
+    const itemsHtml = data.items
       .map((item) => {
+        const badgeClass = getContactBadgeClass(item.badge);
         const badgeHtml = item.badge
-          ? `<span class="contact-badge">${escapeHtml(item.badge)}</span>`
+          ? `<span class="contact-badge ${badgeClass}">${escapeHtml(item.badge)}</span>`
           : "";
         return `
           <a href="${escapeHtml(item.url)}"
@@ -2277,17 +2287,31 @@ async function initFloatingContacts() {
              aria-label="${escapeHtml(item.name)}">
             <span class="contact-icon">${renderContactIcon(item.platform)}</span>
             ${badgeHtml}
-            <span class="contact-tooltip">${escapeHtml(item.name)}</span>
+            <span class="contact-tooltip">
+              <span class="tooltip-title">${escapeHtml(item.name)}</span>
+              <span class="tooltip-sub">Nhấn để kết nối ↗</span>
+            </span>
           </a>
         `;
       })
       .join("");
 
-    container.innerHTML = html;
+    container.innerHTML = `
+      <div class="floating-contacts-dock">
+        <div class="floating-dock-badge" title="Đội ngũ hỗ trợ trực tuyến">
+          <span class="floating-pulse-dot" aria-hidden="true"></span>
+          <span>HỖ TRỢ</span>
+        </div>
+        <div class="floating-contacts-stack">
+          ${itemsHtml}
+        </div>
+      </div>
+    `;
   } catch (err) {
     console.warn("Could not load contact buttons:", err);
   }
 }
+
 
 // Initialize components
 initAnnouncement();

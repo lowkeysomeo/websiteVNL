@@ -3172,7 +3172,10 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
 .purchase-pagination button { font-size:12px; padding:9px 12px; }
 @media(max-width:480px) { .purchase-summary { gap:6px; } .purchase-summary strong { font-size:15px; } .purchase-pagination { flex-wrap:wrap; } }
 
-/* Floating Contact Buttons Widget */
+/* ==========================================================================
+   FLOATING CONTACT BUTTONS - CYBER GLASSMORPHISM DOCK
+   ========================================================================== */
+
 .floating-contacts {
   position: fixed;
   right: 20px;
@@ -3180,42 +3183,211 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   z-index: 98;
   display: flex;
   flex-direction: column;
-  gap: 10px;
   align-items: center;
   pointer-events: auto;
   user-select: none;
 }
 
+.floating-contacts-dock {
+  background: rgba(18, 14, 22, 0.78);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 28px;
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 24px rgba(139, 92, 246, 0.15);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.floating-contacts-dock:hover {
+  border-color: rgba(139, 92, 246, 0.45);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.75), 0 0 28px rgba(139, 92, 246, 0.25);
+}
+
+/* Header badge with live pulse dot */
+.floating-dock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #4ade80;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.floating-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  position: relative;
+  display: inline-block;
+}
+
+.floating-pulse-dot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1.5px solid #22c55e;
+  animation: pulseRipple 1.8s infinite ease-out;
+  opacity: 0.8;
+}
+
+@keyframes pulseRipple {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.floating-contacts-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Base button */
 .floating-contact-btn {
   position: relative;
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #18191d;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
   text-decoration: none;
+  background: #18191d;
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2);
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 0.22s ease,
               border-color 0.22s ease,
-              background-color 0.22s ease;
+              filter 0.22s ease;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
 .floating-contact-btn:hover {
-  transform: translateY(-2px) scale(1.08);
-  border-color: rgba(139, 92, 246, 0.7);
-  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.38);
-  background: #24252e;
+  transform: translateY(-2px) scale(1.12);
 }
 
 .floating-contact-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.92);
+}
+
+/* Platform specific gradient colors, borders & glows */
+
+/* Zalo - Electric Cyan / Royal Blue */
+.floating-contact-btn.platform-zalo {
+  background: linear-gradient(135deg, rgba(0, 110, 255, 0.4) 0%, rgba(13, 23, 38, 0.95) 100%);
+  border-color: rgba(0, 168, 255, 0.65);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 10px rgba(0, 140, 255, 0.2);
+}
+.floating-contact-btn.platform-zalo:hover {
+  border-color: #00d2ff;
+  box-shadow: 0 6px 22px rgba(0, 140, 255, 0.6), 0 0 16px rgba(0, 210, 255, 0.4);
+}
+.floating-contact-btn.platform-zalo .contact-icon-glyph.zalo {
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(0, 180, 255, 0.85);
+}
+
+/* Facebook - Royal Blue / Purple Indigo */
+.floating-contact-btn.platform-facebook {
+  background: linear-gradient(135deg, rgba(24, 119, 242, 0.4) 0%, rgba(16, 20, 40, 0.95) 100%);
+  border-color: rgba(24, 119, 242, 0.65);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 10px rgba(24, 119, 242, 0.2);
+}
+.floating-contact-btn.platform-facebook:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 6px 22px rgba(24, 119, 242, 0.6), 0 0 16px rgba(59, 130, 246, 0.4);
+}
+.floating-contact-btn.platform-facebook .contact-icon-glyph.facebook {
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(24, 119, 242, 0.85);
+}
+
+/* Telegram - Azure Sky Blue */
+.floating-contact-btn.platform-telegram {
+  background: linear-gradient(135deg, rgba(42, 171, 238, 0.4) 0%, rgba(12, 26, 36, 0.95) 100%);
+  border-color: rgba(42, 171, 238, 0.65);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 10px rgba(42, 171, 238, 0.2);
+}
+.floating-contact-btn.platform-telegram:hover {
+  border-color: #38bdf8;
+  box-shadow: 0 6px 22px rgba(42, 171, 238, 0.6), 0 0 16px rgba(56, 189, 248, 0.4);
+}
+.floating-contact-btn.platform-telegram svg {
+  color: #ffffff;
+  filter: drop-shadow(0 0 8px rgba(42, 171, 238, 0.85));
+}
+
+/* Discord - Blurple */
+.floating-contact-btn.platform-discord {
+  background: linear-gradient(135deg, rgba(88, 101, 242, 0.45) 0%, rgba(20, 18, 38, 0.95) 100%);
+  border-color: rgba(88, 101, 242, 0.7);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 10px rgba(88, 101, 242, 0.2);
+}
+.floating-contact-btn.platform-discord:hover {
+  border-color: #818cf8;
+  box-shadow: 0 6px 22px rgba(88, 101, 242, 0.6), 0 0 16px rgba(129, 140, 248, 0.4);
+}
+.floating-contact-btn.platform-discord svg {
+  color: #ffffff;
+  filter: drop-shadow(0 0 8px rgba(88, 101, 242, 0.85));
+}
+
+/* Phone - Emerald Lime */
+.floating-contact-btn.platform-phone {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.4) 0%, rgba(12, 32, 20, 0.95) 100%);
+  border-color: rgba(34, 197, 94, 0.7);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 10px rgba(34, 197, 94, 0.2);
+}
+.floating-contact-btn.platform-phone:hover {
+  border-color: #4ade80;
+  box-shadow: 0 6px 22px rgba(34, 197, 94, 0.6), 0 0 16px rgba(74, 222, 128, 0.4);
+}
+.floating-contact-btn.platform-phone svg {
+  color: #ffffff;
+  filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.85));
+}
+
+/* Messenger - Pink to Cyan */
+.floating-contact-btn.platform-messenger {
+  background: linear-gradient(135deg, rgba(0, 178, 255, 0.35) 0%, rgba(192, 38, 211, 0.35) 100%);
+  border-color: rgba(192, 38, 211, 0.7);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 10px rgba(192, 38, 211, 0.2);
+}
+.floating-contact-btn.platform-messenger:hover {
+  border-color: #e879f9;
+  box-shadow: 0 6px 22px rgba(192, 38, 211, 0.6), 0 0 16px rgba(232, 121, 249, 0.4);
+}
+.floating-contact-btn.platform-messenger svg {
+  color: #ffffff;
+  filter: drop-shadow(0 0 8px rgba(232, 121, 249, 0.85));
+}
+
+/* Other - Warm Amber Gold */
+.floating-contact-btn.platform-other {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.4) 0%, rgba(36, 22, 10, 0.95) 100%);
+  border-color: rgba(245, 158, 11, 0.7);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 10px rgba(245, 158, 11, 0.2);
+}
+.floating-contact-btn.platform-other:hover {
+  border-color: #fbbf24;
+  box-shadow: 0 6px 22px rgba(245, 158, 11, 0.6), 0 0 16px rgba(251, 191, 36, 0.4);
 }
 
 .floating-contact-btn .contact-icon {
@@ -3245,57 +3417,118 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   margin-top: 1px;
 }
 
+/* ==========================================================================
+   BADGE STYLES - Differentiated by Type / Purpose
+   ========================================================================== */
+
 .floating-contact-btn .contact-badge {
   position: absolute;
   right: -3px;
   bottom: -3px;
-  background: #5b68f6;
   color: #ffffff;
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 800;
-  padding: 1px 4.5px;
-  border-radius: 4px;
+  padding: 1.5px 5px;
+  border-radius: 999px;
   line-height: 1.15;
-  letter-spacing: 0.3px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
-  border: 1.5px solid #141419;
+  letter-spacing: 0.4px;
   user-select: none;
   pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  transition: transform 0.2s ease;
 }
+
+/* CN = Cá nhân (Admin Personal) -> Warm Gold / Amber Glow */
+.floating-contact-btn .contact-badge.badge-cn {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border-color: #fde68a;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.6);
+}
+
+/* GR = Group / Nhóm / Cộng đồng -> Electric Purple / Violet Glow */
+.floating-contact-btn .contact-badge.badge-gr {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  border-color: #ddd6fe;
+  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.6);
+}
+
+/* VIP -> Fiery Rose Glow */
+.floating-contact-btn .contact-badge.badge-vip {
+  background: linear-gradient(135deg, #ef4444, #f43f5e);
+  border-color: #fecdd3;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.6);
+}
+
+/* 24/7 or HOT -> Emerald Lime Glow */
+.floating-contact-btn .contact-badge.badge-hot {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-color: #a7f3d0;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.6);
+}
+
+/* Default / Other badges -> Royal Indigo / Cyan */
+.floating-contact-btn .contact-badge.badge-default {
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  border-color: #bae6fd;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.6);
+}
+
+/* ==========================================================================
+   TOOLTIP STYLING - Two-line Card with Arrow & Glow
+   ========================================================================== */
 
 .floating-contact-btn .contact-tooltip {
   position: absolute;
-  right: calc(100% + 12px);
+  right: calc(100% + 14px);
   top: 50%;
-  transform: translateY(-50%) translateX(6px);
-  background: rgba(18, 14, 16, 0.96);
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  border-radius: 8px;
-  padding: 6px 12px;
+  transform: translateY(-50%) translateX(8px);
+  background: rgba(16, 11, 20, 0.96);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: 10px;
+  padding: 8px 14px;
   color: #ffffff;
-  font-size: 12px;
-  font-weight: 600;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
-  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.7), 0 0 16px rgba(139, 92, 246, 0.2);
+  transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.floating-contact-btn .contact-tooltip .tooltip-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.25;
+}
+
+.floating-contact-btn .contact-tooltip .tooltip-sub {
+  font-size: 10.5px;
+  color: #a78bfa;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .floating-contact-btn .contact-tooltip::after {
   content: "";
   position: absolute;
   top: 50%;
-  right: -5px;
+  right: -6px;
   transform: translateY(-50%) rotate(45deg);
-  width: 8px;
-  height: 8px;
-  background: rgba(18, 14, 16, 0.96);
-  border-right: 1px solid rgba(139, 92, 246, 0.35);
-  border-top: 1px solid rgba(139, 92, 246, 0.35);
+  width: 10px;
+  height: 10px;
+  background: rgba(16, 11, 20, 0.96);
+  border-right: 1px solid rgba(139, 92, 246, 0.4);
+  border-top: 1px solid rgba(139, 92, 246, 0.4);
 }
 
 .floating-contact-btn:hover .contact-tooltip {
@@ -3306,9 +3539,17 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
 
 @media (max-width: 600px) {
   .floating-contacts {
-    right: 12px;
-    bottom: 76px;
+    right: 10px;
+    bottom: 74px;
+  }
+  .floating-contacts-dock {
+    padding: 6px 4px;
     gap: 8px;
+    border-radius: 22px;
+  }
+  .floating-dock-badge {
+    padding: 2px 6px;
+    font-size: 8px;
   }
   .floating-contact-btn {
     width: 38px;
@@ -3321,10 +3562,11 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
     font-size: 19px;
   }
   .floating-contact-btn .contact-badge {
-    font-size: 8px;
+    font-size: 7.5px;
     padding: 1px 3.5px;
   }
 }
+
 
 /* ==========================================================================
    ADMIN CONTACTS MANAGEMENT

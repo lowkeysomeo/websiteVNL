@@ -473,6 +473,15 @@ window.initAdminPricing = (() => {
     return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>';
   }
 
+  function getContactBadgeClass(badge) {
+    const b = String(badge || "").trim().toUpperCase();
+    if (b === "CN") return "badge-cn";
+    if (b === "GR") return "badge-gr";
+    if (b === "VIP") return "badge-vip";
+    if (b === "24/7" || b === "HOT") return "badge-hot";
+    return "badge-default";
+  }
+
   async function saveContactsToServer(successMsg = "Đã lưu cài đặt liên hệ!") {
     const toggle = document.querySelector("#contacts-enabled-toggle");
     if (toggle) {
@@ -514,21 +523,28 @@ window.initAdminPricing = (() => {
           <label>
             Nền tảng / Mạng xã hội *
             <select name="platform" id="contact-platform-select" required>
-              <option value="zalo" ${item.platform === "zalo" ? "selected" : ""}>Zalo (Biểu tượng chữ Z trắng)</option>
-              <option value="facebook" ${item.platform === "facebook" ? "selected" : ""}>Facebook (Biểu tượng chữ f trắng)</option>
-              <option value="telegram" ${item.platform === "telegram" ? "selected" : ""}>Telegram (Biểu tượng phi cơ giấy)</option>
-              <option value="discord" ${item.platform === "discord" ? "selected" : ""}>Discord (Biểu tượng Gamepad)</option>
-              <option value="phone" ${item.platform === "phone" ? "selected" : ""}>Số điện thoại / Hotline</option>
-              <option value="messenger" ${item.platform === "messenger" ? "selected" : ""}>Messenger (Facebook)</option>
-              <option value="other" ${item.platform === "other" ? "selected" : ""}>Khác / Website URL</option>
+              <option value="zalo" ${item.platform === "zalo" ? "selected" : ""}>Zalo (Xanh ngọc / Cyan glow)</option>
+              <option value="facebook" ${item.platform === "facebook" ? "selected" : ""}>Facebook (Xanh hoàng gia / Royal blue)</option>
+              <option value="telegram" ${item.platform === "telegram" ? "selected" : ""}>Telegram (Xanh da trời / Sky blue)</option>
+              <option value="discord" ${item.platform === "discord" ? "selected" : ""}>Discord (Tím Blurple)</option>
+              <option value="phone" ${item.platform === "phone" ? "selected" : ""}>Số điện thoại / Hotline (Xanh lục)</option>
+              <option value="messenger" ${item.platform === "messenger" ? "selected" : ""}>Messenger (Hồng - Xanh neon)</option>
+              <option value="other" ${item.platform === "other" ? "selected" : ""}>Khác / Website URL (Vàng kim)</option>
             </select>
-            <small>Icon sẽ tự động cập nhật đúng chuẩn nhận diện của nền tảng.</small>
+            <small>Icon và màu nền / viền neon sẽ tự động hiển thị theo đúng phong cách riêng của từng mạng xã hội.</small>
           </label>
 
           <label>
             Huy hiệu góc dưới (Badge)
-            <input name="badge" maxlength="8" placeholder="VD: CN, GR, VIP, 24/7..." value="${esc(item.badge || "")}" />
-            <small>Chữ nhỏ nền xanh góc nút (để trống nếu không muốn hiển thị badge).</small>
+            <div style="display:flex; gap:6px; margin-bottom:6px; flex-wrap:wrap;">
+              <button type="button" class="button secondary btn-xs" data-badge-preset="CN" style="color:#fbbf24; border-color:rgba(245,158,11,0.5);">👑 CN (Cá nhân - Vàng)</button>
+              <button type="button" class="button secondary btn-xs" data-badge-preset="GR" style="color:#c084fc; border-color:rgba(192,132,252,0.5);">👥 GR (Nhóm - Tím)</button>
+              <button type="button" class="button secondary btn-xs" data-badge-preset="VIP" style="color:#f87171; border-color:rgba(239,68,68,0.5);">💎 VIP (Đỏ)</button>
+              <button type="button" class="button secondary btn-xs" data-badge-preset="24/7" style="color:#4ade80; border-color:rgba(34,197,94,0.5);">⚡ 24/7 (Xanh)</button>
+              <button type="button" class="button secondary btn-xs" data-badge-preset="">✕ Không hiện</button>
+            </div>
+            <input name="badge" id="contact-badge-input" maxlength="8" placeholder="VD: CN, GR, VIP, 24/7..." value="${esc(item.badge || "")}" />
+            <small>Màu sắc huy hiệu đổi tự động theo loại (CN = Vàng kim, GR = Tím neon, VIP = Đỏ cam, 24/7 = Xanh lục).</small>
           </label>
         </div>
 
@@ -621,15 +637,15 @@ window.initAdminPricing = (() => {
                   <div class="contact-admin-item-card ${item.active ? '' : 'is-inactive'}">
                     <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
                       <span class="product-pos-badge" style="font-size:11px; padding:2px 6px;">#${idx + 1}</span>
-                      <div style="position:relative; width:40px; height:40px; border-radius:50%; background:#18191d; border:1px solid rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                      <div class="floating-contact-btn platform-${esc(item.platform || "other")}" style="width:42px; height:42px; flex-shrink:0; cursor:default; pointer-events:none;">
                         <span class="contact-icon" style="color:#fff;">${renderContactIcon(item.platform)}</span>
-                        ${item.badge ? `<span class="contact-badge" style="position:absolute; right:-3px; bottom:-3px; font-size:8px;">${esc(item.badge)}</span>` : ''}
+                        ${item.badge ? `<span class="contact-badge ${getContactBadgeClass(item.badge)}">${esc(item.badge)}</span>` : ''}
                       </div>
                       <div style="min-width:0; flex:1;">
                         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                           <strong style="font-size:13px; color:var(--text);">${esc(item.name)}</strong>
                           <span class="status-badge" style="font-size:10px; text-transform:uppercase;">${esc(item.platform)}</span>
-                          ${item.badge ? `<span style="background:rgba(91,104,246,0.18); color:#818cf8; border:1px solid rgba(91,104,246,0.4); font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px;">Badge: ${esc(item.badge)}</span>` : ''}
+                          ${item.badge ? `<span class="contact-badge ${getContactBadgeClass(item.badge)}" style="position:static; display:inline-block; font-size:9px;">${esc(item.badge)}</span>` : ''}
                           ${item.active ? '<span class="status-badge active" style="font-size:10px;">🟢 Bật</span>' : '<span class="status-badge disabled" style="font-size:10px;">⚪ Ẩn</span>'}
                         </div>
                         <div style="font-size:11px; color:var(--muted); margin-top:3px; word-break:break-all;">
@@ -657,19 +673,29 @@ window.initAdminPricing = (() => {
               <span>👁️</span> Xem trước ngoài Web
             </h4>
             <p style="font-size:11px; color:var(--muted); margin: 0 0 16px;">
-              Cụm nút nổi sẽ hiển thị trên trang chủ góc dưới bên phải như sau:
+              Cụm thanh dock hỗ trợ sẽ hiển thị góc dưới bên phải trang chủ như sau:
             </p>
 
             <div class="contacts-preview-stage">
-              <div style="display:flex; flex-direction:column; gap:10px; align-items:center;">
-                ${items.filter(i => i.active).length === 0 ? `
-                  <span style="font-size:11px; color:var(--muted);">Chưa có mục nào được bật</span>
-                ` : items.filter(i => i.active).map(item => `
-                  <div style="position:relative; width:44px; height:44px; border-radius:50%; background:#18191d; border:1px solid rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(0,0,0,0.5); cursor:pointer;" title="${esc(item.name)}">
-                    <span class="contact-icon" style="color:#fff;">${renderContactIcon(item.platform)}</span>
-                    ${item.badge ? `<span class="contact-badge">${esc(item.badge)}</span>` : ''}
-                  </div>
-                `).join("")}
+              <div class="floating-contacts-dock" style="box-shadow:none;">
+                <div class="floating-dock-badge" title="Đội ngũ hỗ trợ trực tuyến">
+                  <span class="floating-pulse-dot" aria-hidden="true"></span>
+                  <span>HỖ TRỢ</span>
+                </div>
+                <div class="floating-contacts-stack">
+                  ${items.filter(i => i.active).length === 0 ? `
+                    <span style="font-size:11px; color:var(--muted); padding:10px;">Chưa có mục nào được bật</span>
+                  ` : items.filter(i => i.active).map(item => `
+                    <div class="floating-contact-btn platform-${esc(item.platform || "other")}" title="${esc(item.name)}">
+                      <span class="contact-icon">${renderContactIcon(item.platform)}</span>
+                      ${item.badge ? `<span class="contact-badge ${getContactBadgeClass(item.badge)}">${esc(item.badge)}</span>` : ''}
+                      <span class="contact-tooltip">
+                        <span class="tooltip-title">${esc(item.name)}</span>
+                        <span class="tooltip-sub">Nhấn để kết nối ↗</span>
+                      </span>
+                    </div>
+                  `).join("")}
+                </div>
               </div>
             </div>
             <div style="margin-top:14px; text-align:center;">
@@ -2414,6 +2440,14 @@ window.initAdminPricing = (() => {
         const button = event.target.closest("button");
         if (!button) return;
         if (button.hasAttribute("data-guide-new")) openGuideEditor(null);
+        if (button.dataset.badgePreset !== undefined) {
+          const inp = document.querySelector("#contact-badge-input");
+          if (inp) {
+            inp.value = button.dataset.badgePreset;
+            inp.focus();
+          }
+          return;
+        }
         if (button.hasAttribute("data-contact-add")) openContactEditor(null);
         if (button.dataset.contactEdit !== undefined) openContactEditor(Number(button.dataset.contactEdit));
         if (button.dataset.contactDelete !== undefined) {
