@@ -301,3 +301,56 @@ test("contacts: admin API endpoints require auth and allow updates", async () =>
     await app.close();
   }
 });
+
+test("contacts: add and update Discord contact channel item with 24/7 badge", async () => {
+  const app = await setupTestApp();
+  try {
+    const authRes = await app.request("POST", "/api/admin/auth", {
+      password: app.config.adminPassword,
+    });
+    const adminKey = authRes.body.adminKey;
+    const adminHeaders = {
+      "x-admin-key": adminKey,
+      origin: app.config.origin,
+    };
+
+    // Add Discord channel as shown in user screenshot
+    const putRes = await app.request(
+      "PUT",
+      "/api/admin/contacts",
+      {
+        enabled: true,
+        items: [
+          {
+            id: `contact-${Date.now()}`,
+            platform: "discord",
+            name: "Server Discord",
+            url: "https://discord.gg/F3J7hWNRc4",
+            badge: "24/7",
+            active: true,
+          },
+        ],
+      },
+      adminHeaders,
+    );
+
+    assert.equal(putRes.status, 200);
+    assert.equal(putRes.body.success, true);
+    assert.equal(putRes.body.settings.items.length, 1);
+    const discordItem = putRes.body.settings.items[0];
+    assert.equal(discordItem.platform, "discord");
+    assert.equal(discordItem.name, "Server Discord");
+    assert.equal(discordItem.url, "https://discord.gg/F3J7hWNRc4");
+    assert.equal(discordItem.badge, "24/7");
+    assert.equal(discordItem.active, true);
+
+    // Verify public API returns it
+    const publicRes = await app.request("GET", "/api/contacts");
+    assert.equal(publicRes.status, 200);
+    assert.equal(publicRes.body.items.length, 1);
+    assert.equal(publicRes.body.items[0].platform, "discord");
+    assert.equal(publicRes.body.items[0].badge, "24/7");
+  } finally {
+    await app.close();
+  }
+});

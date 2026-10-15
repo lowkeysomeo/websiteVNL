@@ -566,7 +566,7 @@ window.initAdminPricing = (() => {
           <input name="active" type="checkbox" ${item.active ? "checked" : ""}>
           Bật hiển thị nút liên hệ này ngoài trang web
         </label>
-
+        <p class="pricing-form-message" role="status" aria-live="polite" style="margin-top:10px; font-size:13px; color:#f87171;"></p>
         <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
           <button type="button" class="button secondary" data-catalog-close>Hủy</button>
           <button type="submit" class="button primary">${isEdit ? "Cập nhật mục" : "Thêm mục vào danh sách"}</button>
@@ -1902,6 +1902,7 @@ window.initAdminPricing = (() => {
       "admin-guide-form",
       "category-add-form",
       "partner-create-form",
+      "contact-edit-form",
     ].includes(form.id)) return;
     event.preventDefault();
     const button = form.querySelector('[type="submit"]'), message = form.querySelector(".pricing-form-message");
@@ -1966,12 +1967,20 @@ window.initAdminPricing = (() => {
         if (!name) throw new Error("Vui lòng nhập tên hiển thị / tooltip.");
         if (!url) throw new Error("Vui lòng nhập link liên kết.");
 
+        let cleanUrl = url;
+        if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(cleanUrl)) {
+          cleanUrl = "https://" + cleanUrl;
+        }
+
+        if (!contactsSettings) contactsSettings = { enabled: true, items: [] };
+        if (!Array.isArray(contactsSettings.items)) contactsSettings.items = [];
+
         if (index >= 0 && index < contactsSettings.items.length) {
           contactsSettings.items[index] = {
             ...contactsSettings.items[index],
             platform,
             name,
-            url,
+            url: cleanUrl,
             badge,
             active,
           };
@@ -1980,7 +1989,7 @@ window.initAdminPricing = (() => {
             id: `contact-${Date.now()}`,
             platform,
             name,
-            url,
+            url: cleanUrl,
             badge,
             active,
           });
