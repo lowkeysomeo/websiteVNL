@@ -4,7 +4,7 @@ window.initAdminPricing = (() => {
     { id: "discord", name: "Discord", icon: "gamepad" },
     { id: "entertainment", name: "Giải trí", icon: "layers" },
     { id: "creative", name: "Sáng tạo", icon: "sparkles" },
-  ], partnersList = [], currentUser = { role: "admin", email: "", name: "" }, adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false, editingCategoryId = null, returnToProductId = null;
+  ], partnersList = [], contactsSettings = { enabled: true, items: [] }, currentUser = { role: "admin", email: "", name: "" }, adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false, editingCategoryId = null, returnToProductId = null;
   const guideCategoryLabels = { guide: "Hướng dẫn", tips: "Mẹo & Thủ thuật", news: "Tin tức", other: "Khác" };
   const $ = (selector) => document.querySelector(selector);
   const money = n => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
@@ -108,12 +108,13 @@ window.initAdminPricing = (() => {
   async function load() {
     const panel = $("#admin-pricing-view");
     try {
-      const [pricingData, bankData, depositsData, guideRes, partnersRes] = await Promise.all([
+      const [pricingData, bankData, depositsData, guideRes, partnersRes, contactsRes] = await Promise.all([
         api("/api/admin/pricing"),
         api("/api/admin/bank").catch(() => ({ settings: { bank: {}, isActive: false } })),
         api("/api/admin/deposits?limit=100").catch(() => ({ deposits: [] })),
         api("/api/admin/guide").catch(() => ({ guide: null, guides: [] })),
         api("/api/admin/partners").catch(() => ({ partners: [] })),
+        api("/api/admin/contacts").catch(() => ({ settings: { enabled: true, items: [] } })),
       ]);
       loaded = true;
       products = pricingData.products;
@@ -129,6 +130,7 @@ window.initAdminPricing = (() => {
       guideData = guideRes.guide || null;
       guidesList = Array.isArray(guideRes.guides) ? guideRes.guides : (guideData ? [guideData] : []);
       partnersList = Array.isArray(partnersRes?.partners) ? partnersRes.partners : [];
+      contactsSettings = contactsRes?.settings || { enabled: true, items: [] };
       render();
     } catch (error) {
       panel.innerHTML = `<p class="admin-error-msg" role="alert">${esc(error.message)}</p><button type="button" class="button secondary" data-pricing-reload>Tải lại dữ liệu</button>`;
@@ -448,10 +450,245 @@ window.initAdminPricing = (() => {
     }
   }
 
+  function renderContactIcon(platform) {
+    const p = String(platform || "").toLowerCase();
+    if (p === "zalo") {
+      return '<span class="contact-icon-glyph zalo" aria-hidden="true">Z</span>';
+    }
+    if (p === "facebook") {
+      return '<span class="contact-icon-glyph facebook" aria-hidden="true">f</span>';
+    }
+    if (p === "telegram") {
+      return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
+    }
+    if (p === "discord") {
+      return '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>';
+    }
+    if (p === "phone") {
+      return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+    }
+    if (p === "messenger") {
+      return '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.145 2 11.258c0 2.91 1.455 5.512 3.735 7.185v3.557l3.418-1.876c.905.251 1.86.387 2.847.387 5.523 0 10-4.145 10-9.253C22 6.145 17.523 2 12 2zm1.004 12.448l-2.56-2.73-5 2.73 5.498-5.836 2.623 2.73 4.939-2.73-5.5 5.836z"/></svg>';
+    }
+    return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>';
+  }
+
+  async function saveContactsToServer(successMsg = "Đã lưu cài đặt liên hệ!") {
+    const toggle = document.querySelector("#contacts-enabled-toggle");
+    if (toggle) {
+      contactsSettings.enabled = toggle.checked;
+    }
+    const res = await api("/api/admin/contacts", {
+      method: "PUT",
+      body: JSON.stringify({
+        enabled: contactsSettings.enabled !== false,
+        items: contactsSettings.items || [],
+      }),
+    });
+    if (res && res.settings) {
+      contactsSettings = res.settings;
+    }
+    notify(successMsg);
+    render();
+  }
+
+  function openContactEditor(index = null) {
+    const isEdit = index !== null && index >= 0 && index < contactsSettings.items.length;
+    const item = isEdit ? contactsSettings.items[index] : {
+      id: `contact-${Date.now()}`,
+      platform: "zalo",
+      name: "",
+      url: "",
+      badge: "",
+      active: true,
+    };
+
+    $("#catalog-editor").innerHTML = `
+      <form id="contact-edit-form" class="pricing-card promotion-form" data-contact-index="${isEdit ? index : -1}">
+        <div class="promotion-title">
+          <h3>${isEdit ? "✏️ Chỉnh sửa kênh liên hệ" : "+ Thêm kênh liên hệ mới"}</h3>
+          <button type="button" class="button secondary btn-small" data-catalog-close>Đóng</button>
+        </div>
+
+        <div class="pricing-form-grid">
+          <label>
+            Nền tảng / Mạng xã hội *
+            <select name="platform" id="contact-platform-select" required>
+              <option value="zalo" ${item.platform === "zalo" ? "selected" : ""}>Zalo (Biểu tượng chữ Z trắng)</option>
+              <option value="facebook" ${item.platform === "facebook" ? "selected" : ""}>Facebook (Biểu tượng chữ f trắng)</option>
+              <option value="telegram" ${item.platform === "telegram" ? "selected" : ""}>Telegram (Biểu tượng phi cơ giấy)</option>
+              <option value="discord" ${item.platform === "discord" ? "selected" : ""}>Discord (Biểu tượng Gamepad)</option>
+              <option value="phone" ${item.platform === "phone" ? "selected" : ""}>Số điện thoại / Hotline</option>
+              <option value="messenger" ${item.platform === "messenger" ? "selected" : ""}>Messenger (Facebook)</option>
+              <option value="other" ${item.platform === "other" ? "selected" : ""}>Khác / Website URL</option>
+            </select>
+            <small>Icon sẽ tự động cập nhật đúng chuẩn nhận diện của nền tảng.</small>
+          </label>
+
+          <label>
+            Huy hiệu góc dưới (Badge)
+            <input name="badge" maxlength="8" placeholder="VD: CN, GR, VIP, 24/7..." value="${esc(item.badge || "")}" />
+            <small>Chữ nhỏ nền xanh góc nút (để trống nếu không muốn hiển thị badge).</small>
+          </label>
+        </div>
+
+        <div class="pricing-form-grid">
+          <label>
+            Tên hiển thị / Tooltip *
+            <input name="name" required maxlength="80" placeholder="VD: Zalo Cá Nhân, Nhóm Facebook..." value="${esc(item.name || "")}" />
+            <small>Nội dung hiện ra khi di chuột vào nút liên hệ ngoài trang chủ.</small>
+          </label>
+
+          <label>
+            Đường dẫn liên kết (Link URL) *
+            <input name="url" required maxlength="500" placeholder="VD: https://zalo.me/... hoặc https://facebook.com/..." value="${esc(item.url || "")}" />
+            <small>Đường dẫn mở ra khi khách hàng click vào nút liên hệ.</small>
+          </label>
+        </div>
+
+        <label class="pricing-check" style="margin-top:10px;">
+          <input name="active" type="checkbox" ${item.active ? "checked" : ""}>
+          Bật hiển thị nút liên hệ này ngoài trang web
+        </label>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+          <button type="button" class="button secondary" data-catalog-close>Hủy</button>
+          <button type="submit" class="button primary">${isEdit ? "Cập nhật mục" : "Thêm mục vào danh sách"}</button>
+        </div>
+      </form>
+    `;
+
+    const inputName = $("#contact-edit-form [name=name]");
+    if (inputName) inputName.focus();
+  }
+
+  function renderContactsView(panel) {
+    const items = contactsSettings.items || [];
+    const enabled = contactsSettings.enabled !== false;
+
+    panel.innerHTML = `
+      <header class="pricing-heading">
+        <div>
+          <span class="pricing-eyebrow">KÊNH LIÊN HỆ & MẠNG XÃ HỘI</span>
+          <h2>Quản lý Nút Liên Hệ Nổi (Floating Contacts)</h2>
+          <p>Tùy chỉnh danh sách các nút liên hệ nổi bên góc màn hình (Zalo, Facebook, Telegram...), thêm bớt link, huy hiệu và sắp xếp vị trí.</p>
+        </div>
+        <div class="pricing-actions">
+          <button type="button" class="button secondary" data-contacts-reload>Làm mới ↻</button>
+          <button type="button" class="button primary" data-contact-add>+ Thêm mục liên hệ</button>
+        </div>
+      </header>
+
+      <div id="catalog-editor"></div>
+
+      <section class="pricing-card bank-config-card" style="margin-bottom: 24px;">
+        <div class="card-header-row">
+          <div>
+            <h3>💬 Bật/Tắt hiển thị nút liên hệ ngoài trang chủ</h3>
+            <p>Khi bật, cụm nút tròn màu tối với huy hiệu nhỏ góc dưới và tooltip trượt sang trái sẽ xuất hiện ở góc dưới bên phải trang web.</p>
+          </div>
+          <div class="announcement-toggle-group">
+            <label class="switch-label">
+              <input type="checkbox" id="contacts-enabled-toggle" ${enabled ? "checked" : ""} aria-label="Bật widget liên hệ" />
+              <span class="switch-slider"></span>
+            </label>
+            <span id="contacts-status-text" class="${enabled ? "status-active" : "status-inactive"}">
+              ${enabled ? "Đang bật widget liên hệ" : "Đang tắt widget liên hệ"}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <div class="contacts-admin-layout">
+        <div class="contacts-admin-list-wrap">
+          <div class="pricing-card" style="padding: 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--line); padding-bottom:10px;">
+              <h4 style="margin:0; font-size:14px;">Danh sách kênh liên hệ (${items.length} mục)</h4>
+              <div style="display:flex; gap:8px;">
+                <button type="button" class="button primary btn-small" data-contact-add>+ Thêm mục</button>
+                <button type="button" class="button secondary btn-small" data-contacts-save>Lưu thay đổi 💾</button>
+              </div>
+            </div>
+
+            ${items.length === 0 ? `
+              <div style="text-align:center; padding: 40px 16px; color:var(--muted);">
+                <span style="font-size:36px; display:block; margin-bottom:8px;">💬</span>
+                <p>Chưa có kênh liên hệ nào. Bấm nút <strong>+ Thêm mục</strong> để tạo nút liên hệ đầu tiên!</p>
+              </div>
+            ` : `
+              <div class="contacts-table-list" style="display:flex; flex-direction:column; gap:10px;">
+                ${items.map((item, idx) => `
+                  <div class="contact-admin-item-card ${item.active ? '' : 'is-inactive'}">
+                    <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
+                      <span class="product-pos-badge" style="font-size:11px; padding:2px 6px;">#${idx + 1}</span>
+                      <div style="position:relative; width:40px; height:40px; border-radius:50%; background:#18191d; border:1px solid rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <span class="contact-icon" style="color:#fff;">${renderContactIcon(item.platform)}</span>
+                        ${item.badge ? `<span class="contact-badge" style="position:absolute; right:-3px; bottom:-3px; font-size:8px;">${esc(item.badge)}</span>` : ''}
+                      </div>
+                      <div style="min-width:0; flex:1;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                          <strong style="font-size:13px; color:var(--text);">${esc(item.name)}</strong>
+                          <span class="status-badge" style="font-size:10px; text-transform:uppercase;">${esc(item.platform)}</span>
+                          ${item.badge ? `<span style="background:rgba(91,104,246,0.18); color:#818cf8; border:1px solid rgba(91,104,246,0.4); font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px;">Badge: ${esc(item.badge)}</span>` : ''}
+                          ${item.active ? '<span class="status-badge active" style="font-size:10px;">🟢 Bật</span>' : '<span class="status-badge disabled" style="font-size:10px;">⚪ Ẩn</span>'}
+                        </div>
+                        <div style="font-size:11px; color:var(--muted); margin-top:3px; word-break:break-all;">
+                          <a href="${esc(item.url)}" target="_blank" rel="noopener" style="color:#60a5fa; text-decoration:underline;">${esc(item.url)}</a>
+                        </div>
+                      </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                      <button type="button" class="button secondary btn-xs" data-contact-up="${idx}" ${idx === 0 ? "disabled" : ""} title="Đưa lên trên">▲</button>
+                      <button type="button" class="button secondary btn-xs" data-contact-down="${idx}" ${idx === items.length - 1 ? "disabled" : ""} title="Đưa xuống dưới">▼</button>
+                      <button type="button" class="button secondary btn-xs" data-contact-toggle="${idx}" title="${item.active ? 'Ẩn mục này' : 'Bật mục này'}">${item.active ? 'Ẩn' : 'Bật'}</button>
+                      <button type="button" class="button secondary btn-xs" data-contact-edit="${idx}" title="Chỉnh sửa">✏️ Sửa</button>
+                      <button type="button" class="button secondary btn-xs btn-danger" data-contact-delete="${idx}" title="Xóa mục">✕ Xóa</button>
+                    </div>
+                  </div>
+                `).join("")}
+              </div>
+            `}
+          </div>
+        </div>
+
+        <div class="contacts-preview-sidebar">
+          <div class="pricing-card" style="padding: 16px; position: sticky; top: 20px;">
+            <h4 style="margin: 0 0 8px; font-size: 13px; display:flex; align-items:center; gap:6px;">
+              <span>👁️</span> Xem trước ngoài Web
+            </h4>
+            <p style="font-size:11px; color:var(--muted); margin: 0 0 16px;">
+              Cụm nút nổi sẽ hiển thị trên trang chủ góc dưới bên phải như sau:
+            </p>
+
+            <div class="contacts-preview-stage">
+              <div style="display:flex; flex-direction:column; gap:10px; align-items:center;">
+                ${items.filter(i => i.active).length === 0 ? `
+                  <span style="font-size:11px; color:var(--muted);">Chưa có mục nào được bật</span>
+                ` : items.filter(i => i.active).map(item => `
+                  <div style="position:relative; width:44px; height:44px; border-radius:50%; background:#18191d; border:1px solid rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(0,0,0,0.5); cursor:pointer;" title="${esc(item.name)}">
+                    <span class="contact-icon" style="color:#fff;">${renderContactIcon(item.platform)}</span>
+                    ${item.badge ? `<span class="contact-badge">${esc(item.badge)}</span>` : ''}
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+            <div style="margin-top:14px; text-align:center;">
+              <button type="button" class="button primary" style="width:100%;" data-contacts-save>Lưu tất cả thay đổi 💾</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function render() {
     const panel = $("#admin-pricing-view");
     if (currentView === "orders") return;
     if (!loaded) { panel.innerHTML = '<p class="pricing-hint">Đang tải giá và ưu đãi...</p><button type="button" class="button secondary" data-pricing-reload>Tải lại dữ liệu</button>'; return; }
+    if (currentView === "contacts") {
+      renderContactsView(panel);
+      return;
+    }
     if (currentView === "partners") {
       panel.innerHTML = `
         <header class="pricing-heading">
@@ -1691,6 +1928,51 @@ window.initAdminPricing = (() => {
         guideData = res.guide;
         notify(guideId === "new" ? "Đã đăng bài viết mới thành công!" : "Đã lưu cập nhật bài viết!");
         $("#catalog-editor").replaceChildren();
+      } else if (form.id === "contact-edit-form") {
+        const data = new FormData(form);
+        const index = Number(form.dataset.contactIndex);
+        const platform = (data.get("platform") || "other").trim();
+        const name = (data.get("name") || "").trim();
+        const url = (data.get("url") || "").trim();
+        const badge = (data.get("badge") || "").trim().toUpperCase();
+        const active = form.querySelector('[name=active]') ? form.querySelector('[name=active]').checked : true;
+
+        if (!name) throw new Error("Vui lòng nhập tên hiển thị / tooltip.");
+        if (!url) throw new Error("Vui lòng nhập link liên kết.");
+
+        if (index >= 0 && index < contactsSettings.items.length) {
+          contactsSettings.items[index] = {
+            ...contactsSettings.items[index],
+            platform,
+            name,
+            url,
+            badge,
+            active,
+          };
+        } else {
+          contactsSettings.items.push({
+            id: `contact-${Date.now()}`,
+            platform,
+            name,
+            url,
+            badge,
+            active,
+          });
+        }
+
+        const res = await api("/api/admin/contacts", {
+          method: "PUT",
+          body: JSON.stringify({
+            enabled: contactsSettings.enabled !== false,
+            items: contactsSettings.items,
+          }),
+        });
+        if (res && res.settings) {
+          contactsSettings = res.settings;
+        }
+        $("#catalog-editor").replaceChildren();
+        notify(index >= 0 ? "Đã cập nhật mục liên hệ thành công!" : "Đã thêm mục liên hệ mới thành công!");
+        render();
       } else if (form.id === "admin-bank-form") {
         const data = new FormData(form);
         const isActive = $("#bank-active-toggle") ? $("#bank-active-toggle").checked : true;
@@ -1925,6 +2207,14 @@ window.initAdminPricing = (() => {
             statusText.className = event.target.checked ? "status-active" : "status-inactive";
           }
         }
+        if (event.target.id === "contacts-enabled-toggle") {
+          contactsSettings.enabled = event.target.checked;
+          const statusText = document.querySelector("#contacts-status-text");
+          if (statusText) {
+            statusText.textContent = event.target.checked ? "Đang bật widget liên hệ" : "Đang tắt widget liên hệ";
+            statusText.className = event.target.checked ? "status-active" : "status-inactive";
+          }
+        }
         if (event.target.id === "bank-auto-credit-toggle") {
           const statusText = document.querySelector("#auto-credit-status-text");
           const badge = document.querySelector("#auto-credit-badge");
@@ -2124,6 +2414,52 @@ window.initAdminPricing = (() => {
         const button = event.target.closest("button");
         if (!button) return;
         if (button.hasAttribute("data-guide-new")) openGuideEditor(null);
+        if (button.hasAttribute("data-contact-add")) openContactEditor(null);
+        if (button.dataset.contactEdit !== undefined) openContactEditor(Number(button.dataset.contactEdit));
+        if (button.dataset.contactDelete !== undefined) {
+          const idx = Number(button.dataset.contactDelete);
+          const item = contactsSettings.items[idx];
+          if (!item) return;
+          if (!confirm(`Bạn có chắc muốn xóa kênh liên hệ "${item.name}"?`)) return;
+          contactsSettings.items.splice(idx, 1);
+          await saveContactsToServer("Đã xóa mục liên hệ.");
+        }
+        if (button.dataset.contactUp !== undefined) {
+          const idx = Number(button.dataset.contactUp);
+          if (idx > 0 && idx < contactsSettings.items.length) {
+            const temp = contactsSettings.items[idx];
+            contactsSettings.items[idx] = contactsSettings.items[idx - 1];
+            contactsSettings.items[idx - 1] = temp;
+            render();
+          }
+        }
+        if (button.dataset.contactDown !== undefined) {
+          const idx = Number(button.dataset.contactDown);
+          if (idx >= 0 && idx < contactsSettings.items.length - 1) {
+            const temp = contactsSettings.items[idx];
+            contactsSettings.items[idx] = contactsSettings.items[idx + 1];
+            contactsSettings.items[idx + 1] = temp;
+            render();
+          }
+        }
+        if (button.dataset.contactToggle !== undefined) {
+          const idx = Number(button.dataset.contactToggle);
+          if (idx >= 0 && idx < contactsSettings.items.length) {
+            contactsSettings.items[idx].active = !contactsSettings.items[idx].active;
+            render();
+          }
+        }
+        if (button.hasAttribute("data-contacts-save")) {
+          button.disabled = true;
+          try {
+            await saveContactsToServer("Đã lưu tất cả thay đổi kênh liên hệ!");
+          } finally {
+            button.disabled = false;
+          }
+        }
+        if (button.hasAttribute("data-contacts-reload")) {
+          await load();
+        }
         if (button.dataset.guideEdit) openGuideEditor(button.dataset.guideEdit);
         if (button.dataset.guideFilter) {
           guideFilter = button.dataset.guideFilter;

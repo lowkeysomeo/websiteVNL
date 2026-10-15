@@ -3171,3 +3171,208 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
 .purchase-pagination span,.purchase-note { font-size:12px; color:var(--muted); }
 .purchase-pagination button { font-size:12px; padding:9px 12px; }
 @media(max-width:480px) { .purchase-summary { gap:6px; } .purchase-summary strong { font-size:15px; } .purchase-pagination { flex-wrap:wrap; } }
+
+/* Floating Contact Buttons Widget */
+.floating-contacts {
+  position: fixed;
+  right: 20px;
+  bottom: 84px;
+  z-index: 98;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.floating-contact-btn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #18191d;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  text-decoration: none;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.22s ease,
+              border-color 0.22s ease,
+              background-color 0.22s ease;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.floating-contact-btn:hover {
+  transform: translateY(-2px) scale(1.08);
+  border-color: rgba(139, 92, 246, 0.7);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.38);
+  background: #24252e;
+}
+
+.floating-contact-btn:active {
+  transform: scale(0.95);
+}
+
+.floating-contact-btn .contact-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.floating-contact-btn .contact-icon-glyph {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1;
+  user-select: none;
+}
+
+.floating-contact-btn .contact-icon-glyph.zalo {
+  font-size: 21px;
+  letter-spacing: -0.5px;
+}
+
+.floating-contact-btn .contact-icon-glyph.facebook {
+  font-size: 23px;
+  font-weight: 800;
+  margin-top: 1px;
+}
+
+.floating-contact-btn .contact-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  background: #5b68f6;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 4.5px;
+  border-radius: 4px;
+  line-height: 1.15;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  border: 1.5px solid #141419;
+  user-select: none;
+  pointer-events: none;
+}
+
+.floating-contact-btn .contact-tooltip {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%) translateX(6px);
+  background: rgba(18, 14, 16, 0.96);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.floating-contact-btn .contact-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -5px;
+  transform: translateY(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: rgba(18, 14, 16, 0.96);
+  border-right: 1px solid rgba(139, 92, 246, 0.35);
+  border-top: 1px solid rgba(139, 92, 246, 0.35);
+}
+
+.floating-contact-btn:hover .contact-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(0);
+}
+
+@media (max-width: 600px) {
+  .floating-contacts {
+    right: 12px;
+    bottom: 76px;
+    gap: 8px;
+  }
+  .floating-contact-btn {
+    width: 38px;
+    height: 38px;
+  }
+  .floating-contact-btn .contact-icon-glyph.zalo {
+    font-size: 18px;
+  }
+  .floating-contact-btn .contact-icon-glyph.facebook {
+    font-size: 19px;
+  }
+  .floating-contact-btn .contact-badge {
+    font-size: 8px;
+    padding: 1px 3.5px;
+  }
+}
+
+/* ==========================================================================
+   ADMIN CONTACTS MANAGEMENT
+   ========================================================================== */
+
+.contacts-admin-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .contacts-admin-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.contact-admin-item-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.contact-admin-item-card:hover {
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.contact-admin-item-card.is-inactive {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.contacts-preview-stage {
+  background: #0d0d11;
+  border: 1px solid #2a2b36;
+  border-radius: 10px;
+  padding: 24px 16px;
+  min-height: 280px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+

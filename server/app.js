@@ -66,6 +66,10 @@ import {
   sendDiscordOrderNotification,
   sendDiscordTestNotification,
 } from "./discord.js";
+import {
+  getContactsSettings,
+  saveContactsSettings,
+} from "./contacts.js";
 
 const SESSION_AGE = 7 * 24 * 60 * 60 * 1000;
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -912,6 +916,30 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           const body = parse(await readBody(req));
           const result = await sendDiscordTestNotification(db, body, fetchFn);
           return json(200, { success: true, ...result });
+        }
+        if (req.method === "GET" && route === "/api/contacts") {
+          const settings = await getContactsSettings(db);
+          const activeItems = settings.enabled
+            ? settings.items.filter((item) => item.active)
+            : [];
+          return json(200, {
+            success: true,
+            enabled: settings.enabled,
+            items: activeItems,
+            contacts: activeItems,
+          });
+        }
+        if (req.method === "GET" && route === "/api/admin/contacts") {
+          await requireAdmin(req);
+          const settings = await getContactsSettings(db);
+          return json(200, { success: true, settings });
+        }
+        if (req.method === "PUT" && route === "/api/admin/contacts") {
+          await requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const settings = await saveContactsSettings(db, body);
+          return json(200, { success: true, settings });
         }
         if (req.method === "GET" && route === "/api/admin/deposits") {
           await requireAdmin(req);

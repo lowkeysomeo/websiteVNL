@@ -142,6 +142,7 @@
     const campaignsBtn = document.querySelector('[data-admin-view="campaigns"]');
     const couponsBtn = document.querySelector('[data-admin-view="coupons"]');
     const guideBtn = document.querySelector('[data-admin-view="guide"]');
+    const contactsBtn = document.querySelector('[data-admin-view="contacts"]');
     const partnersBtn = document.querySelector('[data-admin-view="partners"]');
 
     if (role === "partner") {
@@ -159,6 +160,7 @@
       if (campaignsBtn) campaignsBtn.hidden = true;
       if (couponsBtn) couponsBtn.hidden = true;
       if (guideBtn) guideBtn.hidden = true;
+      if (contactsBtn) contactsBtn.hidden = true;
       if (partnersBtn) partnersBtn.hidden = true;
     } else {
       if (brandTitle) brandTitle.innerHTML = 'VietNam Legacy <span>ADMIN</span>';
@@ -175,6 +177,7 @@
       if (campaignsBtn) campaignsBtn.hidden = false;
       if (couponsBtn) couponsBtn.hidden = false;
       if (guideBtn) guideBtn.hidden = false;
+      if (contactsBtn) contactsBtn.hidden = false;
       if (partnersBtn) partnersBtn.hidden = false;
     }
 
