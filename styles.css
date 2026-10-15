@@ -1283,6 +1283,35 @@ dialog p {
   padding: 0;
   overflow: hidden;
   border-radius: 16px;
+  position: relative;
+}
+.product-dialog .dialog-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 100;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(24, 12, 15, 0.85);
+  border: 1px solid rgba(255, 209, 92, 0.45);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.product-dialog .dialog-close:hover {
+  transform: scale(1.08);
+  background: rgba(255, 209, 92, 0.25);
+  border-color: var(--accent);
 }
 .detail-layout {
   display: grid;
@@ -1936,12 +1965,23 @@ form textarea {
   }
   .product-bottom {
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
   }
-  .add-button {
+  .product-card-actions {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .product-card .add-button,
+  .product-card .buy-button {
     flex: 1;
+    min-width: 0;
     justify-content: center;
-    font-size: 9px;
+    padding: 7px 4px;
+    font-size: 9.5px;
+    white-space: nowrap;
+    text-align: center;
   }
   .bottom-banner h2 {
     font-size: 20px;
@@ -1956,26 +1996,61 @@ form textarea {
   }
   .product-dialog {
     overflow-y: auto;
+    position: relative;
+    max-height: calc(100dvh - 24px);
+    width: calc(100% - 20px);
+    margin: auto;
+    border-radius: 14px;
+  }
+  .product-dialog .dialog-close {
+    position: sticky;
+    top: 10px;
+    margin-left: auto;
+    margin-right: 10px;
+    margin-bottom: -40px;
+    z-index: 100;
   }
   .detail-layout {
     grid-template-columns: 1fr;
     max-height: none;
   }
   .detail-media {
-    min-height: 200px;
-    max-height: 240px;
-    padding: 16px;
+    min-height: 140px;
+    max-height: 160px;
+    padding: 12px;
   }
   .detail-image {
-    max-height: 200px;
+    max-height: 135px;
     height: auto;
     width: auto;
     min-height: 0;
   }
   .detail-copy {
-    padding: 24px 20px 20px;
+    padding: 16px 16px 20px;
     max-height: none;
     overflow-y: visible;
+  }
+  .detail-copy h2 {
+    font-size: 20px;
+    margin: 4px 0 10px;
+  }
+  .product-features {
+    margin: 10px 0 12px;
+    gap: 4px;
+  }
+  .detail-price {
+    font-size: 22px;
+    margin: 8px 0;
+  }
+  .detail-actions {
+    position: sticky;
+    bottom: 0;
+    background: #221215;
+    padding: 10px 0 max(12px, env(safe-area-inset-bottom, 12px));
+    margin: 14px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 -8px 24px rgba(18, 10, 12, 0.95);
+    z-index: 20;
   }
   .toast {
     left: 50%;
@@ -1994,8 +2069,15 @@ form textarea {
   .product-bottom {
     flex-wrap: nowrap;
   }
-  .add-button {
+  .product-card-actions {
+    width: auto;
+    flex-shrink: 0;
+  }
+  .product-card .add-button,
+  .product-card .buy-button {
     flex: initial;
+    padding: 7px 10px;
+    font-size: 10px;
   }
   h1 {
     font-size: 27px;
@@ -2505,6 +2587,14 @@ body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) :disabled,
 body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) [aria-disabled="true"] { cursor: not-allowed !important; }
 body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) select { cursor: auto !important; }
 
+body:has(dialog[open]) .scroll-top-button,
+body:has(dialog[open]) .floating-contacts,
+body.modal-open .scroll-top-button,
+body.modal-open .floating-contacts {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
 body.modal-open :is(.cursor-dot, .cursor-ring, .cursor-particles),
 body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   opacity: 0;
