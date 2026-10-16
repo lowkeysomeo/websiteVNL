@@ -37,9 +37,9 @@
   const formatCurrencyNumber = (value) =>
     new Intl.NumberFormat("vi-VN").format(Number(value) || 0);
   const money = (value) =>
-    formatCurrencyNumber(value) + ' <img src="assets/wallet-dollar.png" class="currency-icon" alt="$" />';
+    formatCurrencyNumber(value) + "đ";
   const moneyText = (value) =>
-    formatCurrencyNumber(value) + " $";
+    formatCurrencyNumber(value) + "đ";
   const date = (value) => new Date(value).toLocaleString("vi-VN");
   function say(text = "") {
     message.textContent = text;
@@ -72,7 +72,7 @@
   }
   function updateLabel() {
     const isLoggedIn = Boolean(wallet.user);
-    label.textContent = isLoggedIn ? formatCurrencyNumber(wallet.balance || 0) : "Đăng nhập";
+    label.textContent = isLoggedIn ? formatCurrencyNumber(wallet.balance || 0) + "đ" : "Đăng nhập";
     const topbarLogout = document.querySelector("#topbar-logout");
     if (topbarLogout) {
       topbarLogout.style.display = isLoggedIn ? "inline-flex" : "none";

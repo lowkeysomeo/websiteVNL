@@ -9,8 +9,8 @@ window.initAdminPricing = (() => {
   const guideCategoryLabels = { guide: "Hướng dẫn", tips: "Mẹo & Thủ thuật", news: "Tin tức", other: "Khác" };
   const $ = (selector) => document.querySelector(selector);
   const formatCurrencyNumber = n => new Intl.NumberFormat("vi-VN").format(Number(n) || 0);
-  const money = n => formatCurrencyNumber(n) + ' <img src="assets/wallet-dollar.png" class="currency-icon" alt="$" />';
-  const moneyText = n => formatCurrencyNumber(n) + " $";
+  const money = n => formatCurrencyNumber(n) + "đ";
+  const moneyText = n => formatCurrencyNumber(n) + "đ";
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const statuses = { active: "Đang áp dụng", scheduled: "Sắp diễn ra", expired: "Đã kết thúc", disabled: "Đã tắt", exhausted: "Hết lượt dùng" };
   const depositStatusLabels = { pending: "Chờ chuyển khoản", credited: "Đã cộng tiền", review: "Cần đối soát", expired: "Hết hạn / Hủy" };
@@ -910,7 +910,7 @@ window.initAdminPricing = (() => {
                     <div class="variant-controls">
                       <span class="price-input-wrap">
                         <input type="number" min="0" max="1000000000" step="1" required value="${v.basePrice}" data-price-product="${p.id}" data-price-variant="${v.id}" aria-label="Giá ${esc(p.name + ' ' + v.name)}" ${v.isActive ? "" : "disabled"}>
-                        <span class="price-unit"><img src="assets/wallet-dollar.png" class="currency-icon" alt="$" /></span>
+                        <span class="price-unit">đ</span>
                       </span>
                       <button type="button" class="button secondary btn-xs" data-variant-edit="${p.id}:${v.id}" title="Chỉnh sửa chi tiết gói này">✏️ Sửa</button>
                       <button type="button" class="button secondary btn-xs" data-variant-toggle="${p.id}:${v.id}" title="${v.isActive ? "Bỏ gói này khỏi cửa hàng" : "Mở lại gói này"}">${v.isActive ? "Ẩn" : "Hiện"}</button>

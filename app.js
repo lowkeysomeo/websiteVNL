@@ -82,11 +82,11 @@ function formatCurrencyNumber(value) {
 }
 
 function money(value) {
-  return formatCurrencyNumber(value) + ' <img src="assets/wallet-dollar.png" class="currency-icon" alt="$" />';
+  return formatCurrencyNumber(value) + "đ";
 }
 
 function moneyText(value) {
-  return formatCurrencyNumber(value) + " $";
+  return formatCurrencyNumber(value) + "đ";
 }
 
 function getProduct(id) {
@@ -426,7 +426,7 @@ function renderProductCard(product) {
       </span>
     </div>
     <div class="product-bottom">
-      <div><span class="price-label">${product.service ? "BÁO GIÁ THEO YÊU CẦU" : "GIÁ TỪ"}</span><span class="price ${product.service ? "service-price" : ""}">${price}</span></div>
+      <div><span class="price-label">${product.service ? "BÁO GIÁ THEO YÊU CẦU" : "TỪ"}</span><span class="price ${product.service ? "service-price" : ""}">${price}</span></div>
       ${
         product.service
           ? `<button class="add-button" data-detail="${product.id}">Tư vấn ${icon("arrow")}</button>`
@@ -973,7 +973,7 @@ async function showOrders(offset = 0) {
             ${decorSection}
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
               <span class="muted" style="font-size:11px;">Thanh toán: Ví VietNam Legacy</span>
-              <strong class="order-total" style="color:var(--accent); font-size:15px;">${money(order.total)}</strong>
+              <strong class="order-total" style="color:#7170ff; font-size:15px;">${money(order.total)}</strong>
               ${order.pricing?.coupon ? `<small class="order-discount-note">Mã ${escapeHtml(order.pricing.coupon.code)} · Giảm ${money(order.pricing.couponDiscount)}</small>` : ""}
             </div>
           </article>
@@ -1888,7 +1888,7 @@ document
       // Update wallet balance label in topbar
       const walletLabel = document.querySelector("#wallet-label");
       if (walletLabel && typeof resData.balance === "number") {
-        walletLabel.textContent = formatCurrencyNumber(resData.balance);
+        walletLabel.textContent = formatCurrencyNumber(resData.balance) + "đ";
       }
 
       showInfo(

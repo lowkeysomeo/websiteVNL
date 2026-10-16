@@ -28,9 +28,9 @@
   const formatCurrencyNumber = (val) =>
     new Intl.NumberFormat("vi-VN").format(Number(val) || 0);
   const money = (val) =>
-    formatCurrencyNumber(val) + ' <img src="assets/wallet-dollar.png" class="currency-icon" alt="$" />';
+    formatCurrencyNumber(val) + "đ";
   const moneyText = (val) =>
-    formatCurrencyNumber(val) + " $";
+    formatCurrencyNumber(val) + "đ";
 
   const escapeHtml = (str) =>
     String(str ?? "").replace(
