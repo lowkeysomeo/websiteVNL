@@ -70,20 +70,91 @@ window.initAdminPricing = (() => {
     `;
   }
 
-  function renderImagesPreviewHtml(images) {
+  function compressImageFile(file, maxDim = 1280, quality = 0.85) {
+    return new Promise((resolve) => {
+      if (!file) return resolve("");
+      if (file.type === "image/svg+xml") {
+        const reader = new FileReader();
+        reader.onload = (loadEvt) => resolve(loadEvt.target.result);
+        reader.onerror = () => resolve("");
+        reader.readAsDataURL(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (loadEvt) => {
+        const dataUrl = loadEvt.target.result;
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+            else { w = Math.round((w * maxDim) / h); h = maxDim; }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+          const compressed = canvas.toDataURL("image/webp", quality) || canvas.toDataURL("image/jpeg", quality) || dataUrl;
+          resolve(compressed);
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      };
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function renderImagesPreviewHtml(images, coverImageUrl = "") {
     const valid = (images || []).filter(url => Boolean(url && url.trim()));
     if (!valid.length) {
-      return `<div class="guide-media-empty"><span>🖼️</span><p>Chưa có hình ảnh. Nhập link ảnh vào ô trên để xem trước tại đây.</p></div>`;
+      return `
+        <div class="guide-media-empty">
+          <span>🖼️</span>
+          <p style="margin-bottom: 8px;">Chưa có hình ảnh minh họa.</p>
+          <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+            <label class="button primary btn-xs" style="cursor:pointer; display:inline-flex; align-items:center; gap:5px;" title="Tải ảnh từ máy tính hoặc điện thoại">
+              📁 Tải ảnh từ máy
+              <input type="file" id="guide-image-file-empty-input" accept="image/*" multiple style="display:none;" />
+            </label>
+            <button type="button" class="button secondary btn-xs" id="btn-guide-add-default-empty">
+              ✨ Thêm Banner VNL
+            </button>
+          </div>
+        </div>
+      `;
     }
+    const cleanCover = (coverImageUrl || "").trim();
     return `
       <div class="guide-images-grid-preview">
-        ${valid.map(img => `
-          <div class="guide-image-preview-item">
-            <img src="${esc(img.trim())}" alt="Xem trước ảnh" onerror="this.parentElement.innerHTML='<span class=img-err>Ảnh lỗi</span>'" />
-          </div>
-        `).join("")}
+        ${valid.map((img, idx) => {
+          const isCover = Boolean(cleanCover && img.trim() === cleanCover);
+          return `
+            <div class="guide-image-preview-item" data-guide-img-idx="${idx}">
+              <img src="${esc(img.trim())}" alt="Xem trước ảnh ${idx + 1}" onerror="this.parentElement.innerHTML='<span class=img-err>Ảnh lỗi</span>'" />
+              <span class="guide-img-badge ${isCover ? 'is-cover' : ''}">${isCover ? '⭐ Ảnh bìa' : `Ảnh ${idx + 1}`}</span>
+              <div class="guide-img-overlay">
+                <button type="button" class="guide-img-btn guide-img-btn-replace" data-guide-img-action="replace" data-index="${idx}" title="Thay đổi ảnh này">
+                  🔄 Đổi ảnh
+                </button>
+                ${!isCover ? `
+                  <button type="button" class="guide-img-btn guide-img-btn-cover" data-guide-img-action="set-cover" data-index="${idx}" title="Đặt làm ảnh bìa bài viết">
+                    ⭐ Làm bìa
+                  </button>
+                ` : ''}
+                <button type="button" class="guide-img-btn guide-img-btn-remove" data-guide-img-action="remove" data-index="${idx}" title="Xóa ảnh này">
+                  ✕ Xóa
+                </button>
+              </div>
+            </div>
+          `;
+        }).join("")}
       </div>
-      <small class="image-preview-badge">✓ Hiển thị ${valid.length} hình ảnh</small>
+      <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-top:8px; flex-wrap:wrap; gap:4px;">
+        <small class="image-preview-badge" style="margin:0;">✓ Hiển thị ${valid.length} hình ảnh</small>
+        <small style="color:var(--muted); font-size:11px;">💡 Rê chuột vào ảnh để Đổi ảnh, Đặt làm bìa hoặc Xóa</small>
+      </div>
     `;
   }
 
@@ -1905,10 +1976,36 @@ window.initAdminPricing = (() => {
             </select>
           </label>
 
-          <label>
-            Ảnh bìa (Cover Image URL)
-            <input name="coverImage" value="${esc(coverImage)}" placeholder="VD: assets/vnl-banner.png hoặc link ảnh..." />
-          </label>
+          <div style="grid-column: 1 / -1; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+              <span style="font-weight:600; font-size:12px; color:var(--text); display:flex; align-items:center; gap:6px;">
+                🖼️ Ảnh bìa bài viết (Cover Image)
+              </span>
+              <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                <label class="button secondary btn-xs" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:5px;" title="Tải ảnh bìa từ máy">
+                  📁 Tải ảnh bìa từ máy
+                  <input type="file" id="guide-cover-file-input" accept="image/*" style="display:none;" />
+                </label>
+                <button type="button" class="button secondary btn-xs" id="btn-guide-cover-default" title="Dùng ảnh banner mặc định của shop">
+                  ✨ Banner VNL
+                </button>
+                <button type="button" class="button secondary btn-xs btn-danger" id="btn-guide-cover-clear" title="Xóa ảnh bìa">
+                  ✕ Xóa
+                </button>
+              </div>
+            </div>
+            <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+              <div style="flex:1; min-width:220px;">
+                <input id="guide-cover-image-input" name="coverImage" value="${esc(coverImage)}" placeholder="VD: assets/vnl-banner.png hoặc dán link ảnh, hoặc bấm 'Tải ảnh bìa từ máy'..." style="width:100%;" />
+                <small style="color:var(--muted); font-size:11px; display:block; margin-top:4px;">
+                  Ảnh bìa hiển thị ở thẻ bài viết trang chủ và đầu bài đọc hướng dẫn.
+                </small>
+              </div>
+              <div style="width:120px; height:68px; border-radius:6px; border:1px solid var(--line); background:#150a0d; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0;">
+                <img id="guide-cover-live-preview" src="${esc(coverImage || 'assets/vnl-banner.png')}" style="width:100%; height:100%; object-fit:cover;" alt="Cover preview" onerror="this.src='assets/vnl-banner.png'" />
+              </div>
+            </div>
+          </div>
 
           <label style="grid-column: 1 / -1;">
             Tóm tắt ngắn (Subtitle / Excerpt)
@@ -1929,14 +2026,29 @@ window.initAdminPricing = (() => {
           </div>
 
           <div class="guide-media-col">
-            <label>
-              🖼️ Link Hình ảnh minh họa (Mỗi dòng 1 link)
-              <textarea id="guide-images-input" name="images" rows="4" placeholder="VD:&#10;assets/vnl-banner.png&#10;https://i.imgur.com/example.png">${esc(imagesList.join("\n"))}</textarea>
-              <small>Hình ảnh minh họa từng bước hoặc banner.</small>
-            </label>
-            <div class="guide-preview-images-box" id="guide-preview-images-box">
-              ${renderImagesPreviewHtml(imagesList)}
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+              <label for="guide-images-input" style="font-weight:600; font-size:12px; margin:0;">
+                🖼️ Hình ảnh minh họa &amp; Banner
+              </label>
+              <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                <label class="button secondary btn-xs" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:5px;" title="Tải ảnh từ máy tính hoặc điện thoại">
+                  📁 Tải ảnh từ máy
+                  <input type="file" id="guide-image-file-input" accept="image/*" multiple style="display:none;" />
+                </label>
+                <button type="button" class="button secondary btn-xs" id="btn-guide-image-default" title="Thêm ảnh banner mặc định">
+                  + Banner VNL
+                </button>
+                <button type="button" class="button secondary btn-xs btn-danger" id="btn-guide-images-clear" title="Xóa tất cả ảnh">
+                  ✕ Xóa hết
+                </button>
+              </div>
             </div>
+            <textarea id="guide-images-input" name="images" rows="3" placeholder="VD:&#10;assets/vnl-banner.png&#10;https://i.imgur.com/example.png">${esc(imagesList.join("\n"))}</textarea>
+            <small style="color:var(--muted); font-size:11px;">Hình ảnh minh họa từng bước hoặc banner. Mỗi dòng 1 link hoặc bấm "Tải ảnh từ máy" ở trên.</small>
+            <div class="guide-preview-images-box" id="guide-preview-images-box">
+              ${renderImagesPreviewHtml(imagesList, coverImage)}
+            </div>
+            <input type="file" id="guide-replace-single-file-input" accept="image/*" style="display:none;" />
           </div>
         </div>
 
@@ -2481,6 +2593,77 @@ window.initAdminPricing = (() => {
             img.src = dataUrl;
           };
           reader.readAsDataURL(file);
+        if (event.target.id === "guide-cover-file-input") {
+          const file = event.target.files && event.target.files[0];
+          if (!file) return;
+          compressImageFile(file, 1280, 0.85).then(compressed => {
+            if (compressed) {
+              const input = document.querySelector("#guide-cover-image-input");
+              const preview = document.querySelector("#guide-cover-live-preview");
+              if (input) input.value = compressed;
+              if (preview) preview.src = compressed;
+              const box = document.querySelector("#guide-preview-images-box");
+              const imgInput = document.querySelector("#guide-images-input");
+              if (box && imgInput) {
+                const imgs = imgInput.value.split("\n").map(s => s.trim()).filter(Boolean);
+                box.innerHTML = renderImagesPreviewHtml(imgs, compressed);
+              }
+              notify("Đã tải ảnh bìa bài viết từ máy thành công!");
+            }
+          });
+          event.target.value = "";
+        }
+        if (event.target.id === "guide-image-file-input" || event.target.id === "guide-image-file-empty-input") {
+          const files = Array.from(event.target.files || []);
+          if (!files.length) return;
+          Promise.all(files.map(f => compressImageFile(f, 1280, 0.85))).then(compressedList => {
+            const validCompressed = compressedList.filter(Boolean);
+            if (!validCompressed.length) return;
+            const imgInput = document.querySelector("#guide-images-input");
+            const box = document.querySelector("#guide-preview-images-box");
+            const coverInput = document.querySelector("#guide-cover-image-input");
+            const coverPreview = document.querySelector("#guide-cover-live-preview");
+            let existing = (imgInput ? imgInput.value : "").split("\n").map(s => s.trim()).filter(Boolean);
+            const updated = [...existing, ...validCompressed];
+            if (imgInput) imgInput.value = updated.join("\n");
+            if (coverInput && (!coverInput.value.trim() || coverInput.value.trim() === "assets/vnl-banner.png")) {
+              coverInput.value = validCompressed[0];
+              if (coverPreview) coverPreview.src = validCompressed[0];
+            }
+            if (box) {
+              box.innerHTML = renderImagesPreviewHtml(updated, coverInput ? coverInput.value.trim() : "");
+            }
+            notify(`Đã thêm ${validCompressed.length} ảnh minh họa từ máy!`);
+          });
+          event.target.value = "";
+        }
+        if (event.target.id === "guide-replace-single-file-input") {
+          const file = event.target.files && event.target.files[0];
+          const targetIndex = Number(event.target.dataset.targetIndex);
+          if (!file || isNaN(targetIndex)) return;
+          compressImageFile(file, 1280, 0.85).then(compressed => {
+            if (compressed) {
+              const imgInput = document.querySelector("#guide-images-input");
+              const box = document.querySelector("#guide-preview-images-box");
+              const coverInput = document.querySelector("#guide-cover-image-input");
+              let existing = (imgInput ? imgInput.value : "").split("\n").map(s => s.trim()).filter(Boolean);
+              if (targetIndex >= 0 && targetIndex < existing.length) {
+                const oldUrl = existing[targetIndex];
+                existing[targetIndex] = compressed;
+                if (imgInput) imgInput.value = existing.join("\n");
+                if (coverInput && coverInput.value.trim() === oldUrl.trim()) {
+                  coverInput.value = compressed;
+                  const coverPreview = document.querySelector("#guide-cover-live-preview");
+                  if (coverPreview) coverPreview.src = compressed;
+                }
+                if (box) {
+                  box.innerHTML = renderImagesPreviewHtml(existing, coverInput ? coverInput.value.trim() : "");
+                }
+                notify(`Đã thay thế ảnh số ${targetIndex + 1} thành công!`);
+              }
+            }
+          });
+          event.target.value = "";
         }
       });
       document.addEventListener("input", event => {
@@ -2509,6 +2692,18 @@ window.initAdminPricing = (() => {
             preview.innerHTML = renderFeaturesPreviewHtml(event.target.value);
           }
         }
+        if (event.target.id === "guide-cover-image-input") {
+          const preview = document.querySelector("#guide-cover-live-preview");
+          if (preview) {
+            preview.src = event.target.value.trim() || "assets/vnl-banner.png";
+          }
+          const box = document.querySelector("#guide-preview-images-box");
+          const imgInput = document.querySelector("#guide-images-input");
+          if (box && imgInput) {
+            const imgs = imgInput.value.split("\n").map(s => s.trim()).filter(Boolean);
+            box.innerHTML = renderImagesPreviewHtml(imgs, event.target.value.trim());
+          }
+        }
         if (event.target.id === "guide-video-input") {
           const box = document.querySelector("#guide-preview-video-box");
           if (box) {
@@ -2518,9 +2713,10 @@ window.initAdminPricing = (() => {
         }
         if (event.target.id === "guide-images-input") {
           const box = document.querySelector("#guide-preview-images-box");
+          const coverInput = document.querySelector("#guide-cover-image-input");
           if (box) {
             const imgs = event.target.value.split("\n").map(s => s.trim()).filter(Boolean);
-            box.innerHTML = renderImagesPreviewHtml(imgs);
+            box.innerHTML = renderImagesPreviewHtml(imgs, coverInput ? coverInput.value.trim() : "");
           }
         }
         if (event.target.id === "deposit-search-input") {
@@ -2562,6 +2758,96 @@ window.initAdminPricing = (() => {
         const button = event.target.closest("button");
         if (!button) return;
         if (button.hasAttribute("data-guide-new")) openGuideEditor(null);
+        if (button.id === "btn-guide-cover-default") {
+          const input = document.querySelector("#guide-cover-image-input");
+          const preview = document.querySelector("#guide-cover-live-preview");
+          if (input) input.value = "assets/vnl-banner.png";
+          if (preview) preview.src = "assets/vnl-banner.png";
+          const box = document.querySelector("#guide-preview-images-box");
+          const imgInput = document.querySelector("#guide-images-input");
+          if (box && imgInput) {
+            const imgs = imgInput.value.split("\n").map(s => s.trim()).filter(Boolean);
+            box.innerHTML = renderImagesPreviewHtml(imgs, "assets/vnl-banner.png");
+          }
+          notify("Đã đặt ảnh bìa Banner VNL.");
+          return;
+        }
+        if (button.id === "btn-guide-cover-clear") {
+          const input = document.querySelector("#guide-cover-image-input");
+          const preview = document.querySelector("#guide-cover-live-preview");
+          if (input) input.value = "";
+          if (preview) preview.src = "assets/vnl-banner.png";
+          const box = document.querySelector("#guide-preview-images-box");
+          const imgInput = document.querySelector("#guide-images-input");
+          if (box && imgInput) {
+            const imgs = imgInput.value.split("\n").map(s => s.trim()).filter(Boolean);
+            box.innerHTML = renderImagesPreviewHtml(imgs, "");
+          }
+          notify("Đã xóa ảnh bìa.");
+          return;
+        }
+        if (button.id === "btn-guide-image-default" || button.id === "btn-guide-add-default-empty") {
+          const imgInput = document.querySelector("#guide-images-input");
+          const box = document.querySelector("#guide-preview-images-box");
+          const coverInput = document.querySelector("#guide-cover-image-input");
+          let existing = (imgInput ? imgInput.value : "").split("\n").map(s => s.trim()).filter(Boolean);
+          if (!existing.includes("assets/vnl-banner.png")) {
+            existing.push("assets/vnl-banner.png");
+          }
+          if (imgInput) imgInput.value = existing.join("\n");
+          if (box) box.innerHTML = renderImagesPreviewHtml(existing, coverInput ? coverInput.value.trim() : "");
+          notify("Đã thêm Banner VNL vào danh sách ảnh.");
+          return;
+        }
+        if (button.id === "btn-guide-images-clear") {
+          if (!confirm("Bạn có chắc muốn xóa tất cả ảnh minh họa?")) return;
+          const imgInput = document.querySelector("#guide-images-input");
+          const box = document.querySelector("#guide-preview-images-box");
+          const coverInput = document.querySelector("#guide-cover-image-input");
+          if (imgInput) imgInput.value = "";
+          if (box) box.innerHTML = renderImagesPreviewHtml([], coverInput ? coverInput.value.trim() : "");
+          notify("Đã xóa tất cả ảnh minh họa.");
+          return;
+        }
+        if (button.dataset.guideImgAction === "remove") {
+          const idx = Number(button.dataset.index);
+          const imgInput = document.querySelector("#guide-images-input");
+          const box = document.querySelector("#guide-preview-images-box");
+          const coverInput = document.querySelector("#guide-cover-image-input");
+          let existing = (imgInput ? imgInput.value : "").split("\n").map(s => s.trim()).filter(Boolean);
+          if (idx >= 0 && idx < existing.length) {
+            existing.splice(idx, 1);
+            if (imgInput) imgInput.value = existing.join("\n");
+            if (box) box.innerHTML = renderImagesPreviewHtml(existing, coverInput ? coverInput.value.trim() : "");
+            notify(`Đã xóa ảnh số ${idx + 1}.`);
+          }
+          return;
+        }
+        if (button.dataset.guideImgAction === "set-cover") {
+          const idx = Number(button.dataset.index);
+          const imgInput = document.querySelector("#guide-images-input");
+          const coverInput = document.querySelector("#guide-cover-image-input");
+          const coverPreview = document.querySelector("#guide-cover-live-preview");
+          const box = document.querySelector("#guide-preview-images-box");
+          let existing = (imgInput ? imgInput.value : "").split("\n").map(s => s.trim()).filter(Boolean);
+          if (idx >= 0 && idx < existing.length) {
+            const selected = existing[idx];
+            if (coverInput) coverInput.value = selected;
+            if (coverPreview) coverPreview.src = selected;
+            if (box) box.innerHTML = renderImagesPreviewHtml(existing, selected);
+            notify(`Đã đặt ảnh số ${idx + 1} làm ảnh bìa bài viết ⭐`);
+          }
+          return;
+        }
+        if (button.dataset.guideImgAction === "replace") {
+          const idx = Number(button.dataset.index);
+          const replaceInput = document.querySelector("#guide-replace-single-file-input");
+          if (replaceInput) {
+            replaceInput.dataset.targetIndex = String(idx);
+            replaceInput.click();
+          }
+          return;
+        }
         if (button.dataset.badgePreset !== undefined) {
           const inp = document.querySelector("#contact-badge-input");
           if (inp) {

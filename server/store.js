@@ -1239,7 +1239,7 @@ export async function saveShoppingGuide(db, data, now = Date.now()) {
 
   const subtitle = String(data.subtitle || "").trim().slice(0, 300);
   const category = ["guide", "tips", "news", "other"].includes(data.category) ? data.category : "guide";
-  const coverImage = String(data.coverImage || data.cover_image || "").trim().slice(0, 1000);
+  const coverImage = String(data.coverImage || data.cover_image || "").trim().slice(0, 2_000_000);
   const videoUrl = String(data.videoUrl || data.video_url || "").trim().slice(0, 1000);
   const content = String(data.content || "").trim().slice(0, 10000);
   const isActive =
@@ -1249,13 +1249,13 @@ export async function saveShoppingGuide(db, data, now = Date.now()) {
   if (Array.isArray(data.images)) {
     images = data.images
       .map((url) => String(url || "").trim())
-      .filter((url) => url.length > 0 && url.length <= 1000)
+      .filter((url) => url.length > 0 && url.length <= 2_000_000)
       .slice(0, 30);
   } else if (typeof data.images === "string") {
     images = data.images
       .split("\n")
       .map((url) => url.trim())
-      .filter((url) => url.length > 0 && url.length <= 1000)
+      .filter((url) => url.length > 0 && url.length <= 2_000_000)
       .slice(0, 30);
   }
 

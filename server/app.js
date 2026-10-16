@@ -1115,7 +1115,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
         if (["POST", "PUT"].includes(req.method) && (route === "/api/admin/guide" || adminGuideItemMatch)) {
           const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
-          const body = parse(await readBody(req));
+          const body = parse(await readBody(req, 15 * 1048576));
           const guideId = adminGuideItemMatch ? adminGuideItemMatch[1] : body.id || (caller.role === "partner" ? "new" : "main");
           // Seed shop guides before the first partner article on a new installation.
           await listShoppingGuides(db, true, caller);

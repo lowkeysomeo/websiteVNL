@@ -280,3 +280,73 @@ test("Đăng và quản lý nhiều bài viết hướng dẫn & tin tức (Thê
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("Admin có thể tải lên và chỉnh sửa ảnh hướng dẫn bằng link hoặc ảnh Base64 Data URL lớn", async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "vnl-guide-img-"));
+  const config = readConfig({
+    PUBLIC_ORIGIN: "http://localhost:3000",
+    ADMIN_PASSWORD: "test-admin-guide-img",
+  });
+  const db = await openStore(path.join(directory, "test.sqlite"));
+  const server = createApp(db, config);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const root = `http://127.0.0.1:${server.address().port}`;
+  const adminHeaders = {
+    "X-Admin-Key": config.adminPassword,
+    "Content-Type": "application/json",
+    Origin: config.origin,
+  };
+
+  try {
+    const base64Cover = "data:image/webp;base64," + "A".repeat(12000);
+    const base64Img1 = "data:image/webp;base64," + "B".repeat(15000);
+    const base64Img2 = "data:image/png;base64," + "C".repeat(8000);
+
+    // 1. Create guide with base64 cover image and multiple illustration images
+    const createRes = await fetch(root + "/api/admin/guide", {
+      method: "POST",
+      headers: adminHeaders,
+      body: JSON.stringify({
+        id: "new",
+        title: "Hướng dẫn cài đặt Discord VIP",
+        coverImage: base64Cover,
+        images: [base64Img1, base64Img2, "assets/vnl-banner.png"],
+        steps: [{ title: "Bước 1", description: "Mô tả bước 1" }],
+      }),
+    });
+    assert.equal(createRes.status, 200);
+    const created = await createRes.json();
+    const guideId = created.guide.id;
+    assert.equal(created.guide.coverImage, base64Cover);
+    assert.equal(created.guide.images.length, 3);
+    assert.equal(created.guide.images[0], base64Img1);
+
+    // 2. Fetch public guide and verify images are intact without truncation
+    const pubRes = await fetch(root + `/api/guide/${guideId}`);
+    assert.equal(pubRes.status, 200);
+    const pubData = await pubRes.json();
+    assert.equal(pubData.guide.coverImage, base64Cover);
+    assert.deepEqual(pubData.guide.images, [base64Img1, base64Img2, "assets/vnl-banner.png"]);
+
+    // 3. Edit guide: replace image 0 with new base64 and change cover image
+    const newBase64Img = "data:image/webp;base64," + "D".repeat(20000);
+    const updateRes = await fetch(root + `/api/admin/guide/${guideId}`, {
+      method: "PUT",
+      headers: adminHeaders,
+      body: JSON.stringify({
+        title: "Hướng dẫn cài đặt Discord VIP (Đã đổi ảnh)",
+        coverImage: newBase64Img,
+        images: [newBase64Img, "assets/vnl-banner.png"],
+      }),
+    });
+    assert.equal(updateRes.status, 200);
+    const updateData = await updateRes.json();
+    assert.equal(updateData.guide.coverImage, newBase64Img);
+    assert.deepEqual(updateData.guide.images, [newBase64Img, "assets/vnl-banner.png"]);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
