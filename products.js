@@ -8,11 +8,10 @@ const storeConfig = {
 
 const categoryNames = {
   all: "Tất cả",
-  discord: "Discord",
-  decor: "Profile Decor",
+  services: "Dịch vụ Discord",
+  decor: "Dịch vụ Discord",
   entertainment: "Giải trí",
   creative: "Sáng tạo",
-  services: "Dịch vụ Discord",
 };
 
 const products = [

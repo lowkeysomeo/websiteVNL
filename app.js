@@ -157,20 +157,27 @@ const state = {
 
 let storeCategories = [
   { id: "services", name: "Dịch vụ Discord", icon: "discord" },
-  { id: "decor", name: "Profile Decor", icon: "decor" },
   { id: "entertainment", name: "Giải trí", icon: "layers" },
   { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
 ];
 
 function updateCategories(categories) {
   if (Array.isArray(categories) && categories.length) {
-    storeCategories = categories.map((c) => {
-      let icon = c.icon;
-      if (c.id === "services" && (!icon || icon === "box")) icon = "discord";
-      if (c.id === "decor" && (!icon || icon === "sparkles")) icon = "decor";
-      if (c.id === "creative" && (!icon || icon === "sparkles")) icon = "lightbulb";
-      return { ...c, icon };
-    });
+    storeCategories = categories
+      .filter((c) => c.id !== "decor" && c.id !== "discord")
+      .map((c) => {
+        let icon = c.icon;
+        if (c.id === "services" && (!icon || icon === "box")) icon = "discord";
+        if (c.id === "creative" && (!icon || icon === "sparkles")) icon = "lightbulb";
+        return { ...c, icon };
+      });
+    const servicesIdx = storeCategories.findIndex((c) => c.id === "services");
+    if (servicesIdx > 0) {
+      const [srv] = storeCategories.splice(servicesIdx, 1);
+      storeCategories.unshift(srv);
+    } else if (servicesIdx === -1) {
+      storeCategories.unshift({ id: "services", name: "Dịch vụ Discord", icon: "discord" });
+    }
     storeCategories.forEach((c) => {
       categoryNames[c.id] = c.name;
     });
@@ -183,7 +190,7 @@ function renderCategoryFilterPills() {
   if (!container) return;
   const allCats = [...storeCategories];
   products.forEach((p) => {
-    if (!allCats.some((c) => c.id === p.category)) {
+    if (p.category !== "decor" && p.category !== "discord" && !allCats.some((c) => c.id === p.category)) {
       allCats.push({ id: p.category, name: categoryNames[p.category] || p.category, icon: "box" });
     }
   });
@@ -375,7 +382,7 @@ function visibleProducts() {
   const query = normalize(state.query.trim());
   const list = products.filter((product) => {
     const matchesCategory =
-      state.category === "all" || product.category === state.category;
+      state.category === "all" || product.category === state.category || (state.category === "services" && (product.category === "decor" || product.category === "discord"));
     const catLabel = categoryNames[product.category] || product.category || "";
     const matchesSearch = normalize(
       `${product.name} ${product.description} ${catLabel}`,

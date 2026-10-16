@@ -2,7 +2,7 @@
 window.initAdminPricing = (() => {
   let api, notify, products = [], promotions = [], bankSettings = { bank: {}, isActive: false }, depositsList = [], depositFilter = "all", depositSearch = "", guideData = null, guidesList = [], guideFilter = "all", guideSearch = "", categoriesList = [
     { id: "services", name: "Dịch vụ Discord", icon: "discord" },
-    { id: "decor", name: "Profile Decor", icon: "decor" },
+    
     { id: "entertainment", name: "Giải trí", icon: "layers" },
     { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
   ], partnersList = [], contactsSettings = { enabled: true, items: [] }, currentUser = { role: "admin", email: "", name: "" }, adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false, editingCategoryId = null, returnToProductId = null;
@@ -166,7 +166,7 @@ window.initAdminPricing = (() => {
     const found = categoriesList.find(c => c.id === catId);
     if (found) return found.name;
     if (catId === "discord") return "Discord";
-    if (catId === "decor") return "Profile Decor";
+    if (catId === "decor") return "Dịch vụ Discord";
     if (catId === "entertainment") return "Giải trí";
     if (catId === "creative") return "Sáng tạo";
     if (catId === "services") return "Dịch vụ Discord";

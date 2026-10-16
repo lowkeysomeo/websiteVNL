@@ -236,7 +236,7 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
     const getPricingRes = await fetch(origin + "/api/admin/pricing", { headers: partnerHeaders });
     assert.equal(getPricingRes.status, 200);
     const initialCats = (await getPricingRes.json()).categories;
-    assert.equal(initialCats.length, 4); // 4 hạng mục mặc định
+    assert.equal(initialCats.length, 3); // 3 hạng mục mặc định (Dịch vụ Discord, Giải trí, Sáng tạo)
 
     // A. Đối tác tạo hạng mục mới riêng của họ
     const addCatRes = await fetch(origin + "/api/admin/categories", {
@@ -312,7 +312,7 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
     assert.equal(deleteOwnCatRes.status, 200);
     const remainingCats = (await deleteOwnCatRes.json()).categories;
     assert(!remainingCats.some(c => c.id === "custom-ptn-cat"), "Hạng mục của đối tác đã được xóa");
-    assert.equal(remainingCats.length, 4, "4 hạng mục mặc định vẫn còn nguyên");
+    assert.equal(remainingCats.length, 3, "3 hạng mục mặc định vẫn còn nguyên");
 
     // -------------------------------------------------------------
     // 6. Cách ly đơn hàng và trả hàng (Fulfillment)

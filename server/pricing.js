@@ -388,7 +388,6 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
 
 export const DEFAULT_CATEGORIES = [
   { id: "services", name: "Dịch vụ Discord", icon: "discord" },
-  { id: "decor", name: "Profile Decor", icon: "decor" },
   { id: "entertainment", name: "Giải trí", icon: "layers" },
   { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
 ];
@@ -402,15 +401,33 @@ export async function getCategories(db) {
   if (!Array.isArray(saved) || !saved.length) {
     saved = [...DEFAULT_CATEGORIES];
   } else {
+    let changed = false;
+    if (saved.some(c => c.id === "decor")) {
+      saved = saved.filter(c => c.id !== "decor");
+      changed = true;
+    }
     if (saved.some(c => c.id === "discord")) {
       saved = saved.filter(c => c.id !== "discord");
+      changed = true;
+    }
+    const servicesIdx = saved.findIndex(c => c.id === "services");
+    if (servicesIdx > 0) {
+      const [srv] = saved.splice(servicesIdx, 1);
+      saved.unshift(srv);
+      changed = true;
     }
     saved = saved.map(c => {
-      if (c.id === "services" && (!c.icon || c.icon === "box")) return { ...c, icon: "discord" };
-      if (c.id === "decor" && (!c.icon || c.icon === "sparkles")) return { ...c, icon: "decor" };
-      if (c.id === "creative" && (!c.icon || c.icon === "sparkles")) return { ...c, icon: "lightbulb" };
-      return c;
+      let icon = c.icon;
+      if (c.id === "services" && (!icon || icon === "box")) icon = "discord";
+      if (c.id === "creative" && (!icon || icon === "sparkles")) icon = "lightbulb";
+      if (icon !== c.icon) changed = true;
+      return { ...c, icon };
     });
+    if (changed && db) {
+      try {
+        await db.prepare("INSERT INTO catalog_item_overrides (item_key, data_json, updated_at) VALUES ('system:catalog_categories', ?, ?) ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at").run(JSON.stringify(saved), Date.now());
+      } catch {}
+    }
   }
   return saved;
 }
