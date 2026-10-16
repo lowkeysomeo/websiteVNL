@@ -531,8 +531,7 @@ function showProduct(id, isDirectBuy = false) {
           <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${money(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
           <div class="detail-actions">
-            <button class="button secondary is-out-btn" id="detail-add" disabled>${icon("bag")} Hết hàng</button>
-            <button class="button primary detail-buy-btn is-out-btn" id="detail-buy" disabled>Tạm hết ⚡</button>
+            <button class="button primary detail-buy-btn is-out-btn full-width" id="detail-buy" disabled>Tạm hết ⚡</button>
           </div>
           <p class="fine-print" style="color:#f87171;">Mặt hàng này hiện đang tạm hết trong kho. Vui lòng quay lại sau.</p>
         `
@@ -541,8 +540,7 @@ function showProduct(id, isDirectBuy = false) {
           <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${money(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
           <div class="detail-actions">
-            <button class="button secondary" id="detail-add">${icon("bag")} Thêm giỏ</button>
-            <button class="button primary detail-buy-btn" id="detail-buy">Mua ngay ⚡</button>
+            <button class="button primary detail-buy-btn full-width" id="detail-buy">Mua ngay ⚡</button>
           </div>
           <p class="fine-print">Thanh toán an toàn qua số dư ví VietNam Legacy.</p>
         `
@@ -555,11 +553,7 @@ function showProduct(id, isDirectBuy = false) {
     select.addEventListener("change", () => {
       document.querySelector("#detail-price").innerHTML = variantPriceHtml(getVariant(product, select.value));
     });
-    document.querySelector("#detail-add").addEventListener("click", () => {
-      addToCart(id, select.value);
-      productDialog.close();
-    });
-    document.querySelector("#detail-buy").addEventListener("click", () => {
+    document.querySelector("#detail-buy")?.addEventListener("click", () => {
       productDialog.close();
       buyNowDirect(id, select.value);
     });
@@ -1483,7 +1477,13 @@ document.addEventListener("click", (event) => {
   }
   if (button.dataset.add) {
     event.preventDefault();
-    addToCart(button.dataset.add);
+    const p = getProduct(button.dataset.add);
+    if (!p || p.service) return;
+    if (p.variants && p.variants.length > 1) {
+      showProduct(p.id, true);
+    } else {
+      buyNowDirect(p.id, p.variants[0]?.id);
+    }
   }
   if (button.dataset.buy) {
     event.preventDefault();
@@ -1546,7 +1546,7 @@ document.querySelector("#sort").addEventListener("change", (event) => {
   renderProducts();
 });
 
-document.querySelector("#open-cart").addEventListener("click", () => {
+document.querySelector("#open-cart")?.addEventListener("click", () => {
   renderCart();
   cartDialog.showModal();
 });
