@@ -34,11 +34,12 @@
           "'": "&#39;",
         })[char],
     );
+  const formatCurrencyNumber = (value) =>
+    new Intl.NumberFormat("vi-VN").format(Number(value) || 0);
   const money = (value) =>
-    new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(value);
+    formatCurrencyNumber(value) + ' <img src="assets/wallet-dollar.png" class="currency-icon" alt="$" />';
+  const moneyText = (value) =>
+    formatCurrencyNumber(value) + " $";
   const date = (value) => new Date(value).toLocaleString("vi-VN");
   function say(text = "") {
     message.textContent = text;
@@ -71,7 +72,7 @@
   }
   function updateLabel() {
     const isLoggedIn = Boolean(wallet.user);
-    label.textContent = isLoggedIn ? money(wallet.balance || 0) : "Đăng nhập";
+    label.textContent = isLoggedIn ? formatCurrencyNumber(wallet.balance || 0) : "Đăng nhập";
     const topbarLogout = document.querySelector("#topbar-logout");
     if (topbarLogout) {
       topbarLogout.style.display = isLoggedIn ? "inline-flex" : "none";
@@ -243,7 +244,7 @@
         stopPolling();
         transferView(result);
         if (result.deposit.status === "credited") {
-          say(`🎉 Nạp tiền thành công! Đã cộng ${money(result.deposit.amount)} vào ví.`);
+          say(`🎉 Nạp tiền thành công! Đã cộng ${moneyText(result.deposit.amount)} vào ví.`);
         }
       }
     } catch (error) {

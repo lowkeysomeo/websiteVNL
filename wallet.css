@@ -106,10 +106,17 @@
   color: #a4c7ee;
 }
 .wallet-summary strong {
-  display: block;
+  display: flex;
+  align-items: center;
   color: #fff;
   font-size: 32px;
   margin-top: 7px;
+  gap: 6px;
+}
+.wallet-summary strong .currency-icon {
+  width: 26px;
+  height: 26px;
+  margin-left: 0;
 }
 .wallet-account {
   display: flex;
@@ -151,6 +158,10 @@
   padding: 8px 10px;
   color: #d9e4fb;
   font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
 }
 .wallet-history {
   margin-top: 28px;

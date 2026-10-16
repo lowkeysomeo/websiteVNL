@@ -7,7 +7,9 @@ window.initAdminPricing = (() => {
   ], partnersList = [], contactsSettings = { enabled: true, items: [] }, currentUser = { role: "admin", email: "", name: "" }, adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false, editingCategoryId = null, returnToProductId = null;
   const guideCategoryLabels = { guide: "Hướng dẫn", tips: "Mẹo & Thủ thuật", news: "Tin tức", other: "Khác" };
   const $ = (selector) => document.querySelector(selector);
-  const money = n => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
+  const formatCurrencyNumber = n => new Intl.NumberFormat("vi-VN").format(Number(n) || 0);
+  const money = n => formatCurrencyNumber(n) + ' <img src="assets/wallet-dollar.png" class="currency-icon" alt="$" />';
+  const moneyText = n => formatCurrencyNumber(n) + " $";
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const statuses = { active: "Đang áp dụng", scheduled: "Sắp diễn ra", expired: "Đã kết thúc", disabled: "Đã tắt", exhausted: "Hết lượt dùng" };
   const depositStatusLabels = { pending: "Chờ chuyển khoản", credited: "Đã cộng tiền", review: "Cần đối soát", expired: "Hết hạn / Hủy" };
@@ -903,7 +905,7 @@ window.initAdminPricing = (() => {
                     <div class="variant-controls">
                       <span class="price-input-wrap">
                         <input type="number" min="0" max="1000000000" step="1" required value="${v.basePrice}" data-price-product="${p.id}" data-price-variant="${v.id}" aria-label="Giá ${esc(p.name + ' ' + v.name)}" ${v.isActive ? "" : "disabled"}>
-                        <span>₫</span>
+                        <span class="price-unit"><img src="assets/wallet-dollar.png" class="currency-icon" alt="$" /></span>
                       </span>
                       <button type="button" class="button secondary btn-xs" data-variant-edit="${p.id}:${v.id}" title="Chỉnh sửa chi tiết gói này">✏️ Sửa</button>
                       <button type="button" class="button secondary btn-xs" data-variant-toggle="${p.id}:${v.id}" title="${v.isActive ? "Bỏ gói này khỏi cửa hàng" : "Mở lại gói này"}">${v.isActive ? "Ẩn" : "Hiện"}</button>
@@ -1017,7 +1019,7 @@ window.initAdminPricing = (() => {
 
               <div class="bank-qr-preview-box">
                 <h4>Xem trước mã QR của shop</h4>
-                <p>Mã QR quét thử (50.000₫ · VNLTEST)</p>
+                <p>Mã QR quét thử (50.000 $ · VNLTEST)</p>
                 ${previewQrUrl ? `
                   <div class="preview-qr-wrap">
                     <img src="${esc(previewQrUrl)}" alt="VietQR Preview" width="180" height="230" />
@@ -2689,11 +2691,11 @@ window.initAdminPricing = (() => {
           const dId = button.dataset.depositCredit;
           const dCode = button.dataset.depositCode;
           const dAmount = Number(button.dataset.depositAmount);
-          if (!confirm(`Xác nhận đã nhận đủ ${money(dAmount)} cho mã ${dCode}?\nTiền sẽ được cộng ngay lập tức vào ví của khách hàng.`)) return;
+          if (!confirm(`Xác nhận đã nhận đủ ${moneyText(dAmount)} cho mã ${dCode}?\nTiền sẽ được cộng ngay lập tức vào ví của khách hàng.`)) return;
           button.disabled = true;
           try {
             await api(`/api/admin/deposits/${dId}/credit`, { method: "POST" });
-            notify(`Đã duyệt và cộng ${money(dAmount)} vào ví thành công!`);
+            notify(`Đã duyệt và cộng ${moneyText(dAmount)} vào ví thành công!`);
             await load();
           } catch (err) {
             notify(err.message);
@@ -2710,14 +2712,14 @@ window.initAdminPricing = (() => {
             `XÁC NHẬN THU HỒI TIỀN NẠP NHẦM:\n\n` +
             `• Mã nạp: ${dCode}\n` +
             `• Khách hàng: ${dUser}\n` +
-            `• Số tiền: ${money(dAmount)}\n\n` +
-            `Hành động này sẽ TRỪ LẠI ${money(dAmount)} khỏi ví của ${dUser} và chuyển trạng thái đơn nạp về "Cần đối soát".\n\n` +
+            `• Số tiền: ${moneyText(dAmount)}\n\n` +
+            `Hành động này sẽ TRỪ LẠI ${moneyText(dAmount)} khỏi ví của ${dUser} và chuyển trạng thái đơn nạp về "Cần đối soát".\n\n` +
             `Bạn có chắc chắn muốn THU HỒI TIỀN không?`
           )) return;
           button.disabled = true;
           try {
             const res = await api(`/api/admin/deposits/${dId}/revoke`, { method: "POST" });
-            notify(`Đã thu hồi thành công ${money(dAmount)} từ ví của ${dUser}! Số dư ví mới: ${money(res.newBalance || 0)}.`);
+            notify(`Đã thu hồi thành công ${moneyText(dAmount)} từ ví của ${dUser}! Số dư ví mới: ${moneyText(res.newBalance || 0)}.`);
             await load();
           } catch (err) {
             notify("Lỗi thu hồi tiền: " + err.message);

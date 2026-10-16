@@ -25,11 +25,12 @@
     setTimeout(() => toast.classList.remove("visible"), 2500);
   }
 
+  const formatCurrencyNumber = (val) =>
+    new Intl.NumberFormat("vi-VN").format(Number(val) || 0);
   const money = (val) =>
-    new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(val || 0);
+    formatCurrencyNumber(val) + ' <img src="assets/wallet-dollar.png" class="currency-icon" alt="$" />';
+  const moneyText = (val) =>
+    formatCurrencyNumber(val) + " $";
 
   const escapeHtml = (str) =>
     String(str ?? "").replace(
@@ -331,7 +332,7 @@
     document.querySelector("#stat-total-orders").textContent = stats.totalOrders;
     document.querySelector("#stat-processing-orders").textContent = stats.needsAction;
     document.querySelector("#stat-completed-orders").textContent = stats.completedOrders;
-    document.querySelector("#stat-total-revenue").textContent = money(stats.revenue);
+    document.querySelector("#stat-total-revenue").innerHTML = money(stats.revenue);
     document.querySelector("#stat-processing-orders").title =
       stats.processingOrders + " đơn đang xử lý, " + stats.pendingDeposits + " yêu cầu nạp chờ/đối soát";
   }

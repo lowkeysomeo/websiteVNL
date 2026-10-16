@@ -64,11 +64,16 @@ function escapeHtml(value) {
   );
 }
 
+function formatCurrencyNumber(value) {
+  return new Intl.NumberFormat("vi-VN").format(Number(value) || 0);
+}
+
 function money(value) {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: storeConfig.currency,
-  }).format(value);
+  return formatCurrencyNumber(value) + ' <img src="assets/wallet-dollar.png" class="currency-icon" alt="$" />';
+}
+
+function moneyText(value) {
+  return formatCurrencyNumber(value) + " $";
 }
 
 function getProduct(id) {
@@ -247,18 +252,18 @@ function syncCheckoutControls() {
 }
 
 function paintCheckoutQuote(quote) {
-  document.querySelector("#checkout-subtotal").textContent = money(quote.subtotal);
-  document.querySelector("#checkout-sale-discount").textContent = "−" + money(quote.saleDiscount);
-  document.querySelector("#checkout-coupon-discount").textContent = "−" + money(quote.couponDiscount);
-  document.querySelector("#checkout-total").textContent = money(quote.total);
+  document.querySelector("#checkout-subtotal").innerHTML = money(quote.subtotal);
+  document.querySelector("#checkout-sale-discount").innerHTML = "−" + money(quote.saleDiscount);
+  document.querySelector("#checkout-coupon-discount").innerHTML = "−" + money(quote.couponDiscount);
+  document.querySelector("#checkout-total").innerHTML = money(quote.total);
   const message = document.querySelector("#coupon-message");
-  message.textContent = quote.coupon ? `Đã áp dụng ${quote.coupon.code}: tiết kiệm ${money(quote.couponDiscount)}.` : "Mỗi đơn áp dụng một mã giảm giá.";
+  message.textContent = quote.coupon ? `Đã áp dụng ${quote.coupon.code}: tiết kiệm ${moneyText(quote.couponDiscount)}.` : "Mỗi đơn áp dụng một mã giảm giá.";
   message.classList.remove("is-error");
   document.querySelector("#coupon-remove").hidden = !quote.coupon;
   if (checkoutBalance != null) {
     const alert = document.querySelector("#checkout-wallet-alert");
     alert.hidden = checkoutBalance >= quote.total;
-    alert.textContent = `Số dư ví ${money(checkoutBalance)}, cần thanh toán ${money(quote.total)}. Vui lòng nạp thêm tiền.`;
+    alert.textContent = `Số dư ví ${moneyText(checkoutBalance)}, cần thanh toán ${moneyText(quote.total)}. Vui lòng nạp thêm tiền.`;
   }
 }
 
@@ -528,7 +533,7 @@ function showProduct(id, isDirectBuy = false) {
             : (product.stock <= 0
               ? `
           <label for="variant">Chọn gói sản phẩm</label>
-          <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${money(variant.price)}</option>`).join("")}</select>
+          <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${moneyText(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
           <div class="detail-actions">
             <button class="button primary detail-buy-btn is-out-btn full-width" id="detail-buy" disabled>Tạm hết ⚡</button>
@@ -537,7 +542,7 @@ function showProduct(id, isDirectBuy = false) {
         `
               : `
           <label for="variant">Chọn gói sản phẩm</label>
-          <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${money(variant.price)}</option>`).join("")}</select>
+          <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${moneyText(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
           <div class="detail-actions">
             <button class="button primary detail-buy-btn full-width" id="detail-buy">Mua ngay ⚡</button>
@@ -663,7 +668,7 @@ async function startCheckout(directItem = null) {
   const total = directItem
     ? directItem.price * directItem.quantity
     : cartTotal();
-  document.querySelector("#checkout-total").textContent = money(total);
+  document.querySelector("#checkout-total").innerHTML = money(total);
 
   const hasLog = items.some((item) => {
     if (directItem) return directItem.deliveryType === "log";
@@ -779,13 +784,13 @@ async function startCheckout(directItem = null) {
     const sess = await res.json();
     if (sess.user) {
       checkoutBalance = sess.balance || 0;
-      if (balanceEl) balanceEl.textContent = money(sess.balance || 0);
+      if (balanceEl) balanceEl.innerHTML = money(sess.balance || 0);
       const emailInput = document.querySelector('#checkout-form [name="email"]');
       if (emailInput && !emailInput.value) emailInput.value = sess.user.email;
 
       if ((sess.balance || 0) < total) {
         if (alertEl) {
-          alertEl.textContent = `⚠️ Số dư ví không đủ (${money(sess.balance || 0)} < ${money(total)}). Vui lòng nạp thêm tiền vào ví để thanh toán đơn.`;
+          alertEl.textContent = `⚠️ Số dư ví không đủ (${moneyText(sess.balance || 0)} < ${moneyText(total)}). Vui lòng nạp thêm tiền vào ví để thanh toán đơn.`;
           alertEl.hidden = false;
         }
       }
@@ -1808,7 +1813,7 @@ document
 
       if ((session.balance || 0) < total) {
         throw new Error(
-          `Số dư ví không đủ (hiện có ${money(session.balance || 0)}, đơn cần ${money(total)}). Vui lòng nạp thêm tiền vào ví.`,
+          `Số dư ví không đủ (hiện có ${moneyText(session.balance || 0)}, đơn cần ${moneyText(total)}). Vui lòng nạp thêm tiền vào ví.`,
         );
       }
 
@@ -1864,7 +1869,7 @@ document
       // Update wallet balance label in topbar
       const walletLabel = document.querySelector("#wallet-label");
       if (walletLabel && typeof resData.balance === "number") {
-        walletLabel.textContent = money(resData.balance);
+        walletLabel.textContent = formatCurrencyNumber(resData.balance);
       }
 
       showInfo(

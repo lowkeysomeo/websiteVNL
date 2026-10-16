@@ -1572,3 +1572,18 @@ body {
   background: rgba(217, 119, 6, 0.22) !important;
   border-color: #fbbf24 !important;
 }
+
+.currency-icon {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  vertical-align: -0.06em;
+  margin-left: 3px;
+  object-fit: contain;
+  pointer-events: none;
+}
+.price-unit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
