@@ -3879,3 +3879,20 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   .hero-guide-title { -webkit-line-clamp: 2; font-size: 11px; }
   .hero-guide-category { font-size: 8px; }
 }
+
+.decor-cat-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-block;
+  vertical-align: middle;
+}
+.filter .decor-cat-icon,
+.nav-item .decor-cat-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}

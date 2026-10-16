@@ -2,6 +2,7 @@
 window.initAdminPricing = (() => {
   let api, notify, products = [], promotions = [], bankSettings = { bank: {}, isActive: false }, depositsList = [], depositFilter = "all", depositSearch = "", guideData = null, guidesList = [], guideFilter = "all", guideSearch = "", categoriesList = [
     { id: "discord", name: "Discord", icon: "gamepad" },
+    { id: "decor", name: "Profile Decor", icon: "decor" },
     { id: "entertainment", name: "Giải trí", icon: "layers" },
     { id: "creative", name: "Sáng tạo", icon: "sparkles" },
   ], partnersList = [], contactsSettings = { enabled: true, items: [] }, currentUser = { role: "admin", email: "", name: "" }, adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false, editingCategoryId = null, returnToProductId = null;
@@ -213,6 +214,7 @@ window.initAdminPricing = (() => {
   }
 
   const CATEGORY_ICON_PRESETS = [
+    { value: "decor", label: "👤 Profile Decor / Avatar (decor)", emoji: "👤" },
     { value: "box", label: "📦 Hộp quà / Dịch vụ (box)", emoji: "📦" },
     { value: "gamepad", label: "🎮 Tay cầm Game / Giải trí (gamepad)", emoji: "🎮" },
     { value: "layers", label: "🎬 Phim ảnh / Gói xếp lớp (layers)", emoji: "🎬" },

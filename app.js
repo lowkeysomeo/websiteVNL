@@ -38,6 +38,9 @@ let revealObserver = null;
 
 function icon(name) {
   if (!name || name === "none") return "";
+  if (name === "decor") {
+    return '<img src="assets/profile-decor.png" class="decor-cat-icon" alt="" />';
+  }
   if (icons[name]) {
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
   }
@@ -144,6 +147,7 @@ const state = {
 
 let storeCategories = [
   { id: "discord", name: "Discord", icon: "gamepad" },
+  { id: "decor", name: "Profile Decor", icon: "decor" },
   { id: "entertainment", name: "Giải trí", icon: "layers" },
   { id: "creative", name: "Sáng tạo", icon: "sparkles" },
   { id: "services", name: "Dịch vụ Discord", icon: "box" },
