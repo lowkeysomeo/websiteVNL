@@ -2813,9 +2813,9 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
 .price-loading { font-size:12px; color:var(--muted); }
 .currency-icon {
   display: inline-block;
-  width: 0.82em;
-  height: 0.82em;
-  vertical-align: -0.05em;
+  width: 0.85em;
+  height: 0.85em;
+  vertical-align: -0.06em;
   margin-left: 3px;
   object-fit: contain;
   pointer-events: none;
