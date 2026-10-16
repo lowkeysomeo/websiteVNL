@@ -523,7 +523,7 @@ function showProduct(id, isDirectBuy = false) {
       <div class="detail-copy" data-product="${product.id}">
         <div class="eyebrow">${catUpper}</div>
         <h2 id="product-title">${product.name}</h2>
-        ${isDirectBuy ? '<div class="direct-buy-banner">⚡ MUA TRỰC TIẾP · Chọn gói bạn muốn để tiến hành thanh toán ngay</div>' : ""}
+        ${isDirectBuy ? '<div class="direct-buy-banner">MUA TRỰC TIẾP · Chọn gói bạn muốn để tiến hành thanh toán ngay</div>' : ""}
         <p>${product.detail}</p>
         <ul class="product-features">${product.features.map((feature) => `<li>${icon("check")}${feature}</li>`).join("")}</ul>
         <div class="detail-inventory-bar">
@@ -545,7 +545,7 @@ function showProduct(id, isDirectBuy = false) {
           <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${moneyText(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
           <div class="detail-actions">
-            <button class="button primary detail-buy-btn is-out-btn full-width" id="detail-buy" disabled>Tạm hết ⚡</button>
+            <button class="button primary detail-buy-btn is-out-btn full-width" id="detail-buy" disabled>${icon("bag")} Tạm hết</button>
           </div>
           <p class="fine-print" style="color:#f87171;">Mặt hàng này hiện đang tạm hết trong kho. Vui lòng quay lại sau.</p>
         `
@@ -554,7 +554,7 @@ function showProduct(id, isDirectBuy = false) {
           <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${moneyText(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
           <div class="detail-actions">
-            <button class="button primary detail-buy-btn full-width" id="detail-buy">Mua ngay ⚡</button>
+            <button class="button primary detail-buy-btn full-width" id="detail-buy">${icon("bag")} Mua ngay</button>
           </div>
           <p class="fine-print">Thanh toán an toàn qua số dư ví VietNam Legacy.</p>
         `

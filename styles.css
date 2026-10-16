@@ -3896,3 +3896,9 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   object-fit: cover;
   flex-shrink: 0;
 }
+
+.detail-actions .detail-buy-btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}

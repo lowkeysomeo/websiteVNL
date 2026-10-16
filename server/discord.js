@@ -500,7 +500,7 @@ export async function sendPartnerDiscordTestNotification(
             inline: true,
           },
           {
-            name: "⚡ Trạng thái",
+            name: "📌 Trạng thái",
             value: "Hoạt động bình thường (Ready)",
             inline: true,
           },
@@ -725,7 +725,7 @@ export async function sendDiscordTestNotification(
             inline: true,
           },
           {
-            name: "⚡ Trạng thái",
+            name: "📌 Trạng thái",
             value: "Hoạt động bình thường (Ready)",
             inline: true,
           },

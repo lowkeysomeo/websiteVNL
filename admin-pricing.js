@@ -223,7 +223,7 @@ window.initAdminPricing = (() => {
     { value: "grid", label: "🔲 Lưới / Tổng hợp (grid)", emoji: "🔲" },
     { value: "headphones", label: "🎧 Âm nhạc / Hỗ trợ (headphones)", emoji: "🎧" },
     { value: "book", label: "📖 Sách / Hướng dẫn (book)", emoji: "📖" },
-    { value: "bolt", label: "⚡ Tia chớp / Nạp tốc hành (bolt)", emoji: "⚡" },
+    { value: "bolt", label: "Tia chớp / Nạp tốc hành (bolt)", emoji: "⚡" },
     { value: "shield", label: "🛡️ Bảo mật / Bản quyền (shield)", emoji: "🛡️" },
     { value: "diamond", label: "💎 Kim cương / Cao cấp (diamond)", emoji: "💎" },
     { value: "crown", label: "👑 Vương miện / Đặc quyền (crown)", emoji: "👑" },
@@ -545,7 +545,7 @@ window.initAdminPricing = (() => {
               <button type="button" class="button secondary btn-xs" data-badge-preset="CN" style="color:#fbbf24; border-color:rgba(245,158,11,0.5);">👑 CN (Cá nhân - Vàng)</button>
               <button type="button" class="button secondary btn-xs" data-badge-preset="GR" style="color:#c084fc; border-color:rgba(192,132,252,0.5);">👥 GR (Nhóm - Tím)</button>
               <button type="button" class="button secondary btn-xs" data-badge-preset="VIP" style="color:#f87171; border-color:rgba(239,68,68,0.5);">💎 VIP (Đỏ)</button>
-              <button type="button" class="button secondary btn-xs" data-badge-preset="24/7" style="color:#4ade80; border-color:rgba(34,197,94,0.5);">⚡ 24/7 (Xanh)</button>
+              <button type="button" class="button secondary btn-xs" data-badge-preset="24/7" style="color:#4ade80; border-color:rgba(34,197,94,0.5);">24/7 (Xanh)</button>
               <button type="button" class="button secondary btn-xs" data-badge-preset="">✕ Không hiện</button>
             </div>
             <input name="badge" id="contact-badge-input" maxlength="8" placeholder="VD: CN, GR, VIP, 24/7..." value="${esc(item.badge || "")}" />
@@ -1042,7 +1042,7 @@ window.initAdminPricing = (() => {
             <div class="card-header-row">
               <div>
                 <div class="card-title-with-badge">
-                  <h3>⚡ Tự động cộng tiền qua Webhook Ngân hàng (SePay / VietQR)</h3>
+                  <h3>Tự động cộng tiền qua Webhook Ngân hàng (SePay / VietQR)</h3>
                   <span id="auto-credit-badge" class="${autoCredit ? "auto-credit-live-badge" : "auto-credit-live-badge disabled"}">
                     ${autoCredit ? "Đang bật Tự động" : "Đang tắt (Duyệt tay)"}
                   </span>
@@ -1761,7 +1761,7 @@ window.initAdminPricing = (() => {
                     ✓ Duyệt cộng tiền
                   </button>
                   <button type="button" class="button secondary btn-small btn-simulate" data-deposit-simulate="${esc(d.code)}" title="Giả lập ngân hàng chuyển tiền đúng mã này để kiểm tra tự động cộng tiền">
-                    ⚡ Test Tự động cộng
+                    Test Tự động cộng
                   </button>
                   <button type="button" class="button secondary btn-small btn-danger" data-deposit-cancel="${esc(d.id)}">
                     ✕ Hủy
@@ -2753,7 +2753,7 @@ window.initAdminPricing = (() => {
               method: "POST",
               body: JSON.stringify({ code }),
             });
-            notify(`⚡ Đã giả lập nạp tiền thành công cho mã ${code}! Số dư đã được tự động cộng vào ví.`);
+            notify(`Đã giả lập nạp tiền thành công cho mã ${code}! Số dư đã được tự động cộng vào ví.`);
             await load();
           } catch (err) {
             notify(err.message);

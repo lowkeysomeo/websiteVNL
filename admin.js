@@ -175,7 +175,7 @@
       if (depositsBtn) depositsBtn.hidden = true;
       if (campaignsBtn) {
         campaignsBtn.hidden = false;
-        campaignsBtn.textContent = "⚡ Đợt giảm giá của tôi";
+        campaignsBtn.textContent = "Đợt giảm giá của tôi";
       }
       if (couponsBtn) {
         couponsBtn.hidden = false;
@@ -798,7 +798,7 @@
         notify("Lỗi khi lưu thông báo: " + err.message);
       } finally {
         saveAnnouncementBtn.disabled = false;
-        saveAnnouncementBtn.textContent = "Lưu & Đăng thông báo ⚡";
+        saveAnnouncementBtn.textContent = "Lưu & Đăng thông báo";
       }
     });
   }
@@ -897,7 +897,7 @@
         notify("Lỗi khi lưu cấu hình Discord: " + err.message);
       } finally {
         saveDiscordBtn.disabled = false;
-        saveDiscordBtn.textContent = "Lưu cấu hình Discord ⚡";
+        saveDiscordBtn.textContent = "Lưu cấu hình Discord";
       }
     });
   }
