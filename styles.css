@@ -3139,6 +3139,39 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   height: 100%;
   border: 0;
 }
+.guide-video-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: -14px 0 24px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-dim, #a69295);
+}
+.guide-video-bar-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.guide-video-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #ff5555;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.guide-video-link:hover {
+  color: #ff8888;
+  text-decoration: underline;
+}
 .guide-section-heading {
   font-size: 14px;
   color: #fff;

@@ -229,7 +229,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
 
   return http.createServer(async (req, res) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader(
       "Permissions-Policy",
@@ -237,7 +237,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
     );
     res.setHeader(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://img.vietqr.io; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://img.vietqr.io https://i.ytimg.com https://*.youtube.com; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self' https: data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
     );
     if (config.production)
       res.setHeader("Strict-Transport-Security", "max-age=31536000");

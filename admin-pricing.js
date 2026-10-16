@@ -50,9 +50,12 @@ window.initAdminPricing = (() => {
     if (videoEmbed.type === "youtube") {
       return `
         <div class="guide-video-embed-preview">
-          <iframe src="${esc(videoEmbed.embedUrl)}" title="Xem trước video hướng dẫn" frameborder="0" allowfullscreen></iframe>
+          <iframe src="${esc(videoEmbed.embedUrl)}" title="Xem trước video hướng dẫn" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
         </div>
-        <small class="video-preview-badge">✓ Đã nhận diện video YouTube</small>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; flex-wrap:wrap; gap:8px;">
+          <small class="video-preview-badge">✓ Đã nhận diện video YouTube</small>
+          <a href="https://www.youtube.com/watch?v=${esc(videoEmbed.id)}" target="_blank" rel="noopener noreferrer" style="font-size:12px; color:var(--admin-accent,#a855f7); text-decoration:underline;">Mở xem trên YouTube ↗</a>
+        </div>
       `;
     }
     if (videoEmbed.type === "direct") {
@@ -65,7 +68,7 @@ window.initAdminPricing = (() => {
     }
     return `
       <div class="guide-video-embed-preview">
-        <iframe src="${esc(videoEmbed.src)}" title="Xem trước video hướng dẫn" frameborder="0"></iframe>
+        <iframe src="${esc(videoEmbed.src)}" title="Xem trước video hướng dẫn" frameborder="0" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
       </div>
     `;
   }

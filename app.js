@@ -1188,7 +1188,13 @@ function renderGuideReaderView(guide) {
     if (videoEmbed.type === "youtube") {
       videoHtml = `
         <div class="guide-video-wrapper">
-          <iframe src="${escapeHtml(videoEmbed.embedUrl)}" title="${escapeHtml(guide.title)}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+          <iframe src="${escapeHtml(videoEmbed.embedUrl)}" title="${escapeHtml(guide.title)}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe>
+        </div>
+        <div class="guide-video-bar">
+          <span class="guide-video-bar-text">Không tải được video do trình duyệt chặn?</span>
+          <a href="https://www.youtube.com/watch?v=${escapeHtml(videoEmbed.id)}" target="_blank" rel="noopener noreferrer" class="guide-video-link">
+            <span>▶</span> Mở xem trực tiếp trên YouTube ↗
+          </a>
         </div>
       `;
     } else if (videoEmbed.type === "direct") {
@@ -1200,7 +1206,7 @@ function renderGuideReaderView(guide) {
     } else if (videoEmbed.type === "iframe") {
       videoHtml = `
         <div class="guide-video-wrapper">
-          <iframe src="${escapeHtml(videoEmbed.src)}" title="${escapeHtml(guide.title)}" frameborder="0" allowfullscreen loading="lazy"></iframe>
+          <iframe src="${escapeHtml(videoEmbed.src)}" title="${escapeHtml(guide.title)}" frameborder="0" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe>
         </div>
       `;
     }

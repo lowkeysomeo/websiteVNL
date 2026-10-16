@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { openStore } from "../server/database.js";
@@ -349,4 +350,52 @@ test("Admin có thể tải lên và chỉnh sửa ảnh hướng dẫn bằng l
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("Video hướng dẫn YouTube: Cấu hình Referrer-Policy và iframe referrerpolicy hợp lệ tránh lỗi 153", async () => {
+  // 1. Kiểm tra vercel.json có strict-origin-when-cross-origin
+  const vercelJson = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
+  const headerRules = vercelJson.headers?.[0]?.headers || [];
+  const refRule = headerRules.find((h) => h.key === "Referrer-Policy");
+  assert.ok(refRule, "vercel.json phải có cấu hình Referrer-Policy");
+  assert.equal(refRule.value, "strict-origin-when-cross-origin", "Referrer-Policy trong vercel.json phải là strict-origin-when-cross-origin");
+
+  // 2. Kiểm tra server/app.js response headers
+  const db = await openStore(":memory:");
+  const config = readConfig({
+    HTTP_PORT: "0",
+    PUBLIC_ORIGIN: "https://shop.example",
+    ADMIN_PASSWORD: "test-admin-secret",
+  });
+  const server = createApp(db, config);
+  await new Promise((resolve) => server.listen(0, resolve));
+  const root = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const res = await fetch(root + "/api/health");
+    assert.equal(res.headers.get("referrer-policy"), "strict-origin-when-cross-origin");
+    const csp = res.headers.get("content-security-policy");
+    assert.ok(csp.includes("frame-src"), "CSP phải cho phép frame-src");
+    assert.ok(csp.includes("https://www.youtube.com"), "CSP phải cho phép youtube.com");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
+
+  // 3. Kiểm tra index.html và admin.html có meta referrer
+  const indexHtml = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(indexHtml, /<meta\s+name=["']referrer["']\s+content=["']strict-origin-when-cross-origin["']/i);
+
+  const adminHtml = await readFile(new URL("../admin.html", import.meta.url), "utf8");
+  assert.match(adminHtml, /<meta\s+name=["']referrer["']\s+content=["']strict-origin-when-cross-origin["']/i);
+
+  // 4. Kiểm tra app.js và admin-pricing.js có referrerpolicy trên thẻ iframe
+  const appJs = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  assert.match(appJs, /referrerpolicy=["']strict-origin-when-cross-origin["']/);
+  assert.match(appJs, /guide-video-bar/);
+  assert.match(appJs, /Mở xem trực tiếp trên YouTube/);
+
+  const adminPricingJs = await readFile(new URL("../admin-pricing.js", import.meta.url), "utf8");
+  assert.match(adminPricingJs, /referrerpolicy=["']strict-origin-when-cross-origin["']/);
+  assert.match(adminPricingJs, /Mở xem trên YouTube/);
+});
+
 
