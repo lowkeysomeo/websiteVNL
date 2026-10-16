@@ -3897,6 +3897,7 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   flex-shrink: 0;
 }
 
+.card-buy-btn svg,
 .detail-actions .detail-buy-btn svg {
   width: 15px;
   height: 15px;

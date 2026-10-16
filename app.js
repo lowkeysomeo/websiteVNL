@@ -20,7 +20,8 @@ const icons = {
     '<path d="M4 14v-3a8 8 0 0 1 16 0v3 M4 12H3v8h4v-8Z M20 12h1v8h-4v-8Z"/>',
   menu: '<path d="M4 6h16 M4 12h16 M4 18h16"/>',
   search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
-  bag: '<path d="M5 7h14l2 14H3Z M8 8V6a4 4 0 0 1 8 0v2"/>',
+  cart: '<circle cx="9" cy="21" r="1" fill="currentColor"/><circle cx="20" cy="21" r="1" fill="currentColor"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
+  bag: '<circle cx="9" cy="21" r="1" fill="currentColor"/><circle cx="20" cy="21" r="1" fill="currentColor"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
   arrow: '<path d="M4 12h16 M14 6l6 6-6 6"/>',
   shield: '<path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6Z m-4 9 3 3 5-6"/>',
   bolt: '<path d="m13 2-9 12h7l-1 8 10-13h-7Z"/>',
@@ -426,7 +427,7 @@ function renderProductCard(product) {
                   <button class="add-button is-out-btn" disabled title="Mặt hàng hiện đã hết">${icon("bag")} Hết hàng</button>
                 </div>`
               : `<div class="product-card-actions">
-                  <button class="add-button" data-add="${product.id}" ${catalogReady ? "" : "disabled"} title="Mua ngay">${icon("bag")} Mua ngay</button>
+                  <button class="add-button" data-add="${product.id}" ${catalogReady ? "" : "disabled"} title="Mua ngay">${icon("cart")} Mua ngay</button>
                 </div>`
             )
       }
@@ -546,7 +547,7 @@ function showProduct(id, isDirectBuy = false) {
           <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${moneyText(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
           <div class="detail-actions">
-            <button class="button primary detail-buy-btn is-out-btn full-width" id="detail-buy" disabled>${icon("bag")} Tạm hết</button>
+            <button class="button primary detail-buy-btn is-out-btn full-width" id="detail-buy" disabled>${icon("cart")} Tạm hết</button>
           </div>
           <p class="fine-print" style="color:#f87171;">Mặt hàng này hiện đang tạm hết trong kho. Vui lòng quay lại sau.</p>
         `
@@ -555,7 +556,7 @@ function showProduct(id, isDirectBuy = false) {
           <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${moneyText(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
           <div class="detail-actions">
-            <button class="button primary detail-buy-btn full-width" id="detail-buy">${icon("bag")} Mua ngay</button>
+            <button class="button primary detail-buy-btn full-width" id="detail-buy">${icon("cart")} Mua ngay</button>
           </div>
           <p class="fine-print">Thanh toán an toàn qua số dư ví VietNam Legacy.</p>
         `

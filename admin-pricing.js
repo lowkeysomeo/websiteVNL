@@ -214,6 +214,7 @@ window.initAdminPricing = (() => {
   }
 
   const CATEGORY_ICON_PRESETS = [
+    { value: "cart", label: "🛒 Giỏ hàng / Mua sắm (cart)", emoji: "🛒" },
     { value: "discord", label: "💬 Discord / Dịch vụ (discord)", emoji: "💬" },
     { value: "decor", label: "👤 Profile Decor / Avatar (decor)", emoji: "👤" },
     { value: "lightbulb", label: "💡 Bóng đèn / Sáng tạo (lightbulb)", emoji: "💡" },
