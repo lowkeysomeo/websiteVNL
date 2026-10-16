@@ -236,7 +236,7 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
     const getPricingRes = await fetch(origin + "/api/admin/pricing", { headers: partnerHeaders });
     assert.equal(getPricingRes.status, 200);
     const initialCats = (await getPricingRes.json()).categories;
-    assert.equal(initialCats.length, 5); // 5 hạng mục mặc định
+    assert.equal(initialCats.length, 4); // 4 hạng mục mặc định
 
     // A. Đối tác tạo hạng mục mới riêng của họ
     const addCatRes = await fetch(origin + "/api/admin/categories", {
@@ -260,7 +260,7 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
       method: "PUT",
       headers: partnerHeaders,
       body: JSON.stringify({
-        categories: addedCats.filter(c => c.id !== "discord"),
+        categories: addedCats.filter(c => c.id !== "services"),
       }),
     });
     assert.equal(badDeleteCatRes.status, 403, "Đối tác không được xóa hạng mục mặc định của hệ thống");
@@ -272,12 +272,12 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
       method: "PUT",
       headers: partnerHeaders,
       body: JSON.stringify({
-        categories: addedCats.map(c => c.id === "discord" ? { ...c, name: "Hacked Discord Name" } : c),
+        categories: addedCats.map(c => c.id === "services" ? { ...c, name: "Hacked Discord Name" } : c),
       }),
     });
     assert.equal(tamperCatRes.status, 200);
     const preservedCats = (await tamperCatRes.json()).categories;
-    assert.equal(preservedCats.find(c => c.id === "discord").name, "Discord", "Tên hạng mục mặc định được bảo vệ không bị đối tác sửa");
+    assert.equal(preservedCats.find(c => c.id === "services").name, "Dịch vụ Discord", "Tên hạng mục mặc định được bảo vệ không bị đối tác sửa");
 
     // D. Đối tác sửa hạng mục của chính mình với emoji / icon tùy chọn (VD: ⚡) -> Thành công
     const editOwnCatRes = await fetch(origin + "/api/admin/categories", {
@@ -312,7 +312,7 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
     assert.equal(deleteOwnCatRes.status, 200);
     const remainingCats = (await deleteOwnCatRes.json()).categories;
     assert(!remainingCats.some(c => c.id === "custom-ptn-cat"), "Hạng mục của đối tác đã được xóa");
-    assert.equal(remainingCats.length, 5, "5 hạng mục mặc định vẫn còn nguyên");
+    assert.equal(remainingCats.length, 4, "4 hạng mục mặc định vẫn còn nguyên");
 
     // -------------------------------------------------------------
     // 6. Cách ly đơn hàng và trả hàng (Fulfillment)

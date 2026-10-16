@@ -153,11 +153,10 @@ const state = {
 };
 
 let storeCategories = [
-  { id: "discord", name: "Discord", icon: "gamepad" },
+  { id: "services", name: "Dịch vụ Discord", icon: "discord" },
   { id: "decor", name: "Profile Decor", icon: "decor" },
   { id: "entertainment", name: "Giải trí", icon: "layers" },
   { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
-  { id: "services", name: "Dịch vụ Discord", icon: "discord" },
 ];
 
 function updateCategories(categories) {

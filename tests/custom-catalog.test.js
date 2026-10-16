@@ -305,7 +305,7 @@ test("Tùy chỉnh vị trí hiển thị mặt hàng và phân chia hạng mụ
   try {
     // 1. Kiểm tra danh mục ban đầu
     const defaultCats = await getCategories(db);
-    assert(defaultCats.some(c => c.id === "discord"));
+    assert(defaultCats.some(c => c.id === "services"));
     assert(defaultCats.some(c => c.id === "entertainment"));
     assert(defaultCats.some(c => c.id === "services"));
 

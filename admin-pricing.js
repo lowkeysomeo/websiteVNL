@@ -1,11 +1,10 @@
 // Giao diện giá, ưu đãi và nạp tiền QR dùng chung phiên đăng nhập của trang quản trị.
 window.initAdminPricing = (() => {
   let api, notify, products = [], promotions = [], bankSettings = { bank: {}, isActive: false }, depositsList = [], depositFilter = "all", depositSearch = "", guideData = null, guidesList = [], guideFilter = "all", guideSearch = "", categoriesList = [
-    { id: "discord", name: "Discord", icon: "gamepad" },
+    { id: "services", name: "Dịch vụ Discord", icon: "discord" },
     { id: "decor", name: "Profile Decor", icon: "decor" },
     { id: "entertainment", name: "Giải trí", icon: "layers" },
     { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
-    { id: "services", name: "Dịch vụ Discord", icon: "discord" },
   ], partnersList = [], contactsSettings = { enabled: true, items: [] }, currentUser = { role: "admin", email: "", name: "" }, adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false, editingCategoryId = null, returnToProductId = null;
   const guideCategoryLabels = { guide: "Hướng dẫn", tips: "Mẹo & Thủ thuật", news: "Tin tức", other: "Khác" };
   const $ = (selector) => document.querySelector(selector);

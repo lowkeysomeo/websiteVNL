@@ -19,7 +19,7 @@ const products = [
   {
     id: "nitro",
     name: "Discord Nitro Boost",
-    category: "discord",
+    category: "services",
     image: "assets/nitro.svg",
     badge: "DISCORD / NITRO BOOST",
     description: "Đầy đủ quyền lợi: 2 Boost Server, streaming 4K, 500 server, kho emoji và sticker động.",
@@ -40,7 +40,7 @@ const products = [
   {
     id: "nitro-trial",
     name: "Discord Nitro Trial",
-    category: "discord",
+    category: "services",
     image: "assets/nitro.svg",
     badge: "DISCORD / NITRO TRIAL",
     description: "Nitro dùng thử dành cho tài khoản chưa từng dùng Nitro hoặc đủ điều kiện.",
@@ -99,7 +99,7 @@ const products = [
   {
     id: "boost",
     name: "Boost Server",
-    category: "discord",
+    category: "services",
     image: "assets/boost.svg",
     badge: "COMMUNITY / BOOST",
     description: "Nâng cấp cấp độ server cộng đồng với âm thanh HD, emoji thêm và biểu tượng server.",
