@@ -405,7 +405,12 @@ export async function getCategories(db) {
     if (saved.some(c => c.id === "discord")) {
       saved = saved.filter(c => c.id !== "discord");
     }
-    saved = saved.map(c => (c.id === "services" && c.icon === "box" ? { ...c, icon: "discord" } : c));
+    saved = saved.map(c => {
+      if (c.id === "services" && (!c.icon || c.icon === "box")) return { ...c, icon: "discord" };
+      if (c.id === "decor" && (!c.icon || c.icon === "sparkles")) return { ...c, icon: "decor" };
+      if (c.id === "creative" && (!c.icon || c.icon === "sparkles")) return { ...c, icon: "lightbulb" };
+      return c;
+    });
   }
   return saved;
 }
