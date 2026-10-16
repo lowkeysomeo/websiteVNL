@@ -1350,14 +1350,18 @@ async function showGuideModal(targetId = null) {
 
   if (targetId) {
     currentGuideDetailId = targetId;
-    const targetGuide = cachedGuides.find(g => g.id === targetId) || cachedGuides[0];
+    const targetGuide =
+      cachedGuides.find(g => g.id === targetId) ||
+      cachedGuides.find(g => g.id === "cach-lay-ma-du-phong-discord") ||
+      cachedGuides.find(g => g.title && (g.title.toLowerCase().includes("mã dự phòng") || g.title.toLowerCase().includes("backup"))) ||
+      cachedGuides[0];
     if (guideTitle) guideTitle.textContent = targetGuide.title || "Hướng dẫn & Tin tức";
     guideBody.innerHTML = renderGuideReaderView(targetGuide);
-    fetch(`/api/guide/${encodeURIComponent(targetId)}`)
+    fetch(`/api/guide/${encodeURIComponent(targetGuide.id || targetId)}`)
       .then(r => r.json())
       .then(d => {
         if (d.guide) {
-          const idx = cachedGuides.findIndex(g => g.id === targetId);
+          const idx = cachedGuides.findIndex(g => g.id === (targetGuide.id || targetId));
           if (idx !== -1) cachedGuides[idx] = d.guide;
         }
       })
@@ -1509,6 +1513,11 @@ document.addEventListener("click", (event) => {
   if (!button) return;
   if (button.dataset.ordersOffset !== undefined) {
     void showOrders(Number(button.dataset.ordersOffset));
+  }
+  if (button.dataset.openGuide) {
+    event.preventDefault();
+    void showGuideModal(button.dataset.openGuide);
+    return;
   }
   if (button.hasAttribute("data-close")) button.closest("dialog")?.close();
   if (button.hasAttribute("data-guide-explore")) {

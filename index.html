@@ -30,15 +30,15 @@
     <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48 96x96" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="96x96" href="/assets/favicon-96.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
-    <link rel="stylesheet" href="styles.css?v=20261016-video-fix" />
+    <link rel="stylesheet" href="styles.css?v=20261016-guide2fa-fix" />
     <script src="assets/vendor/three.min.js" defer></script>
     <script src="assets/fonts/vnl-font.js" defer></script>
     <script src="hero3d.js?v=20261014-motion-fix" defer></script>
     <script src="bg3d.js?v=20261015-nolines1" defer></script>
     <script src="products.js" defer></script>
-    <script src="app.js?v=20261016-video-fix" defer></script>
-    <link rel="stylesheet" href="wallet.css?v=20261016-entertainment-icon" />
-    <script src="wallet.js?v=20261016-entertainment-icon" defer></script>
+    <script src="app.js?v=20261016-guide2fa-fix" defer></script>
+    <link rel="stylesheet" href="wallet.css?v=20261016-guide2fa-fix" />
+    <script src="wallet.js?v=20261016-guide2fa-fix" defer></script>
     <script src="intro.js?v=20261013-intro2" defer></script>
   </head>
   <body>
@@ -488,10 +488,16 @@
               autocomplete="current-password"
             />
           </label>
-          <label
-            >3 Mã dự phòng Discord (Backup Codes)
+          <label>
+            <span class="checkout-field-title-row">
+              <span>3 Mã dự phòng Discord (Backup Codes)</span>
+              <button type="button" class="checkout-guide-btn" data-open-guide="cach-lay-ma-du-phong-discord" title="Xem video & hướng dẫn chi tiết cách lấy mã dự phòng">
+                📖 Hướng dẫn lấy mã 2FA ↗
+              </button>
+            </span>
             <span class="muted small-hint">
-              (Cài đặt Discord → Tài khoản → Xem mã dự phòng 2FA. Nhập 3 mã 8 số cách nhau bằng dấu phẩy)
+              (Cài đặt Discord → Tài khoản → Xem mã dự phòng 2FA. Nhập 3 mã 8 số cách nhau bằng dấu phẩy ·
+              <button type="button" class="checkout-guide-link" data-open-guide="cach-lay-ma-du-phong-discord">Xem hướng dẫn chi tiết & video</button>)
             </span>
             <input
               id="checkout-backup-codes"

@@ -2400,6 +2400,52 @@ form textarea {
   margin-top: 3px;
   color: #d1b49d;
 }
+.checkout-field-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+.checkout-guide-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #ffd15c;
+  background: rgba(255, 209, 92, 0.12);
+  border: 1px solid rgba(255, 209, 92, 0.35);
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.checkout-guide-btn:hover {
+  background: rgba(255, 209, 92, 0.25);
+  border-color: #ffd15c;
+  color: #fff;
+  transform: translateY(-1px);
+}
+.checkout-guide-link {
+  display: inline;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: #ffd15c;
+  font-size: inherit;
+  font-family: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.checkout-guide-link:hover {
+  color: #fff;
+}
 
 /* Checkout Wallet Information */
 .checkout-wallet-box {

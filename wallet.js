@@ -206,7 +206,7 @@
     content.innerHTML = `<button class="button secondary" data-wallet="back">← Quay lại ví</button>
       ${
         pending
-          ? `<div class="wallet-transfer"><img class="wallet-qr" src="${safe(qrUrl)}" alt="Mã QR chuyển khoản cho yêu cầu ${safe(deposit.code)}" width="190" height="240"><dl class="wallet-bank">
+          ? `<div class="wallet-transfer"><div class="wallet-qr-wrapper"><img class="wallet-qr" id="wallet-qr-image" src="${safe(qrUrl)}" alt="Mã QR chuyển khoản cho yêu cầu ${safe(deposit.code)}" width="190" height="240"><button type="button" class="wallet-qr-toggle-btn" data-wallet="toggle-qr" title="Bấm để che hoặc hiện mã QR">🙈 Che mã QR</button></div><dl class="wallet-bank">
       <dt>Ngân hàng</dt><dd>${safe(bank.gateway)}</dd><dt>Tài khoản nhận</dt><dd>${safe(bank.accountNumber)} <button data-copy="${safe(bank.accountNumber)}">Sao chép</button></dd><dt>Chủ tài khoản</dt><dd>${safe(bank.accountName)}</dd>
       <dt>Số tiền</dt><dd>${money(deposit.amount)}</dd><dt>Nội dung chuyển khoản</dt><dd class="transfer-code">${safe(transferContent)} <button data-copy="${safe(transferContent)}">Sao chép</button></dd></dl></div>
       <div class="wallet-notice">Chuyển đúng số tiền và giữ nguyên nội dung. Chỉ chuyển một lần cho mỗi yêu cầu. Yêu cầu có hiệu lực đến ${date(deposit.expiresAt)}.</div>`
@@ -296,6 +296,13 @@
       }
       if (button.dataset.wallet === "back") await showWallet();
       if (button.dataset.wallet === "refresh") await checkDeposit();
+      if (button.dataset.wallet === "toggle-qr") {
+        const qrImg = dialog.querySelector("#wallet-qr-image");
+        if (qrImg) {
+          const isBlurred = qrImg.classList.toggle("blurred");
+          button.textContent = isBlurred ? "👁 Hiện mã QR" : "🙈 Che mã QR";
+        }
+      }
       if (button.dataset.amount)
         content.querySelector('[name="amount"]').value = button.dataset.amount;
       if (button.dataset.copy) {
