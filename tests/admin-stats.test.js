@@ -99,3 +99,17 @@ test("Không ghi thống kê của phiên cũ sau khi đăng xuất", async () =
   page.calls[0].resolve(sample(99)); await pending;
   assert.equal(page.elements.get("#stat-total-orders"),undefined);
 });
+
+test("Các tệp JavaScript client (admin-pricing.js, admin.js, app.js, wallet.js, products.js) có cú pháp hợp lệ và không lỗi cú pháp", () => {
+  const files = [
+    "admin-pricing.js",
+    "admin.js",
+    "app.js",
+    "wallet.js",
+    "products.js",
+  ];
+  for (const f of files) {
+    const code = readFileSync(new URL("../" + f, import.meta.url), "utf8");
+    assert.doesNotThrow(() => new vm.Script(code), `File ${f} bị lỗi cú pháp!`);
+  }
+});

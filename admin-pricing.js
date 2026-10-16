@@ -2596,6 +2596,7 @@ window.initAdminPricing = (() => {
             img.src = dataUrl;
           };
           reader.readAsDataURL(file);
+        }
         if (event.target.id === "guide-cover-file-input") {
           const file = event.target.files && event.target.files[0];
           if (!file) return;
