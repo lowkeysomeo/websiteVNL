@@ -1,16 +1,4 @@
-/**
- * VietNam Legacy · High-End 3D Typography Engine
- * Professional, seamless volumetric 3D letters for "VIETNAM" & "LEGACY".
- * Features:
- * - Clean, highly-legible Droid Sans typography with custom tracking & razor-sharp chamfers
- * - Seamless integration without frames or borders
- * - 3D Golden Star emblem with continuous rotation
- * - Procedural studio reflection environment map
- * - Specular reflection sweep tracking mouse cursor
- * - Interactive 3D tilt, drag-to-rotate, and elastic jelly bounce ("goop" physics)
- * - Drifting ambient 3D stardust / sparkle motes
- * - Fully responsive with dynamic camera framing for mobile, tablet, and desktop
- */
+/* Chữ 3D VietNam Legacy: dựng cảnh, tương tác chuột và điều chỉnh theo màn hình. */
 
 (function () {
   'use strict';

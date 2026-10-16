@@ -1,16 +1,4 @@
-/**
- * VietNam Legacy - Ultra-Light 3D WebGL Background & Unified 3D Cursor Engine (bg3d.js)
- * Dung lượng: ~6.5 KB | Không tải thêm thư viện (dùng chung three.min.js sẵn có của shop)
- * Chế độ: MẠNG TINH THỂ TƯƠNG TÁC CHUỘT (INTERACTIVE NEURAL PLEXUS) | Bảng màu: Đỏ Di Sản (#140b0d)
- *
- * TÍNH NĂNG ĐỒNG BỘ:
- * 1. Hạt Tâm Năng Lượng (Cursor Beacon): Lõi năng lượng vàng–đỏ sắc nét bám chuẩn tọa độ chuột (4px)
- * 2. Vòng Hào Quang 3D Tinh Thể (Rotating Gold Aura Ring): Nhỏ gọn (15px), xoay nhẹ nhịp nhàng, nở vừa phải (23px) khi hover nút/sản phẩm
- * 3. Lực Đẩy & Xoáy Từ Trường 3D: Lướt chuột tới đâu các hạt tinh thể dạt ra và xoáy nhẹ tới đó (KHÔNG nối dây vướng víu vào chuột)
- * 4. Sóng Xung Kích Khi Click: Nhấp chuột tạo xung năng lượng đẩy bật các hạt tinh thể xung quanh và kích hoạt shockwave pulse
- * 5. Nghiêng Góc Nhìn 3D (Camera Parallax) mượt mà theo hướng di chuột & cuộn trang
- * 6. Tự động trả về con trỏ mặc định trên ô nhập liệu (input, textarea), dialog và modal để không gây cản trở
- */
+/* Nền WebGL và con trỏ tương tác, dùng chung Three.js với phần hero. */
 (function () {
   'use strict';
 

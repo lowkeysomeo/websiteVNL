@@ -139,6 +139,7 @@ CREATE TABLE IF NOT EXISTS payment_settings (
 
 CREATE TABLE IF NOT EXISTS shopping_guides (
   id TEXT PRIMARY KEY,
+  partner_email TEXT,
   title TEXT NOT NULL,
   subtitle TEXT NOT NULL DEFAULT '',
   category TEXT NOT NULL DEFAULT 'guide',

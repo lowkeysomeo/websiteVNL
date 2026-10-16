@@ -114,7 +114,7 @@
   function showLogin() {
     statsRequest += 1;
     for (const id of ["stat-total-orders", "stat-processing-orders", "stat-completed-orders", "stat-total-revenue"]) {
-      document.querySelector("#" + id).textContent = "—";
+      document.querySelector("#" + id).textContent = "…";
     }
     document.querySelector("#admin-stats-feedback").textContent = "";
     loginScreen.hidden = false;
@@ -180,7 +180,7 @@
         couponsBtn.hidden = false;
         couponsBtn.textContent = "🎟️ Mã giảm giá của tôi";
       }
-      if (guideBtn) guideBtn.hidden = true;
+      if (guideBtn) { guideBtn.hidden = false; guideBtn.textContent = "📘 Hướng dẫn của tôi"; }
       if (contactsBtn) contactsBtn.hidden = true;
       if (partnersBtn) partnersBtn.hidden = true;
     } else {
@@ -210,7 +210,7 @@
       if (depositsBtn) depositsBtn.hidden = false;
       if (campaignsBtn) campaignsBtn.hidden = false;
       if (couponsBtn) couponsBtn.hidden = false;
-      if (guideBtn) guideBtn.hidden = false;
+      if (guideBtn) { guideBtn.hidden = false; guideBtn.textContent = "📘 Hướng dẫn & Tin tức"; }
       if (contactsBtn) contactsBtn.hidden = false;
       if (partnersBtn) partnersBtn.hidden = false;
     }

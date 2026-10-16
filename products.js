@@ -43,14 +43,14 @@ const products = [
     category: "discord",
     image: "assets/nitro.svg",
     badge: "DISCORD / NITRO TRIAL",
-    description: "Nitro dùng thử giá siêu rẻ dành cho tài khoản chưa từng dùng Nitro hoặc đủ điều kiện.",
+    description: "Nitro dùng thử dành cho tài khoản chưa từng dùng Nitro hoặc đủ điều kiện.",
     features: [
       "Dành cho tài khoản mới hoặc chưa từng dùng Nitro",
       "Đầy đủ tính năng Nitro Boost 2 Boost",
       "Chọn nhận Link Gift hoặc Nạp Acc (Log)",
     ],
     detail:
-      "Gói Nitro Trial cực rẻ để bạn trải nghiệm trọn vẹn Discord Nitro. Hỗ trợ 2 hình thức: [Gift] (gửi link claim quà tặng) hoặc [Log] (cung cấp tài khoản + mật khẩu + 3 mã dự phòng để shop nạp).",
+      "Gói Nitro Trial dành cho tài khoản đủ điều kiện dùng thử. Hỗ trợ 2 hình thức: [Gift] (gửi link claim quà tặng) hoặc [Log] (cung cấp tài khoản + mật khẩu + 3 mã dự phòng để shop nạp).",
     variants: [
       { id: "trial_gift_1m", name: "🎁 [Gift] Nitro Trial · 1 tháng", price: 39000, deliveryType: "gift", note: "Nhận link claim trực tiếp" },
       { id: "trial_gift_3m", name: "🎁 [Gift] Nitro Trial · 3 tháng", price: 79000, deliveryType: "gift", note: "Nhận link claim trực tiếp" },
@@ -68,10 +68,10 @@ const products = [
     features: [
       "Khung avatar & hiệu ứng trang trí hồ sơ",
       "Nhận trực tiếp qua Link quà tặng (Gift)",
-      "An toàn 100%, không cần tài khoản mật khẩu",
+      "Không cần cung cấp tài khoản hay mật khẩu",
     ],
     detail:
-      "Trang trí hồ sơ đại diện Discord độc đáo dạng quà tặng [Gift]. Bạn sẽ nhận được link claim quà tặng chính chủ để kích hoạt ngay vào tài khoản của mình mà không cần gửi tài khoản mật khẩu.",
+      "Gói trang trí hồ sơ Discord dạng quà tặng [Gift]. Bạn sẽ nhận được link claim quà tặng chính chủ để kích hoạt ngay vào tài khoản của mình mà không cần gửi tài khoản mật khẩu.",
     variants: [
       { id: "decor_gift_basic", name: "🎁 [Gift] Decor · Mẫu cơ bản", price: 49000, deliveryType: "gift", note: "Nhận link quà tặng, không cần tài khoản mật khẩu" },
       { id: "decor_gift_collection", name: "🎁 [Gift] Decor · Bộ sưu tập", price: 99000, deliveryType: "gift", note: "Nhận link quà tặng, không cần tài khoản mật khẩu" },
@@ -83,14 +83,14 @@ const products = [
     category: "decor",
     image: "assets/decor.svg",
     badge: "PROFILE / DECOR",
-    description: "Một chút điểm nhấn để hồ sơ của bạn mang chất riêng với khung avatar và hiệu ứng hồ sơ.",
+    description: "Khung avatar và hiệu ứng hồ sơ Discord, shop nạp trực tiếp vào tài khoản.",
     features: [
       "Khung avatar & hiệu ứng trang trí hồ sơ",
       "Shop đăng nhập nạp trực tiếp vào tài khoản (Log)",
       "Bảo hành đầy đủ suốt thời hạn",
     ],
     detail:
-      "Trang trí hồ sơ đại diện Discord độc đáo dạng nạp tài khoản [Log]. Shop sẽ đăng nhập nạp trực tiếp vào tài khoản của bạn để nhận mẫu decor với giá tốt nhất.",
+      "Gói trang trí hồ sơ Discord dạng nạp tài khoản [Log]. Shop sẽ đăng nhập nạp trực tiếp vào tài khoản của bạn để nạp mẫu decor bạn đã chọn.",
     variants: [
       { id: "decor_log_basic", name: "🔑 [Log] Decor · Mẫu cơ bản (Nạp Acc)", price: 39000, deliveryType: "log", note: "Shop đăng nhập nạp, cần Acc/Pass/3 mã dự phòng" },
       { id: "decor_log_collection", name: "🔑 [Log] Decor · Bộ sưu tập (Nạp Acc)", price: 79000, deliveryType: "log", note: "Shop đăng nhập nạp, cần Acc/Pass/3 mã dự phòng" },
@@ -160,14 +160,14 @@ const products = [
     category: "entertainment",
     image: "assets/netflix.svg",
     badge: "MOVIES / SERIES",
-    description: "Thưởng thức hàng ngàn bộ phim điện ảnh và series bom tấn chất lượng 4K UHD.",
+    description: "Xem phim và series trên Netflix với chất lượng 4K UHD.",
     features: [
       "Chất lượng hình ảnh 4K Ultra HD",
       "Profile riêng biệt có mã PIN bảo mật",
       "Xem mượt mà trên Smart TV, PC, Mobile",
     ],
     detail:
-      "Tài khoản Netflix Premium xem phim bom tấn độ phân giải 4K sắc nét, hỗ trợ trên mọi thiết bị.",
+      "Tài khoản Netflix Premium để xem phim 4K trên Smart TV, PC và điện thoại.",
     variants: [
       { id: "monthly", name: "Netflix · 1 tháng", price: 69000, deliveryType: "gift" },
       { id: "quarterly", name: "Netflix · 3 tháng", price: 189000, deliveryType: "gift" },
@@ -196,11 +196,11 @@ const products = [
     category: "services",
     image: "assets/bot.svg",
     badge: "YOUR BOT / YOUR RULES",
-    description: "Lập trình Bot Discord mang thương hiệu và tính năng riêng biệt theo yêu cầu của bạn.",
+    description: "Lập trình bot Discord với tên, hình ảnh và tính năng theo yêu cầu của bạn.",
     features: [
       "Xây dựng tính năng theo yêu cầu riêng",
       "Tùy chỉnh lệnh, ticket, XP, âm nhạc...",
-      "Hỗ trợ triển khai và bảo trì uy tín",
+      "Hỗ trợ triển khai và bảo trì bot",
     ],
     detail:
       "Mô tả tính năng bạn muốn: chào mừng, quản lý cộng đồng, ticket hoặc tiện ích riêng. Phạm vi, thời gian, hosting và hỗ trợ sau bàn giao cần được thống nhất với shop trên Discord.",

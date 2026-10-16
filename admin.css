@@ -490,7 +490,7 @@ body {
   margin-left: 6px;
 }
 
-/* LOG CREDENTIALS BOX (CRITICAL FOR OWNER) */
+/* Thông tin tài khoản cho đơn nạp trực tiếp */
 .admin-log-credentials-box {
   background: #231207;
   border: 1px solid #b45309;
@@ -1523,9 +1523,7 @@ body {
 .admin-stats-feedback { color: var(--muted); font-size: 12px; margin: -12px 0 20px; }
 
 
-/* ==========================================================================
-   ADMIN INVENTORY & SOLD BADGES
-   ========================================================================== */
+/* Nhãn tồn kho và đã bán trong trang quản trị */
 .product-stock-pill {
   display: inline-flex;
   align-items: center;

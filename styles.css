@@ -16,9 +16,7 @@
   box-sizing: border-box;
 }
 
-/* ==========================================================================
-   SLEEK LUXURY SCROLLBAR (Dark & Gold Theme)
-   ========================================================================== */
+/* Thanh cuộn */
 ::-webkit-scrollbar {
   width: 9px;
   height: 9px;
@@ -471,9 +469,7 @@ main {
   padding: 23px 42px 0;
 }
 
-/* ==========================================================================
-   MARQUEE ANNOUNCEMENT TICKER BANNER
-   ========================================================================== */
+/* Thanh thông báo */
 .announcement-bar {
   display: flex;
   align-items: center;
@@ -671,6 +667,31 @@ h1 > span {
 }
 .primary:hover {
   background: #f2d487;
+}
+.hero-actions .button.primary,
+.cart-empty .button.primary {
+  background: #176bc4;
+  border: 1px solid #398ce3;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(23, 107, 196, 0.35);
+  transition: all 0.2s ease;
+}
+.hero-actions .button.primary:hover,
+.cart-empty .button.primary:hover {
+  background: #12569f;
+  border-color: #69b2ff;
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(23, 107, 196, 0.5);
+  transform: translateY(-1px);
+}
+.hero-actions .button.primary:active,
+.cart-empty .button.primary:active {
+  transform: translateY(0);
+}
+.hero-actions .button.primary:focus-visible,
+.cart-empty .button.primary:focus-visible {
+  outline: 2px solid #91caff;
+  outline-offset: 3px;
 }
 .secondary {
   background: #2f1d20;
@@ -1621,7 +1642,7 @@ form textarea {
   padding: 25px;
   min-width: 0;
 }
-/* 3D Volumetric Typography (Seamless Hero Integration) */
+/* Chữ 3D trong phần hero */
 .hero-3d-card {
   position: relative;
   width: 100%;
@@ -1984,8 +2005,9 @@ form textarea {
     flex: 1;
     min-width: 0;
     justify-content: center;
-    padding: 7px 4px;
-    font-size: 9.5px;
+    padding: 7px 10px;
+    font-size: 11px;
+    font-weight: 600;
     white-space: nowrap;
     text-align: center;
   }
@@ -2227,12 +2249,13 @@ form textarea {
   flex-shrink: 0;
 }
 .product-card .add-button {
-  padding: 7px 10px;
-  font-size: 10px;
+  padding: 7px 12px;
+  font-size: 11px;
+  font-weight: 600;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -2521,10 +2544,7 @@ form textarea {
   border-color: var(--accent);
 }
 
-/* ==========================================================================
-   CON TRỎ 3D ĐỒNG BỘ (BG3D CURSOR BEACON & ROTATING GOLD AURA RING)
-   Bản nâng cấp thay thế hoàn toàn con trỏ cũ, tích hợp cùng nền 3D
-   ========================================================================== */
+/* Con trỏ tương tác với nền 3D */
 
 .cursor-dot, .cursor-ring {
   position: fixed;
@@ -2536,7 +2556,7 @@ form textarea {
   transform: translate(-50%, -50%);
   will-change: transform;
 }
-/* 1. Hạt Tâm Năng Lượng (Cursor Beacon) */
+/* Điểm sáng của con trỏ */
 .cursor-dot {
   width: 4px;
   height: 4px;
@@ -2555,7 +2575,7 @@ form textarea {
   box-shadow: 0 0 12px #ffffff, 0 0 20px #ffb703;
 }
 
-/* 2. Vòng Hào Quang 3D Tinh Thể (Rotating Gold Aura Ring) - Tinh chỉnh gọn gàng, phóng to vừa phải */
+/* Vòng sáng quanh con trỏ */
 .cursor-ring {
   width: 15px;
   height: 15px;
@@ -2588,7 +2608,7 @@ form textarea {
   transition: width 90ms ease-out, height 90ms ease-out;
 }
 
-/* Đã loại bỏ hoàn toàn hạt sao 2D cũ */
+/* Ẩn lớp hạt con trỏ cũ */
 .cursor-particles {
   display: none !important;
 }
@@ -2651,9 +2671,7 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   .product-card::after { transition: none; }
 }
 
-/* ==========================================================================
-   SMOOTH SCROLL REVEAL ANIMATIONS
-   ========================================================================== */
+/* Hiệu ứng xuất hiện khi cuộn */
 .scroll-reveal {
   opacity: 0;
   transform: translateY(22px);
@@ -2676,9 +2694,7 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   transform: translateY(-4px);
 }
 
-/* ==========================================================================
-   SCROLL TO TOP FLOATING BUTTON
-   ========================================================================== */
+/* Nút về đầu trang */
 .scroll-top-button {
   position: fixed;
   bottom: 28px;
@@ -2750,9 +2766,7 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   }
 }
 
-/* ==========================================================================
-   HARDWARE ACCELERATION & SCROLL PERFORMANCE
-   ========================================================================== */
+/* Tối ưu vẽ khi cuộn */
 .topbar,
 .scroll-top-button {
   transform: translateZ(0);
@@ -3281,9 +3295,7 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
 .purchase-pagination button { font-size:12px; padding:9px 12px; }
 @media(max-width:480px) { .purchase-summary { gap:6px; } .purchase-summary strong { font-size:15px; } .purchase-pagination { flex-wrap:wrap; } }
 
-/* ==========================================================================
-   FLOATING CONTACT BUTTONS - CYBER GLASSMORPHISM DOCK
-   ========================================================================== */
+/* Nhóm nút liên hệ */
 
 .floating-contacts {
   position: fixed;
@@ -3526,9 +3538,7 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   margin-top: 1px;
 }
 
-/* ==========================================================================
-   BADGE STYLES - Differentiated by Type / Purpose
-   ========================================================================== */
+/* Nhãn theo loại liên hệ */
 
 .floating-contact-btn .contact-badge {
   position: absolute;
@@ -3584,9 +3594,7 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
   box-shadow: 0 2px 6px rgba(2, 132, 199, 0.6);
 }
 
-/* ==========================================================================
-   TOOLTIP STYLING - Two-line Card with Arrow & Glow
-   ========================================================================== */
+/* Chú giải nút liên hệ */
 
 .floating-contact-btn .contact-tooltip {
   position: absolute;
@@ -3677,9 +3685,7 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
 }
 
 
-/* ==========================================================================
-   ADMIN CONTACTS MANAGEMENT
-   ========================================================================== */
+/* Quản lý liên hệ */
 
 .contacts-admin-layout {
   display: grid;
@@ -3728,9 +3734,7 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
 }
 
 
-/* ==========================================================================
-   PRODUCT INVENTORY & SALES COUNTER
-   ========================================================================== */
+/* Số lượng tồn kho và đã bán */
 .product-stock-bar {
   display: flex;
   align-items: center;
@@ -3826,4 +3830,38 @@ body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
 
 .detail-inventory-bar .detail-sold-pill strong {
   color: #ffd15c;
+}
+
+/* Tiêu đề gồm hai hàng, mỗi hàng hai câu. */
+.hero-copy { container-type: inline-size; min-width: 0; }
+#hero-title.hero-title-grid {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  column-gap: 0.65em;
+  row-gap: 0.12em;
+  font-size: clamp(14px, 5cqi, 30px);
+  letter-spacing: -0.6px;
+}
+#hero-title.hero-title-grid .intro-line-content { white-space: nowrap; }
+
+/* Bốn bài hướng dẫn nhỏ bên dưới phần giới thiệu. */
+.hero-guides { margin-top: 24px; }
+.hero-guides[hidden] { display: none; }
+.hero-guides-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+.hero-guides-heading h2 { margin: 0; font-size: 12px; font-weight: 600; color: var(--text); }
+.hero-guides-heading button { border: 0; background: transparent; color: var(--accent); font-size: 9px; padding: 3px 0; }
+.hero-guides-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.hero-guide-card { display: flex; flex-direction: column; min-width: 0; overflow: hidden; padding: 0; text-align: left; color: var(--text); background: #211014; border: 1px solid #513036; border-radius: 8px; cursor: pointer; transition: border-color 0.2s ease, transform 0.2s ease; }
+.hero-guide-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.hero-guide-card:focus-visible, .hero-guides-heading button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.hero-guide-cover { display: block; aspect-ratio: 16 / 9; overflow: hidden; background: #2c1418; }
+.hero-guide-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hero-guide-body { display: flex; flex: 1; flex-direction: column; gap: 5px; padding: 7px; }
+.hero-guide-category { color: #c9ab7c; font-size: 7px; line-height: 1.3; }
+.hero-guide-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; font-size: 10px; font-weight: 600; line-height: 1.45; }
+.hero-guide-more { margin-top: auto; padding-top: 2px; color: var(--accent); font-size: 8px; }
+@media (max-width: 480px) {
+  .hero-guides-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hero-guide-title { -webkit-line-clamp: 2; font-size: 11px; }
+  .hero-guide-category { font-size: 8px; }
 }

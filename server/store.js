@@ -628,7 +628,7 @@ export async function getAnnouncement(db) {
       }
     : {
         content:
-          "🔥 Chào mừng bạn đến với VietNam Legacy! Shop cung cấp Discord Nitro Boost, Nitro Trial, Decor Gift/Log và Setup Server uy tín số 1 Việt Nam.",
+          "Chào bạn, đây là VietNam Legacy. Shop bán Discord Nitro Boost, Nitro Trial, Decor Gift/Log và nhận setup server Discord.",
         is_active: true,
         updated_at: 0,
       };
@@ -967,7 +967,7 @@ export const DEFAULT_GUIDES = [
   {
     id: "main",
     title: "Hướng dẫn mua hàng tại VietNam Legacy",
-    subtitle: "Đơn giản · Nhanh chóng · Nhận hàng tự động & Hỗ trợ 24/7",
+    subtitle: "Chọn sản phẩm, nạp tiền vào ví và theo dõi đơn hàng",
     category: "guide",
     coverImage: "assets/vnl-banner.png",
     videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -984,13 +984,13 @@ export const DEFAULT_GUIDES = [
           "Mở Ví cá nhân tại góc trên trang web, nhập số tiền cần nạp và dùng app ngân hàng quét mã VietQR tự động. Tiền sẽ được cộng vào ví ngay sau khi chuyển khoản.",
       },
       {
-        title: "Bước 3: Đặt đơn & Nhận hàng tức thì",
+        title: "Bước 3: Đặt đơn và nhận hàng",
         description:
-          "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng. Link quà tặng Discord sẽ hiển thị ngay trong mục 'Đơn hàng của tôi'. Đội ngũ hỗ trợ luôn sẵn sàng đồng hành 24/7.",
+          "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng. Xem link quà tặng trong mục 'Đơn hàng của tôi' khi shop giao hàng. Cần hỗ trợ thì nhắn shop trên Discord.",
       },
     ],
     content:
-      "Cần tư vấn thêm về gói dịch vụ Setup Server Discord chuyên nghiệp hoặc lập trình Custom Bot riêng? Đừng ngần ngại liên hệ với shop qua Discord chính thức.",
+      "Bạn cần setup server hoặc làm bot Discord riêng? Nhắn shop trên Discord để trao đổi yêu cầu và báo giá.",
     views: 1250,
     isActive: true,
     createdAt: 1710000000000,
@@ -999,7 +999,7 @@ export const DEFAULT_GUIDES = [
   {
     id: "huong-dan-nap-tien-vietqr",
     title: "Hướng dẫn nạp tiền ví tự động bằng VietQR & Ngân hàng",
-    subtitle: "Chỉ 10 giây nạp tiền tự động, bảo mật và chuẩn xác 100%",
+    subtitle: "Nạp tiền vào ví bằng mã VietQR của đơn nạp",
     category: "guide",
     coverImage: "assets/vnl-banner.png",
     videoUrl: "",
@@ -1091,7 +1091,7 @@ export const DEFAULT_GUIDES = [
 
 export const DEFAULT_SHOPPING_GUIDE = DEFAULT_GUIDES[0];
 
-function formatGuideRow(row) {
+function formatGuideRow(row, includeOwner = false) {
   if (!row) return null;
   let images = [];
   try {
@@ -1109,6 +1109,7 @@ function formatGuideRow(row) {
   }
   return {
     id: row.id,
+    ...(includeOwner ? { partnerEmail: row.partner_email || null } : {}),
     title: row.title || DEFAULT_SHOPPING_GUIDE.title,
     subtitle: row.subtitle ?? "",
     category: row.category || "guide",
@@ -1161,7 +1162,7 @@ export async function getShoppingGuide(db, id = null) {
     if (targetId) {
       row = await db
         .prepare(
-          "SELECT id, title, subtitle, category, cover_image, video_url, image_urls_json, steps_json, content, views, is_active, created_at, updated_at FROM shopping_guides WHERE id = ?",
+          "SELECT id, title, subtitle, category, cover_image, video_url, image_urls_json, steps_json, content, views, is_active, created_at, updated_at FROM shopping_guides WHERE id = ? AND is_active = 1",
         )
         .get(targetId);
       if (row) {
@@ -1171,7 +1172,7 @@ export async function getShoppingGuide(db, id = null) {
     } else {
       row = await db
         .prepare(
-          "SELECT id, title, subtitle, category, cover_image, video_url, image_urls_json, steps_json, content, views, is_active, created_at, updated_at FROM shopping_guides WHERE id = 'main'",
+          "SELECT id, title, subtitle, category, cover_image, video_url, image_urls_json, steps_json, content, views, is_active, created_at, updated_at FROM shopping_guides WHERE id = 'main' AND is_active = 1",
         )
         .get();
       if (!row) {
@@ -1185,26 +1186,30 @@ export async function getShoppingGuide(db, id = null) {
   } catch {
     // If error querying
   }
+  if (!row && targetId) {
+    throw Object.assign(new Error("Không tìm thấy bài hướng dẫn đang hiển thị."), { status: 404 });
+  }
   if (!row) {
     return { ...DEFAULT_SHOPPING_GUIDE };
   }
   return formatGuideRow(row);
 }
 
-export async function listShoppingGuides(db, includeInactive = false) {
+export async function listShoppingGuides(db, includeInactive = false, caller = null) {
   await ensureDefaultGuides(db);
   try {
     const rows = await db
       .prepare(
-        `SELECT id, title, subtitle, category, cover_image, video_url, image_urls_json, steps_json, content, views, is_active, created_at, updated_at
+        `SELECT id, partner_email, title, subtitle, category, cover_image, video_url, image_urls_json, steps_json, content, views, is_active, created_at, updated_at
          FROM shopping_guides
-         ${includeInactive ? "" : "WHERE is_active = 1"}
+         WHERE (${includeInactive ? "1 = 1" : "is_active = 1"})
+         ${caller?.role === "partner" ? "AND LOWER(partner_email) = ?" : ""}
          ORDER BY updated_at DESC, created_at DESC`,
       )
-      .all();
-    return (rows || []).map(formatGuideRow);
+      .all(...(caller?.role === "partner" ? [caller.email.toLowerCase()] : []));
+    return (rows || []).map(row => formatGuideRow(row, includeInactive));
   } catch {
-    return DEFAULT_GUIDES;
+    return caller?.role === "partner" ? [] : DEFAULT_GUIDES;
   }
 }
 
@@ -1229,7 +1234,7 @@ export async function saveShoppingGuide(db, data, now = Date.now()) {
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
-    id = slug ? `${slug}-${Date.now().toString(36)}` : `guide-${Date.now().toString(36)}`;
+    id = slug ? `${slug}-${randomUUID()}` : `guide-${randomUUID()}`;
   }
 
   const subtitle = String(data.subtitle || "").trim().slice(0, 300);

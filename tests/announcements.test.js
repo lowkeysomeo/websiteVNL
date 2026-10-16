@@ -53,7 +53,7 @@ test("API lưu thông báo phản ánh đúng ra cửa hàng và chặn thay đ�
 function announcementPage() {
   const source = readFileSync(new URL("../app.js", import.meta.url), "utf8");
   const begin = source.indexOf("function initAnnouncement() {");
-  const endMatch = source.slice(begin).search(/\/\*\s*={10,}\s*\r?\n\s*ULTRA-SMOOTH/);
+  const endMatch = source.slice(begin).indexOf("class SmoothInertiaScroll {");
   const snippet = endMatch !== -1 ? source.slice(begin, begin + endMatch) : source.slice(begin);
   const elements = Object.fromEntries(["announcement-bar", "announcement-track", "announcement-content", "announcement-content-duplicate"].map(id => ["#" + id, { style: {}, textContent: "Thông báo cũ" }]));
   const animation = { currentTime: 123 };

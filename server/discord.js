@@ -115,7 +115,7 @@ export function buildOrderEmbed(order, settings = {}, origin = "") {
       const vName = item.variantName || item.variantId || "";
       const qty = item.quantity || 1;
       const price = formatVND((item.price || 0) * qty);
-      return `• **${pName}**${vName ? ` (${vName})` : ""} x${qty} — ${price}`;
+      return `• **${pName}**${vName ? ` (${vName})` : ""} x${qty}: ${price}`;
     })
     .join("\n");
 
@@ -197,7 +197,7 @@ export function buildOrderEmbed(order, settings = {}, origin = "") {
     } else {
       fields.push({
         name: "🖼️ Ảnh mẫu Decor",
-        value: "[Khách tải lên ảnh trực tiếp — Xem chi tiết trong Admin]",
+        value: "[Khách tải lên ảnh trực tiếp: Xem chi tiết trong Admin]",
         inline: false,
       });
     }
@@ -331,7 +331,7 @@ export function buildPartnerOrderEmbed(
       const vName = item.variantName || item.variantId || "";
       const qty = item.quantity || 1;
       const price = formatVND((item.price || 0) * qty);
-      return `• **${pName}**${vName ? ` (${vName})` : ""} x${qty} — ${price}`;
+      return `• **${pName}**${vName ? ` (${vName})` : ""} x${qty}: ${price}`;
     })
     .join("\n");
 
@@ -421,7 +421,7 @@ export function buildPartnerOrderEmbed(
     } else {
       fields.push({
         name: "🖼️ Ảnh mẫu yêu cầu",
-        value: "[Khách tải lên ảnh trực tiếp — Xem chi tiết trong Admin đối tác]",
+        value: "[Khách tải lên ảnh trực tiếp: Xem chi tiết trong Admin đối tác]",
         inline: false,
       });
     }

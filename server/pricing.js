@@ -54,7 +54,7 @@ export async function savePromotion(db, body, id = null, now = Date.now(), calle
   const name = String(body.name || "").trim();
   if (!name || name.length > 100) throw fail("Tên ưu đãi cần từ 1 đến 100 ký tự.");
   const code = body.kind === "coupon" ? String(body.code || "").trim().toUpperCase() : null;
-  if (code !== null && !/^[A-Z0-9_-]{3,32}$/.test(code)) throw fail("Mã giảm giá gồm 3–32 chữ không dấu, số, dấu gạch ngang hoặc gạch dưới.");
+  if (code !== null && !/^[A-Z0-9_-]{3,32}$/.test(code)) throw fail("Mã giảm giá gồm 3 đến 32 chữ không dấu, số, dấu gạch ngang hoặc gạch dưới.");
   if (typeof body.enabled !== "boolean" || !["percent", "fixed"].includes(body.type)) throw fail("Trạng thái hoặc cách giảm giá không hợp lệ.");
   const value = integer(body.value, 1, body.type === "percent" ? 100 : 1000000000, "Mức giảm");
   const startsAt = optionalInteger(body.startsAt, 8640000000000000, "Ngày bắt đầu");

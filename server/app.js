@@ -87,6 +87,8 @@ const types = {
   ".png": "image/png",
   ".ico": "image/x-icon",
   ".json": "application/json",
+  ".xml": "application/xml; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
 };
 
 async function readBody(req, limit = 1048576) {
@@ -212,6 +214,17 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
       throw fail(401, "Yêu cầu đăng nhập quản trị viên hoặc đối tác hợp lệ.");
     }
     return caller;
+  }
+
+  async function requireGuideOwnership(tx, id, caller, allowMissing = false) {
+    const row = await tx.prepare("SELECT partner_email FROM shopping_guides WHERE id = ?").get(id);
+    if (!row) {
+      if (allowMissing) return;
+      throw fail(404, "Không tìm thấy bài hướng dẫn.");
+    }
+    if (caller.role === "partner" && String(row.partner_email || "").toLowerCase() !== caller.email.toLowerCase()) {
+      throw fail(403, "Bạn chỉ được quản lý bài hướng dẫn của mình.");
+    }
   }
 
   return http.createServer(async (req, res) => {
@@ -1072,32 +1085,49 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           return json(200, { success: true, guide });
         }
         if (req.method === "GET" && route === "/api/admin/guide") {
-          await requireAdmin(req);
-          const guide = await getShoppingGuide(db);
-          const guides = await listShoppingGuides(db, true);
+          const caller = await requireAdminOrPartner(req);
+          const guides = await listShoppingGuides(db, true, caller);
+          const guide = guides.find(item => item.id === "main") || guides[0] || null;
           return json(200, { success: true, guide, guides });
         }
         const adminGuideToggleMatch = route.match(/^\/api\/admin\/guide\/([a-z0-9_-]+)\/toggle$/);
         if (req.method === "PATCH" && adminGuideToggleMatch) {
-          await requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
-          const result = await toggleShoppingGuideStatus(db, adminGuideToggleMatch[1], body.isActive);
+          if (typeof body.isActive !== "boolean") throw fail(400, "Trạng thái bài viết không hợp lệ.");
+          const result = await db.transaction(async tx => {
+            await requireGuideOwnership(tx, adminGuideToggleMatch[1], caller);
+            return toggleShoppingGuideStatus(tx, adminGuideToggleMatch[1], body.isActive);
+          });
           return json(200, result);
         }
         const adminGuideItemMatch = route.match(/^\/api\/admin\/guide\/([a-z0-9_-]+)$/);
         if (req.method === "DELETE" && adminGuideItemMatch) {
-          await requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
-          const result = await deleteShoppingGuide(db, adminGuideItemMatch[1]);
+          const result = await db.transaction(async tx => {
+            await requireGuideOwnership(tx, adminGuideItemMatch[1], caller);
+            return deleteShoppingGuide(tx, adminGuideItemMatch[1]);
+          });
           return json(200, result);
         }
         if (["POST", "PUT"].includes(req.method) && (route === "/api/admin/guide" || adminGuideItemMatch)) {
-          await requireAdmin(req);
+          const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
-          const guideId = adminGuideItemMatch ? adminGuideItemMatch[1] : body.id;
-          const guide = await saveShoppingGuide(db, { ...body, ...(guideId ? { id: guideId } : {}) });
+          const guideId = adminGuideItemMatch ? adminGuideItemMatch[1] : body.id || (caller.role === "partner" ? "new" : "main");
+          // Seed shop guides before the first partner article on a new installation.
+          await listShoppingGuides(db, true, caller);
+          const guide = await db.transaction(async tx => {
+            if (guideId !== "new") await requireGuideOwnership(tx, guideId, caller, caller.role === "admin");
+            const saved = await saveShoppingGuide(tx, { ...body, id: guideId });
+            if (caller.role === "partner" && guideId === "new") {
+              await tx.prepare("UPDATE shopping_guides SET partner_email = ? WHERE id = ?")
+                .run(caller.email.toLowerCase(), saved.id);
+            }
+            return saved;
+          });
           return json(200, { success: true, guide });
         }
         throw fail(404, "Không tìm thấy chức năng.");
@@ -1110,6 +1140,8 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
       if (
         ![
           "index.html",
+          "sitemap.xml",
+          "robots.txt",
           "favicon.ico",
           "local-entry.js",
           "styles.css",

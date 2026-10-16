@@ -1154,8 +1154,8 @@ window.initAdminPricing = (() => {
         <header class="pricing-heading">
           <div>
             <span class="pricing-eyebrow">HƯỚNG DẪN & TIN TỨC</span>
-            <h2>Quản lý Bài viết & Hướng dẫn</h2>
-            <p>Đăng nhiều bài viết hướng dẫn, mẹo sử dụng và tin tức kèm video YouTube/MP4 và các bước chi tiết cho khách hàng.</p>
+            <h2>${currentUser.role === "partner" ? "Hướng dẫn dịch vụ của tôi" : "Quản lý Bài viết & Hướng dẫn"}</h2>
+            <p>${currentUser.role === "partner" ? "Đăng hướng dẫn sử dụng dịch vụ của bạn, kèm ảnh, video và các bước thực hiện. Bạn chỉ quản lý được bài do mình đăng." : "Đăng và quản lý bài hướng dẫn của shop và đối tác, kèm ảnh, video và các bước thực hiện."}</p>
           </div>
           <div class="pricing-actions">
             <button type="button" class="button primary" data-guide-new>+ Thêm bài viết mới</button>
@@ -1263,7 +1263,7 @@ window.initAdminPricing = (() => {
       .filter(Boolean)
       .slice(0, 10);
     if (!lines.length) {
-      return `<li style="font-size:12px; color:var(--muted); font-style:italic;">(Chưa có đặc điểm nào — nhập từng dòng ở ô trên để hiển thị)</li>`;
+      return `<li style="font-size:12px; color:var(--muted); font-style:italic;">(Chưa có đặc điểm nào. Nhập mỗi đặc điểm một dòng ở ô trên.)</li>`;
     }
     return lines.map(line => `
       <li style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:var(--text); line-height:1.4;">
@@ -1835,6 +1835,7 @@ window.initAdminPricing = (() => {
                   <span>👁 ${g.views || 0} lượt xem</span>
                 </div>
                 <h3 class="guide-admin-title" title="${esc(g.title)}">${esc(g.title)}</h3>
+                ${currentUser.role === "admin" && g.partnerEmail ? `<p class="guide-admin-subtitle">Đối tác: ${esc(g.partnerEmail)}</p>` : ""}
                 <p class="guide-admin-subtitle">${esc(g.subtitle || '')}</p>
                 <div class="guide-admin-extras">
                   ${g.videoUrl ? '<span class="extra-badge">🎬 Video</span>' : ''}

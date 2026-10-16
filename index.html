@@ -1,18 +1,19 @@
 <!doctype html>
 <html lang="vi">
   <head>
+    <meta name="google-site-verification" content="HeXrSlglAVQJKMwAKHfJ-X-zuRDLGfsnuKHRBsWiFhQ" />
     <meta charset="utf-8" />
     <script src="local-entry.js?v=20261013" ></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#140b0d" />
     <meta
       name="description"
-      content="VietNam Legacy - Không gian mua sắm Nitro, Decor, Boost Server và các dịch vụ giải trí, sáng tạo"
+      content="VietNam Legacy: Nitro, Decor, Boost Server và các gói giải trí, công cụ sáng tạo"
     />
     <meta property="og:title" content="VietNam Legacy · Digital store" />
     <meta
       property="og:description"
-      content="VietNam Legacy - Không gian mua sắm Nitro, Decor, Boost Server và các dịch vụ giải trí, sáng tạo"
+      content="VietNam Legacy: Nitro, Decor, Boost Server và các gói giải trí, công cụ sáng tạo"
     />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="VietNam Legacy" />
@@ -21,26 +22,26 @@
     <meta name="twitter:title" content="VietNam Legacy · Digital store" />
     <meta
       name="twitter:description"
-      content="VietNam Legacy - Không gian mua sắm Nitro, Decor, Boost Server và các dịch vụ giải trí, sáng tạo"
+      content="VietNam Legacy: Nitro, Decor, Boost Server và các gói giải trí, công cụ sáng tạo"
     />
     <meta name="twitter:image" content="assets/vnl-avatar.png" />
     <title>VietNam Legacy · Digital store</title>
-    <link rel="icon" type="image/png" href="assets/vnl-avatar.png?v=20261014" />
-    <link rel="shortcut icon" type="image/png" href="assets/vnl-avatar.png?v=20261014" />
-    <link rel="apple-touch-icon" href="assets/vnl-avatar.png?v=20261014" />
-    <link rel="stylesheet" href="styles.css?v=20261015-cursor-compact1" />
+    <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48 96x96" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/assets/favicon-96.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
+    <link rel="stylesheet" href="styles.css?v=20261016-muangay" />
     <script src="assets/vendor/three.min.js" defer></script>
     <script src="assets/fonts/vnl-font.js" defer></script>
     <script src="hero3d.js?v=20261014-motion-fix" defer></script>
     <script src="bg3d.js?v=20261015-nolines1" defer></script>
     <script src="products.js" defer></script>
-    <script src="app.js?v=20261015-buynow-fix1" defer></script>
-    <link rel="stylesheet" href="wallet.css" />
+    <script src="app.js?v=20261016-muangay" defer></script>
+    <link rel="stylesheet" href="wallet.css?v=20261016-dollar" />
     <script src="wallet.js" defer></script>
     <script src="intro.js?v=20261013-intro2" defer></script>
   </head>
   <body>
-    <!-- Con trỏ 3D đồng bộ: Hạt tâm năng lượng 3D và Vòng hào quang quay -->
+    <!-- Con trỏ do bg3d.js điều khiển. -->
     <div class="cursor-dot" id="cursor-dot" aria-hidden="true"></div>
     <div class="cursor-ring" id="cursor-ring" aria-hidden="true"></div>
 
@@ -127,8 +128,8 @@
       </nav>
       <div class="sidebar-bottom">
         <div class="mini-orbit" aria-hidden="true">✳</div>
-        <strong>Một góc riêng. Một chất riêng.</strong>
-        <p>Discord, giải trí và sáng tạo. Khám phá gói phù hợp với bạn.</p>
+        <strong>Chọn gói phù hợp với bạn.</strong>
+        <p>Xem các gói Discord, giải trí và công cụ sáng tạo tại shop.</p>
         <a href="#catalog">Khám phá ngay <span>↗</span></a>
       </div>
       <div class="sidebar-footer">
@@ -163,7 +164,14 @@
             data-wallet="open"
             aria-label="Mở ví và tài khoản"
           >
-            <span class="wallet-symbol" aria-hidden="true">₫</span>
+            <span class="wallet-symbol" aria-hidden="true"
+              ><img
+                src="assets/wallet-dollar.png"
+                alt=""
+                class="wallet-symbol-img"
+                width="19"
+                height="19"
+            /></span>
             <span id="wallet-label">Đăng nhập</span>
           </button>
           <span class="locale">VN <span class="locale-dot"></span> VND</span>
@@ -196,8 +204,8 @@
           </div>
           <div class="announcement-track-wrapper">
             <div class="announcement-track" id="announcement-track">
-              <span class="announcement-text" id="announcement-content">🔥 Chào mừng bạn đến với VietNam Legacy! Shop cung cấp Discord Nitro Boost, Nitro Trial, Decor Gift/Log và Setup Server uy tín số 1 Việt Nam.</span>
-              <span class="announcement-text" id="announcement-content-duplicate" aria-hidden="true">🔥 Chào mừng bạn đến với VietNam Legacy! Shop cung cấp Discord Nitro Boost, Nitro Trial, Decor Gift/Log và Setup Server uy tín số 1 Việt Nam.</span>
+              <span class="announcement-text" id="announcement-content">Chào bạn, đây là VietNam Legacy. Shop bán Discord Nitro Boost, Nitro Trial, Decor Gift/Log và nhận setup server Discord.</span>
+              <span class="announcement-text" id="announcement-content-duplicate" aria-hidden="true">Chào bạn, đây là VietNam Legacy. Shop bán Discord Nitro Boost, Nitro Trial, Decor Gift/Log và nhận setup server Discord.</span>
             </div>
           </div>
         </div>
@@ -205,16 +213,18 @@
         <section class="hero" aria-labelledby="hero-title">
           <div class="hero-copy">
             <span class="hero-eyebrow"
-              ><span class="online-dot"></span> YOUR NEXT LEVEL STARTS
-              HERE</span
+              ><span class="online-dot"></span> DISCORD & DIGITAL
+              SERVICES</span
             >
-            <h1 id="hero-title">
-              <span class="intro-line"><span class="intro-line-content">Nâng tầm trải nghiệm.</span></span>
-              <span class="intro-line intro-line-accent"><span class="intro-line-content">Khẳng định chất riêng.</span></span>
+            <h1 id="hero-title" class="hero-title-grid">
+              <span class="intro-line"><span class="intro-line-content">Mua hàng tiện lợi</span></span>
+              <span class="intro-line"><span class="intro-line-content">An toàn tuyệt đối</span></span>
+              <span class="intro-line intro-line-accent"><span class="intro-line-content">Thanh toán tự động</span></span>
+              <span class="intro-line intro-line-accent"><span class="intro-line-content">Giá cả phải chăng</span></span>
             </h1>
             <p>
-              <span class="intro-line"><span class="intro-line-content">Nitro, Decor, Boost Server và những gói Premium.</span></span>
-              <span class="intro-line"><span class="intro-line-content">Không gian số của bạn, theo cách bạn muốn.</span></span>
+              <span class="intro-line"><span class="intro-line-content">Nitro, Decor, Boost Server và những gói Premium, AI,...</span></span>
+              <span class="intro-line"><span class="intro-line-content">Hãy là một người mua hàng thông minh.</span></span>
             </p>
             <div class="hero-actions">
               <a class="button primary" href="#catalog"
@@ -224,8 +234,15 @@
               </button>
             </div>
             <div class="hero-footnote">
-              - CHỌN GU CỦA BẠN. TẠO CHẤT RIÊNG.
+              Chọn thứ bạn thích - Mua thứ bạn cần
             </div>
+            <section class="hero-guides" id="hero-guides" aria-labelledby="hero-guides-title" hidden>
+              <div class="hero-guides-heading">
+                <h2 id="hero-guides-title">Hướng dẫn mua hàng</h2>
+                <button type="button" data-action="guide">Xem tất cả ↗</button>
+              </div>
+              <div class="hero-guides-grid" id="hero-guides-grid"></div>
+            </section>
           </div>
           <div class="hero-media">
             <div
@@ -268,9 +285,9 @@
         <section class="catalog" id="catalog" aria-labelledby="catalog-title">
           <div class="section-heading">
             <div>
-              <div class="eyebrow">CURATED FOR YOU</div>
+              <div class="eyebrow">DANH MỤC SẢN PHẨM</div>
               <h2 id="catalog-title">
-                Chọn món tiếp theo của bạn<span>.</span>
+                Tìm gói bạn đang cần<span>.</span>
               </h2>
             </div>
             <span class="catalog-note"
@@ -363,9 +380,9 @@
         <section class="guide-banner" id="guide-banner" aria-labelledby="guide-banner-title">
           <div class="guide-banner-body">
             <span class="eyebrow">HƯỚNG DẪN MUA HÀNG</span>
-            <h2 id="guide-banner-title">Mua sắm dễ dàng cùng VietNam Legacy</h2>
+            <h2 id="guide-banner-title">Cách mua hàng tại VietNam Legacy</h2>
             <p>
-              Xem video hướng dẫn chi tiết và các bước đơn giản để nạp tiền ví, đặt đơn và nhận link quà tặng Discord nhanh chóng.
+              Xem video và hướng dẫn nạp tiền vào ví, đặt đơn, nhận link quà tặng Discord.
             </p>
             <button class="button primary" data-action="guide">
               Xem video & hướng dẫn mua <span data-icon="book"></span>
@@ -375,8 +392,8 @@
 
         <section class="bottom-banner">
           <div>
-            <span class="eyebrow">JOIN THE LEGACY</span>
-            <h2>Cộng đồng của bạn ở đây.</h2>
+            <span class="eyebrow">DISCORD CỦA SHOP</span>
+            <h2>Gặp shop trên Discord.</h2>
             <p>
               Ghé Discord VietNam Legacy để hỏi về sản phẩm và kết nối cùng
               shop.
@@ -580,9 +597,9 @@
           <button id="coupon-remove" type="button" class="button secondary btn-small" hidden>Bỏ mã</button>
         </section>
         <div class="checkout-price-breakdown" aria-live="polite">
-          <div><span>Giá niêm yết</span><span id="checkout-subtotal">—</span></div>
-          <div><span>Ưu đãi sản phẩm</span><span id="checkout-sale-discount">—</span></div>
-          <div><span>Mã giảm giá</span><span id="checkout-coupon-discount">—</span></div>
+          <div><span>Giá niêm yết</span><span id="checkout-subtotal">…</span></div>
+          <div><span>Ưu đãi sản phẩm</span><span id="checkout-sale-discount">…</span></div>
+          <div><span>Mã giảm giá</span><span id="checkout-coupon-discount">…</span></div>
         </div>
         <div class="checkout-total">
           <span>Tổng thanh toán</span><strong id="checkout-total"></strong>

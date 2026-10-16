@@ -11,12 +11,23 @@
   white-space: nowrap;
 }
 .wallet-symbol {
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 19px;
   height: 19px;
   border: 1px solid #75b7fb;
   border-radius: 50%;
+  overflow: hidden;
+  background: #0e1013;
+  flex-shrink: 0;
+}
+.wallet-symbol-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.15);
+  display: block;
 }
 .wallet-dialog {
   width: min(680px, calc(100% - 28px));

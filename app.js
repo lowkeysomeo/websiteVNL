@@ -282,7 +282,7 @@ async function requestCheckoutQuote(code = appliedCoupon) {
     if (request !== checkoutQuoteRequest) return null;
     message.textContent = error.message;
     message.classList.add("is-error");
-    document.querySelector("#checkout-total").textContent = "—";
+    document.querySelector("#checkout-total").textContent = "…";
     document.querySelector("#coupon-remove").hidden = !code;
     return null;
   } finally { if (request === checkoutQuoteRequest) syncCheckoutControls(); }
@@ -409,11 +409,9 @@ function renderProductCard(product) {
           : (isOutOfStock
               ? `<div class="product-card-actions">
                   <button class="add-button is-out-btn" disabled title="Mặt hàng hiện đã hết">${icon("bag")} Hết hàng</button>
-                  <button class="buy-button is-out-btn" disabled title="Mặt hàng hiện đã hết">Tạm hết ⚡</button>
                 </div>`
               : `<div class="product-card-actions">
-                  <button class="add-button" data-add="${product.id}" ${catalogReady ? "" : "disabled"} title="Thêm vào giỏ hàng">${icon("bag")} Thêm giỏ</button>
-                  <button class="buy-button" data-buy="${product.id}" ${catalogReady ? "" : "disabled"} title="Mua trực tiếp không cần giỏ">Mua ngay ⚡</button>
+                  <button class="add-button" data-add="${product.id}" ${catalogReady ? "" : "disabled"} title="Mua ngay">${icon("bag")} Mua ngay</button>
                 </div>`
             )
       }
@@ -530,7 +528,7 @@ function showProduct(id, isDirectBuy = false) {
             : (product.stock <= 0
               ? `
           <label for="variant">Chọn gói sản phẩm</label>
-          <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name} — ${money(variant.price)}</option>`).join("")}</select>
+          <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${money(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
           <div class="detail-actions">
             <button class="button secondary is-out-btn" id="detail-add" disabled>${icon("bag")} Hết hàng</button>
@@ -540,7 +538,7 @@ function showProduct(id, isDirectBuy = false) {
         `
               : `
           <label for="variant">Chọn gói sản phẩm</label>
-          <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name} — ${money(variant.price)}</option>`).join("")}</select>
+          <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${money(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
           <div class="detail-actions">
             <button class="button secondary" id="detail-add">${icon("bag")} Thêm giỏ</button>
@@ -854,7 +852,7 @@ async function showOrders(offset = 0) {
   const paging = data.pagination;
   const pager = `<nav class="purchase-pagination" aria-label="Trang lịch sử mua hàng">
     <button class="button secondary" data-orders-offset="${Math.max(0,offset-paging.limit)}" ${offset===0 ? "disabled" : ""}>← Trang trước</button>
-    <span>${paging.total ? offset+1 : 0}–${offset+serverOrders.length} / ${paging.total} đơn</span>
+    <span>${paging.total ? offset+1 : 0} đến ${offset+serverOrders.length} / ${paging.total} đơn</span>
     <button class="button secondary" data-orders-offset="${offset+paging.limit}" ${paging.hasMore ? "" : "disabled"}>Trang sau →</button>
   </nav>`;
 
@@ -903,7 +901,7 @@ async function showOrders(offset = 0) {
         if (order.hasLogItems) {
           logNotice = `
             <div class="order-log-info">
-              🔑 Đơn Nạp Acc: Thông tin tài khoản & mã dự phòng của bạn đã được mã hóa bảo mật tuyệt đối. Shop đang tiến hành nạp gói.
+              🔑 Đơn Nạp Acc: Shop đang xử lý gói nạp bằng thông tin tài khoản và mã dự phòng bạn đã gửi.
             </div>
           `;
         }
@@ -937,7 +935,7 @@ async function showOrders(offset = 0) {
         const itemsHtml = order.items
           .map(
             (item) =>
-              `<li>${escapeHtml(item.productName || item.name)} — ${escapeHtml(item.variantName || item.variant)} [${escapeHtml((item.deliveryType || "gift").toUpperCase())}] × ${item.quantity} (${money(item.subtotal || item.price * item.quantity)})</li>`,
+              `<li>${escapeHtml(item.productName || item.name)}: ${escapeHtml(item.variantName || item.variant)} [${escapeHtml((item.deliveryType || "gift").toUpperCase())}] × ${item.quantity} (${money(item.subtotal || item.price * item.quantity)})</li>`,
           )
           .join("");
 
@@ -998,6 +996,50 @@ const guideCategoryLabels = {
   news: "Tin tức",
   other: "Khác",
 };
+
+async function initHeroGuides() {
+  const section = document.querySelector("#hero-guides");
+  const grid = document.querySelector("#hero-guides-grid");
+  if (!section || !grid) return;
+
+  section.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-hero-guide]");
+    if (card) void showGuideModal(card.dataset.heroGuide);
+  });
+  section.addEventListener("error", (event) => {
+    const image = event.target;
+    if (image.tagName !== "IMG" || image.dataset.fallback) return;
+    image.dataset.fallback = "true";
+    image.src = "assets/vnl-banner.png";
+  }, true);
+
+  try {
+    const response = await fetch("/api/guide", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = await response.json();
+    const published = (Array.isArray(data.guides) ? data.guides : data.guide ? [data.guide] : [])
+      .filter(guide => guide && guide.id && guide.isActive !== false);
+    if (!published.length) return;
+    cachedGuides = published;
+    cachedGuide = data.guide || published[0];
+    grid.innerHTML = published.slice(0, 4).map(guide => {
+      const cover = guide.coverImage || guide.images?.[0] || "assets/vnl-banner.png";
+      const category = guideCategoryLabels[guide.category] || "Hướng dẫn";
+      return `<button type="button" class="hero-guide-card" data-hero-guide="${escapeHtml(guide.id)}" aria-label="Đọc hướng dẫn: ${escapeHtml(guide.title)}">
+        <span class="hero-guide-cover"><img src="${escapeHtml(cover)}" alt="" loading="lazy" /></span>
+        <span class="hero-guide-body">
+          <span class="hero-guide-category">${escapeHtml(category)}</span>
+          <span class="hero-guide-title">${escapeHtml(guide.title)}</span>
+          <span class="hero-guide-more">Đọc tiếp →</span>
+        </span>
+      </button>`;
+    }).join("");
+    section.hidden = false;
+  } catch {
+    // Giữ nguyên khu vực giới thiệu nếu chưa tải được hướng dẫn.
+  }
+}
+void initHeroGuides();
 
 function parseGuideVideo(url) {
   if (!url) return null;
@@ -1250,7 +1292,7 @@ async function showGuideModal(targetId = null) {
     const fallback = cachedGuide || {
       id: "main",
       title: "Hướng dẫn mua hàng tại VietNam Legacy",
-      subtitle: "Đơn giản · Nhanh chóng · Nhận hàng tự động & Hỗ trợ 24/7",
+      subtitle: "Chọn sản phẩm, nạp tiền vào ví và theo dõi đơn hàng",
       category: "guide",
       coverImage: "assets/vnl-banner.png",
       videoUrl: "",
@@ -1258,9 +1300,9 @@ async function showGuideModal(targetId = null) {
       steps: [
         { title: "Bước 1: Chọn sản phẩm & Gói cần mua", description: "Duyệt qua danh mục Discord Nitro, Decor hoặc dịch vụ bạn cần." },
         { title: "Bước 2: Nạp tiền ví qua mã QR ngân hàng", description: "Mở Ví cá nhân tại góc trên trang web, quét mã VietQR tự động." },
-        { title: "Bước 3: Đặt đơn & Nhận hàng tức thì", description: "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng." },
+        { title: "Bước 3: Đặt đơn và nhận hàng", description: "Bấm 'Mua ngay' hoặc 'Thanh toán' giỏ hàng." },
       ],
-      content: "Cần tư vấn thêm về gói dịch vụ Setup Server Discord chuyên nghiệp hoặc lập trình Custom Bot riêng? Đừng ngần ngại liên hệ với shop qua Discord chính thức.",
+      content: "Bạn cần setup server hoặc làm bot Discord riêng? Nhắn shop trên Discord để trao đổi yêu cầu và báo giá.",
       isActive: true,
       views: 1250,
     };
@@ -1382,7 +1424,7 @@ function handleAction(action) {
   if (action === "demo" || action === "about") {
     showInfo(
       "Thông tin cửa hàng",
-      "<p><strong>VietNam Legacy</strong> — Không gian mua sắm Nitro, Decor, Boost Server và các dịch vụ giải trí, sáng tạo số uy tín hàng đầu.</p><p>Hệ thống hỗ trợ thanh toán an toàn qua Ví tài khoản VietNam Legacy và nạp tiền tự động bằng mã VietQR ngân hàng. Đơn hàng và link quà tặng được xử lý nhanh chóng, bảo mật tuyệt đối 100%.</p><p>Cần hỗ trợ, tư vấn gói dịch vụ hoặc bảo hành? Đội ngũ hỗ trợ của shop luôn sẵn sàng 24/7 trên máy chủ Discord chính thức.</p>",
+      "<p><strong>VietNam Legacy</strong> bán Nitro, Decor, Boost Server và các gói giải trí, công cụ sáng tạo.</p><p>Bạn có thể thanh toán bằng ví VietNam Legacy và nạp tiền qua mã VietQR ngân hàng. Theo dõi trạng thái đơn và nhận link quà tặng trong mục Đơn hàng của tôi.</p><p>Để hỏi về gói dịch vụ, đơn hàng hoặc bảo hành, hãy nhắn shop trên Discord chính thức.</p>",
     );
   }
 }
@@ -1999,9 +2041,7 @@ closeMenu();
 window.matchMedia("(max-width: 760px)").addEventListener("change", closeMenu);
 
 
-/* ==========================================================================
-   LIVE MARQUEE ANNOUNCEMENT TICKER (SYNCED PC & MOBILE)
-   ========================================================================== */
+/* Đồng bộ thanh thông báo */
 function initAnnouncement() {
   const banner = document.querySelector("#announcement-bar");
   const track = document.querySelector("#announcement-track");
@@ -2054,9 +2094,7 @@ function initAnnouncement() {
 }
 
 
-/* ==========================================================================
-   ULTRA-SMOOTH INERTIA SCROLL ENGINE & NAVIGATION
-   ========================================================================== */
+/* Cuộn quán tính và điều hướng */
 class SmoothInertiaScroll {
   constructor() {
     this.enabled = false;

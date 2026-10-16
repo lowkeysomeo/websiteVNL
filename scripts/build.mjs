@@ -6,6 +6,8 @@ const output = new URL("../dist/", import.meta.url);
 await mkdir(output, { recursive: true });
 const files = [
   "index.html",
+  "sitemap.xml",
+  "robots.txt",
   "styles.css",
   "products.js",
   "app.js",
