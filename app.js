@@ -8,6 +8,11 @@ const icons = {
   layers: '<path d="m12 3 10 5-10 5L2 8Z M2 12l10 5 10-5 M2 16l10 5 10-5"/>',
   sparkles:
     '<path d="m12 3 2.8 6.2L21 12l-6.2 2.8L12 21l-2.8-6.2L3 12l6.2-2.8Z M20 2v4 M18 4h4"/>',
+  lightbulb:
+    '<path d="M9 15c-.6-1.1-.9-2.3-.9-3.5a5.4 5.4 0 1 1 10.8 0c0 1.2-.3 2.4-.9 3.5H9z"/><path d="M10 18h4"/><path d="M10.5 21h3"/><path d="M11.5 8a3 3 0 0 1 3 3"/><line x1="12" y1="2" x2="12" y2="3.8"/><line x1="18.5" y1="4.5" x2="17.2" y2="5.8"/><line x1="21.5" y1="11.5" x2="19.7" y2="11.5"/><line x1="18.5" y1="18.5" x2="17.2" y2="17.2"/><line x1="5.5" y1="18.5" x2="6.8" y2="17.2"/><line x1="2.5" y1="11.5" x2="4.3" y2="11.5"/><line x1="5.5" y1="4.5" x2="6.8" y2="5.8"/>',
+  creative:
+    '<path d="M9 15c-.6-1.1-.9-2.3-.9-3.5a5.4 5.4 0 1 1 10.8 0c0 1.2-.3 2.4-.9 3.5H9z"/><path d="M10 18h4"/><path d="M10.5 21h3"/><path d="M11.5 8a3 3 0 0 1 3 3"/><line x1="12" y1="2" x2="12" y2="3.8"/><line x1="18.5" y1="4.5" x2="17.2" y2="5.8"/><line x1="21.5" y1="11.5" x2="19.7" y2="11.5"/><line x1="18.5" y1="18.5" x2="17.2" y2="17.2"/><line x1="5.5" y1="18.5" x2="6.8" y2="17.2"/><line x1="2.5" y1="11.5" x2="4.3" y2="11.5"/><line x1="5.5" y1="4.5" x2="6.8" y2="5.8"/>',
+
   book: '<path d="M12 5c-3-2-7-2-10 0v15c3-2 7-2 10 0 3-2 7-2 10 0V5c-3-2-7-2-10 0Z M12 5v15"/>',
   headphones:
     '<path d="M4 14v-3a8 8 0 0 1 16 0v3 M4 12H3v8h4v-8Z M20 12h1v8h-4v-8Z"/>',
@@ -149,7 +154,7 @@ let storeCategories = [
   { id: "discord", name: "Discord", icon: "gamepad" },
   { id: "decor", name: "Profile Decor", icon: "decor" },
   { id: "entertainment", name: "Giải trí", icon: "layers" },
-  { id: "creative", name: "Sáng tạo", icon: "sparkles" },
+  { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
   { id: "services", name: "Dịch vụ Discord", icon: "box" },
 ];
 

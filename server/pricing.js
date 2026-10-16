@@ -390,7 +390,7 @@ export const DEFAULT_CATEGORIES = [
   { id: "discord", name: "Discord", icon: "gamepad" },
   { id: "decor", name: "Profile Decor", icon: "decor" },
   { id: "entertainment", name: "Giải trí", icon: "layers" },
-  { id: "creative", name: "Sáng tạo", icon: "sparkles" },
+  { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
   { id: "services", name: "Dịch vụ Discord", icon: "box" },
 ];
 
