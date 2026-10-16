@@ -388,7 +388,7 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
 
 export const DEFAULT_CATEGORIES = [
   { id: "services", name: "Dịch vụ Discord", icon: "discord" },
-  { id: "entertainment", name: "Giải trí", icon: "layers" },
+  { id: "entertainment", name: "Giải trí", icon: "entertainment" },
   { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
 ];
 
@@ -419,6 +419,7 @@ export async function getCategories(db) {
     saved = saved.map(c => {
       let icon = c.icon;
       if (c.id === "services" && (!icon || icon === "box")) icon = "discord";
+      if (c.id === "entertainment" && (!icon || icon === "layers")) { icon = "entertainment"; changed = true; }
       if (c.id === "creative" && (!icon || icon === "sparkles")) icon = "lightbulb";
       if (icon !== c.icon) changed = true;
       return { ...c, icon };

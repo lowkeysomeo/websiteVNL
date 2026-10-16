@@ -3,7 +3,7 @@ window.initAdminPricing = (() => {
   let api, notify, products = [], promotions = [], bankSettings = { bank: {}, isActive: false }, depositsList = [], depositFilter = "all", depositSearch = "", guideData = null, guidesList = [], guideFilter = "all", guideSearch = "", categoriesList = [
     { id: "services", name: "Dịch vụ Discord", icon: "discord" },
     
-    { id: "entertainment", name: "Giải trí", icon: "layers" },
+    { id: "entertainment", name: "Giải trí", icon: "entertainment" },
     { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
   ], partnersList = [], contactsSettings = { enabled: true, items: [] }, currentUser = { role: "admin", email: "", name: "" }, adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false, editingCategoryId = null, returnToProductId = null;
   const guideCategoryLabels = { guide: "Hướng dẫn", tips: "Mẹo & Thủ thuật", news: "Tin tức", other: "Khác" };
@@ -220,7 +220,8 @@ window.initAdminPricing = (() => {
     { value: "lightbulb", label: "💡 Bóng đèn / Sáng tạo (lightbulb)", emoji: "💡" },
     { value: "box", label: "📦 Hộp quà / Dịch vụ (box)", emoji: "📦" },
     { value: "gamepad", label: "🎮 Tay cầm Game / Giải trí (gamepad)", emoji: "🎮" },
-    { value: "layers", label: "🎬 Phim ảnh / Gói xếp lớp (layers)", emoji: "🎬" },
+    { value: "entertainment", label: "🎬 Phim ảnh / Giải trí (entertainment)", emoji: "🎬" },
+    { value: "layers", label: "📚 Gói xếp lớp / Hạng mục (layers)", emoji: "📚" },
     { value: "sparkles", label: "✨ Ngôi sao / Sáng tạo (sparkles)", emoji: "✨" },
     { value: "grid", label: "🔲 Lưới / Tổng hợp (grid)", emoji: "🔲" },
     { value: "headphones", label: "🎧 Âm nhạc / Hỗ trợ (headphones)", emoji: "🎧" },
