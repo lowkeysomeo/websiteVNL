@@ -391,7 +391,7 @@ export const DEFAULT_CATEGORIES = [
   { id: "decor", name: "Profile Decor", icon: "decor" },
   { id: "entertainment", name: "Giải trí", icon: "layers" },
   { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
-  { id: "services", name: "Dịch vụ Discord", icon: "box" },
+  { id: "services", name: "Dịch vụ Discord", icon: "discord" },
 ];
 
 export async function getCategories(db) {
@@ -402,6 +402,8 @@ export async function getCategories(db) {
   } catch {}
   if (!Array.isArray(saved) || !saved.length) {
     saved = [...DEFAULT_CATEGORIES];
+  } else {
+    saved = saved.map(c => (c.id === "services" && c.icon === "box" ? { ...c, icon: "discord" } : c));
   }
   return saved;
 }

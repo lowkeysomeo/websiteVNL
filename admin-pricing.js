@@ -5,6 +5,7 @@ window.initAdminPricing = (() => {
     { id: "decor", name: "Profile Decor", icon: "decor" },
     { id: "entertainment", name: "Giải trí", icon: "layers" },
     { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
+    { id: "services", name: "Dịch vụ Discord", icon: "discord" },
   ], partnersList = [], contactsSettings = { enabled: true, items: [] }, currentUser = { role: "admin", email: "", name: "" }, adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false, editingCategoryId = null, returnToProductId = null;
   const guideCategoryLabels = { guide: "Hướng dẫn", tips: "Mẹo & Thủ thuật", news: "Tin tức", other: "Khác" };
   const $ = (selector) => document.querySelector(selector);
@@ -214,6 +215,7 @@ window.initAdminPricing = (() => {
   }
 
   const CATEGORY_ICON_PRESETS = [
+    { value: "discord", label: "💬 Discord / Dịch vụ (discord)", emoji: "💬" },
     { value: "decor", label: "👤 Profile Decor / Avatar (decor)", emoji: "👤" },
     { value: "lightbulb", label: "💡 Bóng đèn / Sáng tạo (lightbulb)", emoji: "💡" },
     { value: "box", label: "📦 Hộp quà / Dịch vụ (box)", emoji: "📦" },
