@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap");
-
 :root {
   color-scheme: dark;
   --background: var(--tone-140b0d);
@@ -9,7 +7,7 @@
   --muted: var(--tone-b8a8a8);
   --accent: #ffd15c;
   --sidebar-width: 234px;
-  font-family: "Be Vietnam Pro", sans-serif;
+  font-family: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 * {

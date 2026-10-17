@@ -2207,19 +2207,16 @@ class SmoothInertiaScroll {
       return;
     }
 
-    let el = e.target;
-    while (el && el !== document.body && el !== document.documentElement) {
-      const style = window.getComputedStyle(el);
-      if (
-        (style.overflowY === "auto" || style.overflowY === "scroll") &&
-        el.scrollHeight > el.clientHeight
-      ) {
-        const canScrollUp = e.deltaY < 0 && el.scrollTop > 0;
-        const canScrollDown =
-          e.deltaY > 0 && el.scrollTop + el.clientHeight < el.scrollHeight - 1;
-        if (canScrollUp || canScrollDown) return;
-      }
-      el = el.parentElement;
+    const scrollable = e.target.closest?.(
+      "dialog, .cart-dialog, textarea, pre, .order-details-body, .floating-contacts-stack, .purchase-history-list, [data-scrollable]",
+    );
+    if (scrollable && scrollable.scrollHeight > scrollable.clientHeight) {
+      const canScrollUp = e.deltaY < 0 && scrollable.scrollTop > 0;
+      const canScrollDown =
+        e.deltaY > 0 &&
+        scrollable.scrollTop + scrollable.clientHeight <
+          scrollable.scrollHeight - 1;
+      if (canScrollUp || canScrollDown) return;
     }
 
     e.preventDefault();

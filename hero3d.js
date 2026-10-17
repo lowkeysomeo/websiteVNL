@@ -201,15 +201,15 @@
     const loader = new THREE.FontLoader();
     const font = loader.parse(window.VNL_FONT_DATA);
 
-    // Professional, razor-sharp beveled parameters
+    // Professional, razor-sharp beveled parameters (optimized for instant rendering)
     const textConfig = {
       font: font,
-      curveSegments: 14,
+      curveSegments: lightDevice ? 6 : 8,
       bevelEnabled: true,
       bevelThickness: 1.2,
       bevelSize: 0.6,
       bevelOffset: 0,
-      bevelSegments: 5
+      bevelSegments: lightDevice ? 2 : 3
     };
 
     // Material 1: Royal 24K Gold ("VIETNAM")
@@ -265,8 +265,8 @@
       bevelEnabled: true,
       bevelThickness: 1.6,
       bevelSize: 0.9,
-      bevelSegments: 5,
-      curveSegments: 12
+      bevelSegments: lightDevice ? 2 : 3,
+      curveSegments: lightDevice ? 6 : 8
     });
     starGeom.center();
     starGeom.computeVertexNormals();

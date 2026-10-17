@@ -24,11 +24,11 @@
     function reveal(element, delay, kind) {
       const motion = kind === 'word' ? 'translate3d(0, 110%, 0)' :
         kind === 'line' ? 'translate3d(0, 105%, 0)' : 'translate3d(0, 12px, 0)';
-      const start = { opacity: 0, transform: motion, filter: reduced ? 'blur(0)' : 'blur(1px)' };
-      const end = { opacity: 1, transform: 'translate3d(0, 0, 0)', filter: 'blur(0)' };
+      const start = { opacity: 0, transform: motion };
+      const end = { opacity: 1, transform: 'translate3d(0, 0, 0)' };
       const animation = element.animate([start, end], {
-        duration: kind === 'word' ? 1200 : 900,
-        delay,
+        duration: kind === 'word' ? 700 : 500,
+        delay: Math.round(delay * 0.6),
         easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
         fill: 'backwards',
       });

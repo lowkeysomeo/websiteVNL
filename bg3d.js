@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+  const isMobile = window.matchMedia && (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches);
   const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const finePointer = window.matchMedia && window.matchMedia('(any-hover: hover) and (any-pointer: fine)');
 
@@ -10,13 +10,13 @@
     bgHex: '#090909',
     primaryHex: 0x999999,     // Đỏ Ruby VietNam Legacy
     secondaryHex: 0xcccccc,   // Tím Discord Nitro
-    speed: prefersReduced ? 0.08 : 0.22,
-    parallax: prefersReduced ? 0 : (isMobile ? 0.45 : 1.15),
-    nodeCount: isMobile ? 50 : 92,
-    linkDist: isMobile ? 8.5 : 9.4,
+    speed: prefersReduced ? 0.08 : 0.20,
+    parallax: prefersReduced ? 0 : 1.0,
+    nodeCount: 46,
+    linkDist: 9.6,
     mouseRepelDist: 10.5,     // Bán kính lực đẩy/xoáy từ trường khi di chuột
     mouseForce: 0.085,        // Độ mạnh lực tương tác chuột
-    maxPixelRatio: isMobile ? 1.0 : 1.5
+    maxPixelRatio: 1.25
   };
 
   function createGlowTexture() {
@@ -34,6 +34,7 @@
   }
 
   function initVnl3DBackground() {
+    if (isMobile) return;
     if (!window.THREE) {
       setTimeout(initVnl3DBackground, 100);
       return;
@@ -205,7 +206,7 @@
 
     function tick() {
       requestAnimationFrame(tick);
-      if (!isTabVisible) return;
+      if (!isTabVisible || document.body.classList.contains('modal-open')) return;
 
       time += 0.02;
       smoothNormX += (normX - smoothNormX) * 0.06;
