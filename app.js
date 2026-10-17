@@ -2483,9 +2483,20 @@ async function initFloatingContacts() {
       })
       .join("");
 
+    let isCollapsed = false;
+    try {
+      isCollapsed = localStorage.getItem("vnl_contacts_collapsed") === "1";
+    } catch {}
+    container.classList.toggle("is-collapsed", isCollapsed);
+
     container.innerHTML = `
       <div class="floating-contacts-dock">
-        <div class="floating-dock-badge" title="Đội ngũ hỗ trợ trực tuyến">
+        <button class="floating-contacts-toggle" id="floating-contacts-toggle" type="button" aria-expanded="${!isCollapsed}" aria-label="${isCollapsed ? "Hiện thanh hỗ trợ" : "Ẩn thanh hỗ trợ"}" title="${isCollapsed ? "Hiện thanh hỗ trợ" : "Ẩn thanh hỗ trợ"}">
+          <svg class="floating-toggle-arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+        <div class="floating-dock-badge" role="button" tabindex="0" title="Đội ngũ hỗ trợ trực tuyến - Bấm để ẩn/hiện">
           <span class="floating-pulse-dot" aria-hidden="true"></span>
           <span>HỖ TRỢ</span>
         </div>
@@ -2494,6 +2505,40 @@ async function initFloatingContacts() {
         </div>
       </div>
     `;
+
+    function toggleContacts() {
+      const willCollapse = !container.classList.contains("is-collapsed");
+      container.classList.toggle("is-collapsed", willCollapse);
+      try {
+        localStorage.setItem("vnl_contacts_collapsed", willCollapse ? "1" : "0");
+      } catch {}
+      const btn = container.querySelector(".floating-contacts-toggle");
+      if (btn) {
+        btn.setAttribute("aria-expanded", String(!willCollapse));
+        const label = willCollapse ? "Hiện thanh hỗ trợ" : "Ẩn thanh hỗ trợ";
+        btn.setAttribute("aria-label", label);
+        btn.setAttribute("title", label);
+      }
+    }
+
+    const toggleBtn = container.querySelector(".floating-contacts-toggle");
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleContacts();
+      });
+    }
+
+    const dockBadge = container.querySelector(".floating-dock-badge");
+    if (dockBadge) {
+      dockBadge.addEventListener("click", toggleContacts);
+      dockBadge.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggleContacts();
+        }
+      });
+    }
   } catch (err) {
     console.warn("Could not load contact buttons:", err);
   }

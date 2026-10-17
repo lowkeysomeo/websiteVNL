@@ -3286,9 +3286,15 @@ body.modal-open .floating-contacts {
   align-items: center;
   pointer-events: auto;
   user-select: none;
+  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.floating-contacts.is-collapsed {
+  transform: translateX(calc(100% + 20px - 34px));
 }
 
 .floating-contacts-dock {
+  position: relative;
   background: var(--wash-18-14-22-0_78);
   border: 1px solid rgba(139, 92, 246, 0.25);
   border-radius: 28px;
@@ -3301,6 +3307,42 @@ body.modal-open .floating-contacts {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.floating-contacts-toggle {
+  position: absolute;
+  left: -14px;
+  top: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--tone-18191d);
+  border: 1.5px solid rgba(139, 92, 246, 0.45);
+  color: var(--tone-ffffff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55), 0 0 10px rgba(139, 92, 246, 0.25);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.25s ease;
+  z-index: 10;
+  padding: 0;
+}
+
+.floating-contacts-toggle:hover {
+  background: #251b35;
+  border-color: #a855f7;
+  color: #ffd15c;
+  transform: scale(1.12);
+}
+
+.floating-toggle-arrow {
+  display: block;
+  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.floating-contacts.is-collapsed .floating-toggle-arrow {
+  transform: rotate(180deg);
 }
 
 .floating-contacts-dock:hover {
@@ -3637,6 +3679,15 @@ body.modal-open .floating-contacts {
   .floating-contacts {
     right: 10px;
     bottom: 74px;
+  }
+  .floating-contacts.is-collapsed {
+    transform: translateX(calc(100% + 10px - 32px));
+  }
+  .floating-contacts-toggle {
+    left: -13px;
+    top: 8px;
+    width: 26px;
+    height: 26px;
   }
   .floating-contacts-dock {
     padding: 6px 4px;

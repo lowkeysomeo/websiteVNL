@@ -594,3 +594,21 @@ html[data-theme="light"] .wallet-symbol {
 html[data-theme="light"] .wallet-symbol-img {
   filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.4));
 }
+
+/* Floating contacts toggle & dock light theme */
+html[data-theme="light"] .floating-contacts-dock {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(139, 92, 246, 0.35);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 0 20px rgba(139, 92, 246, 0.12);
+}
+html[data-theme="light"] .floating-contacts-toggle {
+  background: #ffffff;
+  border-color: rgba(139, 92, 246, 0.45);
+  color: #171717;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+html[data-theme="light"] .floating-contacts-toggle:hover {
+  background: #f5f0ff;
+  border-color: #8b5cf6;
+  color: #7c3aed;
+}
