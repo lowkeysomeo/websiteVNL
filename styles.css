@@ -2595,85 +2595,7 @@ form textarea {
   border-color: var(--accent);
 }
 
-/* Con trỏ tương tác với nền 3D */
-
-.cursor-dot, .cursor-ring {
-  position: fixed;
-  top: 0;
-  left: 0;
-  pointer-events: none !important;
-  border-radius: 50%;
-  opacity: 0;
-  transform: translate(-50%, -50%);
-  will-change: transform;
-}
-/* Điểm sáng của con trỏ */
-.cursor-dot {
-  width: 4px;
-  height: 4px;
-  z-index: 9999;
-  background: var(--accent);
-  box-shadow: 0 0 5px #ffb703, 0 0 12px #ff2d55;
-  transition: opacity 140ms ease, background-color 160ms ease, box-shadow 160ms ease;
-}
-.cursor-dot.active { opacity: 1; }
-.cursor-dot.hover {
-  background: var(--tone-ffffff);
-  box-shadow: 0 0 8px var(--accent), 0 0 16px #ff2d55;
-}
-.cursor-dot.clicking {
-  background: var(--tone-ffffff);
-  box-shadow: 0 0 12px var(--tone-ffffff), 0 0 20px #ffb703;
-}
-
-/* Vòng sáng quanh con trỏ */
-.cursor-ring {
-  width: 15px;
-  height: 15px;
-  z-index: 9998;
-  border: 1.2px solid rgba(255, 183, 3, 0.75);
-  border-top-color: rgba(255, 225, 120, 0.95);
-  border-bottom-color: rgba(255, 45, 85, 0.85);
-  background: radial-gradient(circle, rgba(255, 183, 3, 0.1) 0%, rgba(255, 45, 85, 0.03) 55%, transparent 75%);
-  box-shadow: 0 0 8px rgba(255, 183, 3, 0.3), inset 0 0 5px rgba(255, 45, 85, 0.15);
-  transition: opacity 160ms ease, width 180ms cubic-bezier(0.16, 1, 0.3, 1),
-    height 180ms cubic-bezier(0.16, 1, 0.3, 1), border-color 180ms ease,
-    background-color 180ms ease, box-shadow 180ms ease;
-}
-.cursor-ring.active { opacity: 1; }
-.cursor-ring.hover {
-  width: 23px;
-  height: 23px;
-  border: 1.4px solid rgba(255, 215, 95, 0.95);
-  border-top-color: var(--accent);
-  border-bottom-color: #ff2d55;
-  background: radial-gradient(circle, rgba(255, 183, 3, 0.16) 0%, rgba(255, 45, 85, 0.06) 60%, transparent 80%);
-  box-shadow: 0 0 12px rgba(255, 183, 3, 0.45), 0 0 18px rgba(255, 45, 85, 0.25), inset 0 0 6px rgba(255, 183, 3, 0.2);
-}
-.cursor-ring.clicking {
-  width: 28px;
-  height: 28px;
-  border-color: var(--wash-255-255-255-0_95);
-  background: radial-gradient(circle, var(--wash-255-255-255-0_2) 0%, rgba(255, 183, 3, 0.2) 45%, transparent 75%);
-  box-shadow: 0 0 18px rgba(255, 183, 3, 0.75), 0 0 28px rgba(255, 45, 85, 0.5);
-  transition: width 90ms ease-out, height 90ms ease-out;
-}
-
-/* Ẩn lớp hạt con trỏ cũ */
-.cursor-particles {
-  display: none !important;
-}
-
-/* Chỉ giấu con trỏ chuột mặc định khi con trỏ 3D đã sẵn sàng */
-body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])),
-body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) * { cursor: none !important; }
-body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) input,
-body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) textarea,
-body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) [contenteditable]:not([contenteditable="false"]) { cursor: text !important; }
-body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) :disabled,
-body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) [aria-disabled="true"] { cursor: not-allowed !important; }
-body.has-custom-cursor:not(.modal-open):not(:has(dialog[open])) select { cursor: auto !important; }
-
+/* Ẩn các nút nổi khi đang mở hộp thoại */
 body:has(dialog[open]) .scroll-top-button,
 body:has(dialog[open]) .floating-contacts,
 body.modal-open .scroll-top-button,
@@ -2681,45 +2603,6 @@ body.modal-open .floating-contacts {
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
-}
-body.modal-open :is(.cursor-dot, .cursor-ring, .cursor-particles),
-body:has(dialog[open]) :is(.cursor-dot, .cursor-ring, .cursor-particles) {
-  opacity: 0 !important;
-  visibility: hidden !important;
-}
-
-/* Hiệu ứng hào quang viền thẻ sản phẩm nhận tọa độ từ chuột đồng bộ */
-.product-card.cursor-lit::before {
-  background: radial-gradient(240px circle at var(--mouse-x) var(--mouse-y),
-    rgba(255, 183, 3, 0.12), rgba(255, 45, 85, 0.07) 45%, transparent 75%);
-  opacity: 1;
-}
-.product-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 3;
-  background: radial-gradient(160px circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
-    rgba(255, 183, 3, 0.85), rgba(255, 45, 85, 0.55) 45%, transparent 78%);
-  -webkit-mask: linear-gradient(var(--tone-ffffff) 0 0) content-box, linear-gradient(var(--tone-ffffff) 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(var(--tone-ffffff) 0 0) content-box, linear-gradient(var(--tone-ffffff) 0 0);
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 200ms ease;
-}
-.product-card.cursor-lit::after { opacity: 1; }
-@media (any-hover: none), (any-pointer: none), (max-width: 768px) {
-  .cursor-dot, .cursor-ring, .cursor-particles { display: none !important; }
-  body.has-custom-cursor,
-  body.has-custom-cursor * { cursor: auto !important; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .cursor-ring { transition: opacity 120ms ease; }
-  .product-card::after { transition: none; }
 }
 
 /* Hiệu ứng xuất hiện khi cuộn */

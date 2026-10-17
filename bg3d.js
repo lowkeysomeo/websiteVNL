@@ -137,57 +137,7 @@
     });
     scene.add(new THREE.LineSegments(lineGeo, lineMat));
 
-    // 5. Đồng bộ hệ thống con trỏ chuột: Hạt tâm năng lượng & Vòng hào quang quay
-    let dot = document.querySelector('#cursor-dot');
-    let ring = document.querySelector('#cursor-ring');
-    if (!dot) {
-      dot = document.createElement('div');
-      dot.className = 'cursor-dot';
-      dot.id = 'cursor-dot';
-      dot.setAttribute('aria-hidden', 'true');
-      document.body.appendChild(dot);
-    }
-    if (!ring) {
-      ring = document.createElement('div');
-      ring.className = 'cursor-ring';
-      ring.id = 'cursor-ring';
-      ring.setAttribute('aria-hidden', 'true');
-      document.body.appendChild(ring);
-    }
-
-    const interactiveSelector = 'a[href], button, [role="button"], summary, .product-card, label[style*="cursor:pointer"], input[type="button"], input[type="submit"]';
-    const nativeControls = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), iframe';
-    const surfaceSelector = '.hero, .product-card, .support-card, .bottom-banner, .benefit-item, .order-card, .catalog-controls';
-
-    let clientX = -999, clientY = -999;
-    let ringCurX = -999, ringCurY = -999;
-    let isCursorVisible = false;
-    let activeSurface = null;
-    let clickReleaseTimer = null;
-
-    function isBlocked() {
-      return !finePointer.matches || document.hidden || document.body.classList.contains('modal-open') || Boolean(document.querySelector('dialog[open]'));
-    }
-
-    function clearActiveSurface() {
-      if (activeSurface) {
-        activeSurface.style.removeProperty('--mouse-x');
-        activeSurface.style.removeProperty('--mouse-y');
-        activeSurface.classList.remove('cursor-lit');
-        activeSurface = null;
-      }
-    }
-
-    function hideCustomCursor() {
-      if (!isCursorVisible) return;
-      isCursorVisible = false;
-      document.body.classList.remove('has-custom-cursor');
-      if (dot) dot.classList.remove('active', 'hover', 'clicking');
-      if (ring) ring.classList.remove('active', 'hover', 'clicking');
-      clearActiveSurface();
-    }
-
-    // 6. Theo dõi tọa độ chuột chuyển đổi sang không gian 3D thực tế
+    // 5. Theo dõi tọa độ chuột chuyển đổi sang không gian 3D thực tế
     let normX = 0, normY = 0;
     let smoothNormX = 0, smoothNormY = 0;
     let mouse3DX = 999, mouse3DY = 999;
@@ -215,55 +165,7 @@
     }
 
     window.addEventListener('pointermove', (e) => {
-      // Cập nhật tọa độ 3D
       updatePointer(e.clientX, e.clientY);
-
-      // Kiểm tra con trỏ chuột desktop
-      if (e.pointerType !== 'mouse' || isBlocked()) {
-        hideCustomCursor();
-        return;
-      }
-
-      const targetEl = e.target instanceof Element ? e.target : null;
-      if (!targetEl || targetEl.closest(nativeControls) || targetEl.closest(':disabled, [aria-disabled="true"]')) {
-        hideCustomCursor();
-        return;
-      }
-
-      clientX = e.clientX;
-      clientY = e.clientY;
-
-      if (!isCursorVisible) {
-        isCursorVisible = true;
-        ringCurX = clientX;
-        ringCurY = clientY;
-        document.body.classList.add('has-custom-cursor');
-        if (dot) dot.classList.add('active');
-        if (ring) ring.classList.add('active');
-      }
-
-      // Hạt tâm năng lượng bám chuẩn vị trí trỏ chuột tức thì (zero delay)
-      if (dot) {
-        dot.style.transform = `translate3d(${clientX}px, ${clientY}px, 0) translate(-50%, -50%)`;
-      }
-
-      // Nhận diện trạng thái hover trên nút bấm, liên kết, thẻ sản phẩm
-      const isHover = Boolean(targetEl.closest(interactiveSelector));
-      if (ring) ring.classList.toggle('hover', isHover);
-      if (dot) dot.classList.toggle('hover', isHover);
-
-      // Đồng bộ luồng ánh sáng viền hào quang thẻ sản phẩm
-      const surface = targetEl.closest(surfaceSelector);
-      if (surface !== activeSurface) {
-        clearActiveSurface();
-        activeSurface = surface;
-        if (activeSurface) activeSurface.classList.add('cursor-lit');
-      }
-      if (activeSurface && activeSurface.isConnected) {
-        const rect = activeSurface.getBoundingClientRect();
-        activeSurface.style.setProperty('--mouse-x', `${clientX - rect.left}px`);
-        activeSurface.style.setProperty('--mouse-y', `${clientY - rect.top}px`);
-      }
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
@@ -272,51 +174,17 @@
       }
     }, { passive: true });
 
-    // Click chuột tạo sóng xung kích 3D đẩy các hạt bung ra & kích hoạt hiệu ứng shockwave trên vòng hào quang
     window.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       clickPulse = 1.0;
-      if (isCursorVisible) {
-        clearTimeout(clickReleaseTimer);
-        if (ring) ring.classList.add('clicking');
-        if (dot) dot.classList.add('clicking');
-      }
     }, { passive: true });
-
-    window.addEventListener('pointerup', (e) => {
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
-      clearTimeout(clickReleaseTimer);
-      clickReleaseTimer = setTimeout(() => {
-        if (ring) ring.classList.remove('clicking');
-        if (dot) dot.classList.remove('clicking');
-      }, 140);
-    }, { passive: true });
-
-    window.addEventListener('pointerleave', hideCustomCursor, { passive: true });
-    window.addEventListener('pointercancel', hideCustomCursor, { passive: true });
-    window.addEventListener('blur', hideCustomCursor);
-    window.addEventListener('pagehide', hideCustomCursor);
 
     window.addEventListener('scroll', () => {
       scrollY = window.scrollY || 0;
-      if (isCursorVisible && activeSurface && activeSurface.isConnected) {
-        const rect = activeSurface.getBoundingClientRect();
-        activeSurface.style.setProperty('--mouse-x', `${clientX - rect.left}px`);
-        activeSurface.style.setProperty('--mouse-y', `${clientY - rect.top}px`);
-      }
     }, { passive: true });
 
     document.addEventListener('visibilitychange', () => {
       isTabVisible = !document.hidden;
-      if (document.hidden) hideCustomCursor();
-    });
-
-    const dialogObserver = new MutationObserver(() => {
-      if (isBlocked()) hideCustomCursor();
-    });
-    dialogObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-    document.querySelectorAll('dialog').forEach(d => {
-      dialogObserver.observe(d, { attributes: true, attributeFilter: ['open'] });
     });
 
     let resizeTimer = null;
@@ -349,20 +217,6 @@
       camera.position.x += (px - camera.position.x) * 0.08;
       camera.position.y += (py - camera.position.y) * 0.08;
       camera.lookAt(0, -scrollY * 0.0025, 0);
-
-      // Cập nhật Vòng Hào Quang của con trỏ trên lớp DOM (xoay nhịp nhàng và lướt mượt mà)
-      if (isCursorVisible && ring) {
-        if (prefersReduced) {
-          ringCurX = clientX;
-          ringCurY = clientY;
-          ring.style.transform = `translate3d(${ringCurX}px, ${ringCurY}px, 0) translate(-50%, -50%)`;
-        } else {
-          ringCurX += (clientX - ringCurX) * 0.28;
-          ringCurY += (clientY - ringCurY) * 0.28;
-          const ringRotation = (time * 95) % 360;
-          ring.style.transform = `translate3d(${ringCurX}px, ${ringCurY}px, 0) translate(-50%, -50%) rotate(${ringRotation}deg)`;
-        }
-      }
 
       // Cập nhật tâm điểm lực đẩy từ trường chuột trong không gian 3D
       if (hasMouseMoved) {
