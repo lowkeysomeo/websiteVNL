@@ -3,10 +3,11 @@
   <head>
     <meta name="google-site-verification" content="HeXrSlglAVQJKMwAKHfJ-X-zuRDLGfsnuKHRBsWiFhQ" />
     <meta charset="utf-8" />
+    <script src="preferences.js?v=20261017"></script>
     <script src="local-entry.js?v=20261013" ></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <meta name="theme-color" content="#140b0d" />
+    <meta name="theme-color" content="#090909" />
     <meta
       name="description"
       content="VietNam Legacy: Nitro, Decor, Boost Server và các gói giải trí, công cụ sáng tạo"
@@ -30,16 +31,17 @@
     <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48 96x96" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="96x96" href="/assets/favicon-96.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
-    <link rel="stylesheet" href="styles.css?v=20261016-guide2fa-fix" />
+    <link rel="stylesheet" href="styles.css?v=20261017-preferences" />
     <script src="assets/vendor/three.min.js" defer></script>
     <script src="assets/fonts/vnl-font.js" defer></script>
     <script src="hero3d.js?v=20261014-motion-fix" defer></script>
     <script src="bg3d.js?v=20261015-nolines1" defer></script>
     <script src="products.js" defer></script>
-    <script src="app.js?v=20261016-guide2fa-fix" defer></script>
-    <link rel="stylesheet" href="wallet.css?v=20261016-guide2fa-fix" />
-    <script src="wallet.js?v=20261016-guide2fa-fix" defer></script>
+    <script src="app.js?v=20261017-preferences" defer></script>
+    <link rel="stylesheet" href="wallet.css?v=20261017-wallet-icon" />
+    <script src="wallet.js?v=20261017-preferences" defer></script>
     <script src="intro.js?v=20261013-intro2" defer></script>
+    <link rel="stylesheet" href="themes.css?v=20261017" />
   </head>
   <body>
     <!-- Con trỏ do bg3d.js điều khiển. -->
@@ -170,7 +172,11 @@
             /></span>
             <span id="wallet-label">Đăng nhập</span>
           </button>
-          <span class="locale">VN <span class="locale-dot"></span> VND</span>
+          <div class="preferences-controls" data-no-i18n>
+            <button type="button" id="theme-toggle" class="preference-button" aria-label="Chuyển sang giao diện trắng" aria-pressed="false">☾</button>
+            <label class="sr-only" for="language-select">Ngôn ngữ / Language</label>
+            <select id="language-select" class="language-select" aria-label="Ngôn ngữ / Language"><option value="vi">Tiếng Việt</option><option value="en">English</option></select>
+          </div>
           <button class="cart-button" id="open-cart" style="display: none !important;">
             <span data-icon="bag"></span><span class="cart-label">Giỏ hàng</span
             ><span class="cart-count" id="cart-count">0</span>

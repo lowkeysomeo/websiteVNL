@@ -7,9 +7,9 @@
   const finePointer = window.matchMedia && window.matchMedia('(any-hover: hover) and (any-pointer: fine)');
 
   const CONFIG = {
-    bgHex: '#140b0d',
-    primaryHex: 0xff2d55,     // Đỏ Ruby VietNam Legacy
-    secondaryHex: 0xa855f7,   // Tím Discord Nitro
+    bgHex: '#090909',
+    primaryHex: 0x999999,     // Đỏ Ruby VietNam Legacy
+    secondaryHex: 0xcccccc,   // Tím Discord Nitro
     speed: prefersReduced ? 0.08 : 0.22,
     parallax: prefersReduced ? 0 : (isMobile ? 0.45 : 1.15),
     nodeCount: isMobile ? 50 : 92,
@@ -26,7 +26,7 @@
     const ctx = c.getContext('2d');
     const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
     grad.addColorStop(0, 'rgba(255,255,255,1)');
-    grad.addColorStop(0.4, 'rgba(255,180,215,0.8)');
+    grad.addColorStop(0.4, 'rgba(210,210,210,0.8)');
     grad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 32, 32);
@@ -54,7 +54,7 @@
         display: block;
       }
       body {
-        background-color: ${CONFIG.bgHex} !important;
+        background-color: var(--background) !important;
       }
       .page-shell {
         position: relative;

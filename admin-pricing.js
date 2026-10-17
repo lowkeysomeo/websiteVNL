@@ -214,6 +214,23 @@ window.initAdminPricing = (() => {
     }
   }
 
+  let partnersRefreshing = false;
+  async function refreshPartners() {
+    const canRefresh = () => currentView === "partners" && currentUser.role === "admin"
+      && !document.hidden && !$("#admin-app")?.hidden
+      && !$("#catalog-editor")?.firstElementChild;
+    if (partnersRefreshing || !loaded || !canRefresh()) return;
+    partnersRefreshing = true;
+    const requestApi = api;
+    try {
+      const result = await requestApi("/api/admin/partners");
+      if (api !== requestApi || !canRefresh()) return;
+      partnersList = Array.isArray(result.partners) ? result.partners : partnersList;
+      render();
+    } catch { /* Giữ số liệu gần nhất khi mất kết nối. */ }
+    finally { partnersRefreshing = false; }
+  }
+
   function switchView(view) {
     currentView = view;
     $("#admin-orders-view").hidden = view !== "orders";
@@ -223,6 +240,7 @@ window.initAdminPricing = (() => {
       button.setAttribute("aria-pressed", String(button.dataset.adminView === view));
     });
     if (view !== "orders") render();
+    if (view === "partners") void refreshPartners();
   }
 
   function slugify(text) {
@@ -2451,6 +2469,9 @@ window.initAdminPricing = (() => {
     if (currentView !== "orders") render();
     if (!initialized) {
       initialized = true;
+      setInterval(() => { void refreshPartners(); }, 15000);
+      window.addEventListener("focus", () => { void refreshPartners(); });
+      document.addEventListener("visibilitychange", () => { void refreshPartners(); });
       document.addEventListener("submit", submit);
       document.addEventListener("change", event => {
         if (event.target.matches('#promotion-form [name="type"]')) $("#promotion-form [name=value]").max = event.target.value === "percent" ? "100" : "1000000000";

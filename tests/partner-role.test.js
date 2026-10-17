@@ -389,6 +389,12 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
     const fulfilledOrder = await goodFulfillRes.json();
     assert.equal(fulfilledOrder.order.status, "completed");
     assert.equal(fulfilledOrder.order.claimLink, "https://drive.google.com/banner-design-finished");
+    const metrics = await (await fetch(origin + "/api/admin/partners", { headers: adminHeaders })).json();
+    const partnerMetrics = metrics.partners.find(p => p.id === partnerId);
+    assert.equal(partnerMetrics.orderCount, 1);
+    assert.equal(partnerMetrics.revenue, 50000, "Doanh số đọc price từ đơn hoàn thành");
+    assert.equal(partnerMetrics.totalRevenue, 50000);
+
 
     // -------------------------------------------------------------
     // 7. Khóa hoặc gỡ quyền đối tác (Lock / Revoke)

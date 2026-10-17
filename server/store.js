@@ -1379,7 +1379,8 @@ export async function listPartners(db) {
         const email = prod.partner_email.toLowerCase();
         seenPartners.add(email);
         if (o.status === "completed") {
-          const itemTotal = (item.unitPrice || 0) * (item.quantity || 1);
+          // Đơn hàng lưu giá bán trong price/subtotal; unitPrice dành cho dữ liệu cũ.
+          const itemTotal = item.subtotal ?? ((item.price ?? item.unitPrice ?? 0) * (item.quantity ?? 1));
           revenueByPartner.set(email, (revenueByPartner.get(email) || 0) + itemTotal);
         }
       }

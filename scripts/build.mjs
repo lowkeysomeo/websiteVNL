@@ -9,6 +9,8 @@ const files = [
   "sitemap.xml",
   "robots.txt",
   "styles.css",
+          "themes.css",
+          "preferences.js",
   "products.js",
   "app.js",
   "hero3d.js",

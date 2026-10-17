@@ -48,9 +48,9 @@
 
     // Background luxury obsidian gradient
     const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-    bgGrad.addColorStop(0, '#1a090c');
-    bgGrad.addColorStop(0.5, '#2c1218');
-    bgGrad.addColorStop(1, '#110507');
+    bgGrad.addColorStop(0, '#141414');
+    bgGrad.addColorStop(0.5, '#242424');
+    bgGrad.addColorStop(1, '#090909');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
 
@@ -67,9 +67,9 @@
 
     // Ruby crimson accent softbox (bottom-right)
     const g2 = ctx.createRadialGradient(370, 185, 0, 370, 185, 120);
-    g2.addColorStop(0, 'rgba(255, 110, 130, 0.9)');
-    g2.addColorStop(0.4, 'rgba(239, 68, 68, 0.6)');
-    g2.addColorStop(0.75, 'rgba(150, 20, 35, 0.2)');
+    g2.addColorStop(0, 'rgba(200, 200, 200, 0.9)');
+    g2.addColorStop(0.4, 'rgba(160, 160, 160, 0.6)');
+    g2.addColorStop(0.75, 'rgba(90, 90, 90, 0.2)');
     g2.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = g2;
     ctx.beginPath();
@@ -144,7 +144,7 @@
     // Giảm số điểm ảnh trên thiết bị yếu, vẫn giữ nguyên bố cục và tương tác.
     // Scene & Camera
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x1a0b0e, 0.003);
+    scene.fog = new THREE.FogExp2(0x141414, 0.003);
 
     const camera = new THREE.PerspectiveCamera(38, 1, 1, 1000);
     camera.position.set(0, 0, 140);
@@ -180,7 +180,7 @@
     dirKeyLight.position.set(45, 60, 80);
     scene.add(dirKeyLight);
 
-    const dirCrimsonLight = new THREE.DirectionalLight(0xff3b56, 1.2);
+    const dirCrimsonLight = new THREE.DirectionalLight(0xb0b0b0, 1.2);
     dirCrimsonLight.position.set(-50, -35, 50);
     scene.add(dirCrimsonLight);
 
@@ -226,8 +226,8 @@
 
     // Material 2: Luxury Ruby Crimson ("LEGACY")
     const rubyMaterial = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(0xff3b56),
-      emissive: new THREE.Color(0x42020d),
+      color: new THREE.Color(0xb0b0b0),
+      emissive: new THREE.Color(0x161616),
       emissiveIntensity: 0.26,
       metalness: 0.86,
       roughness: 0.16,
@@ -320,7 +320,7 @@
       const radGrad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
       radGrad.addColorStop(0, 'rgba(255, 235, 170, 1)');
       radGrad.addColorStop(0.35, 'rgba(255, 209, 92, 0.85)');
-      radGrad.addColorStop(0.7, 'rgba(239, 68, 68, 0.3)');
+      radGrad.addColorStop(0.7, 'rgba(160, 160, 160, 0.3)');
       radGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       pCtx.fillStyle = radGrad;
       pCtx.fillRect(0, 0, 32, 32);

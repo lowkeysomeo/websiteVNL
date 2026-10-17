@@ -1145,6 +1145,8 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           "favicon.ico",
           "local-entry.js",
           "styles.css",
+          "themes.css",
+          "preferences.js",
           "products.js",
           "app.js",
           "hero3d.js",

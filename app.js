@@ -1,3 +1,4 @@
+function localizedAlert(message) { window.alert(window.VNLPreferences?.t(message) ?? message); }
 const icons = {
   grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   box: '<path d="m3 7 9-4 9 4v10l-9 4-9-4Z M3 7l9 4 9-4 M12 11v10 M7.5 5l9 4"/>',
@@ -1766,7 +1767,7 @@ document
     const submitBtn = document.querySelector("#checkout-submit-btn");
 
     if (!name) {
-      form.elements.name?.setCustomValidity("Vui lòng nhập tên người nhận.");
+      form.elements.name?.setCustomValidity(window.VNLPreferences?.t("Vui lòng nhập tên người nhận.") ?? "Vui lòng nhập tên người nhận.");
       form.elements.name?.reportValidity();
       return;
     }
@@ -1783,7 +1784,7 @@ document
 
     if (hasDecor) {
       if (!decorImage) {
-        alert("Vui lòng tải lên ảnh chụp màn hình hoặc nhập link ảnh mẫu Decor bạn cần mua để shop biết và giao đúng mẫu.");
+        localizedAlert("Vui lòng tải lên ảnh chụp màn hình hoặc nhập link ảnh mẫu Decor bạn cần mua để shop biết và giao đúng mẫu.");
         const textInput = document.querySelector("#checkout-decor-image-input");
         if (textInput) textInput.focus();
         return;
@@ -1792,14 +1793,14 @@ document
 
     if (hasBoost) {
       if (!serverInvite) {
-        alert("Vui lòng nhập link mời vô thời hạn của server Discord cần Boost.");
+        localizedAlert("Vui lòng nhập link mời vô thời hạn của server Discord cần Boost.");
         form.elements.serverInvite?.focus();
         return;
       }
       const invitePattern =
         /^(https?:\/\/)?(www\.)?(discord\.(gg|io|me|li)|discord(?:app)?\.com\/invite)\/[a-zA-Z0-9_-]+$/i;
       if (!invitePattern.test(serverInvite)) {
-        alert(
+        localizedAlert(
           "Link mời server Discord không hợp lệ. Vui lòng cung cấp link mời dạng https://discord.gg/abcxyz hoặc discord.gg/abcxyz",
         );
         form.elements.serverInvite?.focus();
@@ -1809,12 +1810,12 @@ document
 
     if (hasLog) {
       if (!discordAccount) {
-        alert("Vui lòng nhập tài khoản Discord (Email hoặc SĐT) để nạp gói.");
+        localizedAlert("Vui lòng nhập tài khoản Discord (Email hoặc SĐT) để nạp gói.");
         form.elements.discordAccount?.focus();
         return;
       }
       if (!discordPassword) {
-        alert("Vui lòng nhập mật khẩu Discord để nạp gói.");
+        localizedAlert("Vui lòng nhập mật khẩu Discord để nạp gói.");
         form.elements.discordPassword?.focus();
         return;
       }
@@ -1823,7 +1824,7 @@ document
         .map((c) => c.trim())
         .filter(Boolean);
       if (codes.length < 3) {
-        alert(
+        localizedAlert(
           "Vui lòng nhập tối thiểu 3 mã dự phòng Discord (Backup Codes) cách nhau bởi dấu phẩy.",
         );
         form.elements.backupCodes?.focus();
@@ -1928,7 +1929,7 @@ document
         ${
           resData.order.decorImage
             ? `<div class="decor-notice" style="margin:10px 0; padding:10px; border-radius:6px; display:flex; align-items:center; gap:10px;">
-                <img src="${escapeHtml(resData.order.decorImage)}" alt="Mẫu Decor" style="width:40px; height:40px; object-fit:cover; border-radius:4px; border:1px solid rgba(255,255,255,0.2);" />
+                <img src="${escapeHtml(resData.order.decorImage)}" alt="Mẫu Decor" style="width:40px; height:40px; object-fit:cover; border-radius:4px; border:1px solid var(--wash-255-255-255-0_2);" />
                 <div>
                   🎨 <strong>Mẫu Decor:</strong> Đã lưu ảnh mẫu Decor bạn yêu cầu gửi cho shop.
                 </div>
@@ -1948,7 +1949,7 @@ document
         </div>`,
       );
     } catch (err) {
-      alert(err.message);
+      localizedAlert(err.message);
       notify(err.message);
     } finally {
       checkoutBusy = false;
@@ -1970,7 +1971,7 @@ function initDecorCheckout() {
       const file = decorFileInput.files && decorFileInput.files[0];
       if (!file) return;
       if (!file.type.startsWith("image/")) {
-        alert("Vui lòng chọn tệp hình ảnh (JPG, PNG, WEBP...)");
+        localizedAlert("Vui lòng chọn tệp hình ảnh (JPG, PNG, WEBP...)");
         decorFileInput.value = "";
         return;
       }
@@ -2000,7 +2001,7 @@ function initDecorCheckout() {
           if (decorPreviewWrap) decorPreviewWrap.style.display = "flex";
         };
         img.onerror = () => {
-          alert("Không thể đọc tệp ảnh. Vui lòng chọn ảnh khác.");
+          localizedAlert("Không thể đọc tệp ảnh. Vui lòng chọn ảnh khác.");
         };
         img.src = e.target.result;
       };
