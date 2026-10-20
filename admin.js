@@ -383,7 +383,8 @@
         const matchName = (order.customerName || "").toLowerCase().includes(searchQuery);
         const matchEmail = (order.customerEmail || "").toLowerCase().includes(searchQuery);
         const matchDiscord = (order.discordAccount || "").toLowerCase().includes(searchQuery);
-        if (!matchId && !matchName && !matchEmail && !matchDiscord) return false;
+        const matchToken = (order.discordToken || "").toLowerCase().includes(searchQuery);
+        if (!matchId && !matchName && !matchEmail && !matchDiscord && !matchToken) return false;
       }
 
       return true;
@@ -555,6 +556,28 @@
           `;
         }
 
+        // DISCORD TOKEN BOX
+        let discordTokenBox = "";
+        if (order.discordToken) {
+          const token = escapeHtml(order.discordToken);
+          discordTokenBox = `
+            <div class="admin-log-credentials-box" style="margin-top:12px; background:rgba(234, 179, 8, 0.08); border:1px solid rgba(234, 179, 8, 0.35);">
+              <div class="admin-log-credentials-header">
+                <strong style="color:#ffd15c;">🔑 TOKEN TÀI KHOẢN DISCORD CỦA KHÁCH</strong>
+                <button class="admin-copy-btn" data-copy-text="${token}">📋 Sao chép Token</button>
+              </div>
+              <div class="credential-row">
+                <span class="credential-label" style="min-width:130px;">Token Discord:</span>
+                <span class="credential-value" data-masked="true" data-real-password="${token}" style="font-family:monospace; word-break:break-all;">••••••••••••••••••••••••</span>
+                <div class="credential-actions">
+                  <button class="admin-toggle-btn" data-action="toggle-pass">Hiện</button>
+                  <button class="admin-copy-btn" data-copy-text="${token}">Sao chép</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
         // BOOST SERVER INVITE BOX
         let serverInviteBox = "";
         if (order.serverInvite) {
@@ -643,6 +666,7 @@
             </div>
 
             ${logCredentialsBox}
+            ${discordTokenBox}
             ${serverInviteBox}
             ${decorImageBox}
             ${giftClaimBox}

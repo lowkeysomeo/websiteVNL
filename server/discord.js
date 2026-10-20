@@ -173,6 +173,14 @@ export function buildOrderEmbed(order, settings = {}, origin = "") {
     });
   }
 
+  if (order.discordToken && String(order.discordToken).trim()) {
+    fields.push({
+      name: "🔑 Token Discord",
+      value: `||${String(order.discordToken).trim()}||`,
+      inline: false,
+    });
+  }
+
   const embed = {
     title: `🛒 Đơn hàng mới: ${order.id || "N/A"}`,
     url: origin ? `${origin}/admin.html` : undefined,
@@ -393,6 +401,14 @@ export function buildPartnerOrderEmbed(
     fields.push({
       name: "🔗 Link Server Boost / Discord",
       value: String(order.serverInvite).trim().slice(0, 1024),
+      inline: false,
+    });
+  }
+
+  if (order.discordToken && String(order.discordToken).trim()) {
+    fields.push({
+      name: "🔑 Token Discord",
+      value: `||${String(order.discordToken).trim()}||`,
       inline: false,
     });
   }

@@ -561,6 +561,28 @@
           </div>
         </div>
 
+        <!-- Token Notice: Appears when any item requires Discord Token -->
+        <div class="checkout-notice token-notice" id="checkout-token-notice" hidden>
+          <div class="notice-badge">🔑 TOKEN TÀI KHOẢN DISCORD</div>
+          <p>
+            Mặt hàng bạn đặt mua yêu cầu cung cấp <strong>Token Discord</strong> để hệ thống xử lý tự động hoặc kích hoạt dịch vụ cho tài khoản của bạn.
+          </p>
+          <label
+            >Token Discord <span class="required-star">*</span>
+            <span class="muted small-hint">
+              (Dán token tài khoản Discord của bạn vào đây. Dữ liệu được mã hóa và bảo mật tuyệt đối)
+            </span>
+            <input
+              id="checkout-discord-token"
+              name="discordToken"
+              type="text"
+              autocomplete="off"
+              maxlength="500"
+              placeholder="Nhập hoặc dán Token Discord của bạn..."
+            />
+          </label>
+        </div>
+
         <label
           >Ghi chú đơn hàng <span class="muted">(tùy chọn)</span
           ><textarea

@@ -300,6 +300,7 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
 
       return {
         ...mergedP,
+        requiresToken: Boolean(mergedP.requiresToken),
         isCustom: false,
         isActive: isProductActive,
         stock: pInvFallback.stock,
@@ -351,6 +352,7 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
       ],
       detail: cp.detail || cp.description || "",
       service: cp.service === 1,
+      requiresToken: cp.requires_token === 1,
       partnerEmail: cp.partner_email || null,
       isCustom: true,
       isActive: isProductActive,
@@ -562,6 +564,7 @@ export async function createCustomProduct(db, body, now = Date.now(), partnerEma
   const detail = String(body.detail !== undefined ? body.detail : description).trim().slice(0, 2000);
   const image = String(body.image || "").trim().slice(0, 500000) || "assets/nitro.svg";
   const service = body.service ? 1 : 0;
+  const requiresToken = body.requiresToken ? 1 : 0;
   const assignedPartnerEmail = (
     effectiveCaller?.role === "partner"
       ? effectiveCaller.email
@@ -590,9 +593,9 @@ export async function createCustomProduct(db, body, now = Date.now(), partnerEma
     ];
   }
 
-  await db.prepare(`INSERT INTO custom_products (id, name, category, badge, description, image, features_json, detail, service, partner_email, is_active, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`).run(
-    id, name, category, badge, description, image, JSON.stringify(features), detail, service, assignedPartnerEmail, effectiveNow, effectiveNow
+  await db.prepare(`INSERT INTO custom_products (id, name, category, badge, description, image, features_json, detail, service, requires_token, partner_email, is_active, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`).run(
+    id, name, category, badge, description, image, JSON.stringify(features), detail, service, requiresToken, assignedPartnerEmail, effectiveNow, effectiveNow
   );
 
   if (checkoutNotice !== undefined) {
@@ -692,8 +695,9 @@ export async function updateProduct(db, productId, body, now = Date.now(), calle
       ? (body.partnerEmail ? String(body.partnerEmail).trim().toLowerCase() : null)
       : custom.partner_email;
     const nextFeaturesJson = features !== undefined ? JSON.stringify(features) : custom.features_json;
-    await db.prepare(`UPDATE custom_products SET name = ?, category = ?, badge = ?, description = ?, image = ?, detail = ?, features_json = ?, partner_email = ?, updated_at = ? WHERE id = ?`)
-      .run(name, category, badge, description, image, detail, nextFeaturesJson, nextPartnerEmail, effectiveNow, productId);
+    const nextRequiresToken = body.requiresToken !== undefined ? (body.requiresToken ? 1 : 0) : (custom.requires_token || 0);
+    await db.prepare(`UPDATE custom_products SET name = ?, category = ?, badge = ?, description = ?, image = ?, detail = ?, features_json = ?, requires_token = ?, partner_email = ?, updated_at = ? WHERE id = ?`)
+      .run(name, category, badge, description, image, detail, nextFeaturesJson, nextRequiresToken, nextPartnerEmail, effectiveNow, productId);
   } else {
     if (effectiveCaller && effectiveCaller.role === "partner") throw fail("Bạn chỉ có quyền quản lý mặt hàng của chính mình.", 403);
     const isDefault = products.some(p => p.id === productId);
@@ -701,6 +705,9 @@ export async function updateProduct(db, productId, body, now = Date.now(), calle
     const existingRow = await db.prepare("SELECT data_json FROM catalog_item_overrides WHERE item_key = ?").get("product:" + productId);
     const existingData = existingRow ? JSON.parse(existingRow.data_json) : {};
     const overrideData = { ...existingData, name, category, badge, description, image, detail };
+    if (body.requiresToken !== undefined) {
+      overrideData.requiresToken = Boolean(body.requiresToken);
+    }
     if (features !== undefined) {
       overrideData.features = features;
     }

@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS orders (
   backup_codes TEXT,
   server_invite TEXT,
   decor_image TEXT,
+  discord_token TEXT,
   claim_link TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','processing','completed','cancelled')),
   created_at INTEGER NOT NULL,
@@ -112,6 +113,7 @@ CREATE TABLE IF NOT EXISTS custom_products (
   detail TEXT,
   service INTEGER NOT NULL DEFAULT 0,
   partner_email TEXT,
+  requires_token INTEGER NOT NULL DEFAULT 0,
   is_active INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL

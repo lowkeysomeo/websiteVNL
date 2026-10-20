@@ -235,6 +235,7 @@ export async function createOrder(db, orderData) {
     backupCodes = null,
     serverInvite = null,
     decorImage = null,
+    discordToken = null,
     now = Date.now(),
   } = orderData;
 
@@ -340,9 +341,9 @@ export async function createOrder(db, orderData) {
         `INSERT INTO orders (
         id, user_id, customer_name, customer_email, customer_note,
         items_json, total, payment_method, has_log_items,
-        discord_account, discord_password, backup_codes, server_invite, decor_image, claim_link,
+        discord_account, discord_password, backup_codes, server_invite, decor_image, discord_token, claim_link,
         status, created_at, completed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL)`,
       )
       .run(
         orderId,
@@ -359,6 +360,7 @@ export async function createOrder(db, orderData) {
         backupCodes,
         serverInvite,
         decorImage,
+        discordToken,
         initialStatus,
         now,
       );
@@ -384,6 +386,7 @@ export async function createOrder(db, orderData) {
       hasLogItems: Boolean(hasLogItems),
       serverInvite,
       decorImage,
+      discordToken,
       status: initialStatus,
       createdAt: now,
     };
@@ -401,7 +404,7 @@ async function orderPricing(db, orderId) {
 export async function getUserOrders(db, userId, { limit = 50, offset = 0 } = {}) {
   const rows = await db
     .prepare(
-      "SELECT o.id, o.customer_name, o.customer_email, o.customer_note, o.items_json, o.total, o.payment_method, o.has_log_items, o.server_invite, o.decor_image, o.claim_link, o.status, o.created_at, o.completed_at, op.snapshot_json AS pricing_json FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id WHERE o.user_id = ? ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?",
+      "SELECT o.id, o.customer_name, o.customer_email, o.customer_note, o.items_json, o.total, o.payment_method, o.has_log_items, o.server_invite, o.decor_image, o.discord_token, o.claim_link, o.status, o.created_at, o.completed_at, op.snapshot_json AS pricing_json FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id WHERE o.user_id = ? ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?",
     )
     .all(userId, limit, offset);
   const messagesByOrder = await attachOrderMessages(db, rows.map((r) => r.id));
@@ -417,6 +420,7 @@ export async function getUserOrders(db, userId, { limit = 50, offset = 0 } = {})
     hasLogItems: Boolean(row.has_log_items),
     serverInvite: row.server_invite,
     decorImage: row.decor_image || null,
+    discordToken: row.discord_token || null,
     claimLink: row.claim_link,
     status: row.status,
     createdAt: row.created_at,
@@ -574,6 +578,7 @@ export async function getAdminOrders(
     hasLogItems: Boolean(row.has_log_items),
     discordAccount: row.discord_account,
     discordPassword: row.discord_password,
+    discordToken: row.discord_token || null,
     backupCodes: row.backup_codes,
     serverInvite: row.server_invite,
     decorImage: row.decor_image || null,
@@ -710,6 +715,7 @@ export async function updateAdminOrder(db, orderId, { status, claimLink }, partn
     hasLogItems: Boolean(order.has_log_items),
     discordAccount: order.discord_account,
     discordPassword: order.discord_password,
+    discordToken: order.discord_token || null,
     backupCodes: order.backup_codes,
     serverInvite: order.server_invite,
     claimLink: nextClaimLink,

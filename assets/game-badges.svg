@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 210">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#2c141a"/>
+      <stop offset="60%" stop-color="#1c0d10"/>
+      <stop offset="100%" stop-color="#140b0d"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="55%" r="60%">
+      <stop offset="0%" stop-color="#ffd15c" stop-opacity=".22"/>
+      <stop offset="50%" stop-color="#b82442" stop-opacity=".12"/>
+      <stop offset="100%" stop-color="#ffd15c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffd15c" stop-opacity=".3"/>
+      <stop offset="100%" stop-color="#ffd15c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="swordGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff8ee"/>
+      <stop offset="50%" stop-color="#ffd15c"/>
+      <stop offset="100%" stop-color="#e69d24"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="50%" stop-color="#ffd15c"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <pattern id="grid" width="22" height="22" patternUnits="userSpaceOnUse">
+      <path d="M22 0 H0 V22" fill="none" stroke="#ffd15c" stroke-opacity=".04"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="350" height="210" fill="url(#bg)"/>
+  <rect width="350" height="210" fill="url(#grid)"/>
+
+  <!-- Glows -->
+  <ellipse cx="175" cy="120" rx="140" ry="90" fill="url(#glow)"/>
+  <circle cx="175" cy="115" r="65" fill="url(#centerGlow)"/>
+
+  <!-- Orbiting ring -->
+  <ellipse cx="175" cy="130" rx="100" ry="42" fill="none" stroke="#ffd15c" stroke-opacity=".2" stroke-dasharray="4 6" transform="rotate(-12 175 130)"/>
+  <ellipse cx="175" cy="130" rx="85" ry="34" fill="none" stroke="#b82442" stroke-opacity=".25" transform="rotate(16 175 130)"/>
+
+  <!-- Top Title -->
+  <text x="175" y="44" font-family="'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-weight="900" font-size="20" letter-spacing="4" text-anchor="middle" fill="#fff8ee">HUY HIỆU GAME</text>
+  <text x="175" y="60" font-family="'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-weight="700" font-size="9" letter-spacing="2.5" text-anchor="middle" fill="#ffd15c">HOẠT ĐỘNG PROFILE DISCORD</text>
+
+  <!-- Central Badge Emblems -->
+  <!-- Outer Shield Badge -->
+  <path d="M175 72 L215 88 C215 130 195 158 175 168 C155 158 135 130 135 88 Z" fill="#201215" stroke="url(#goldGrad)" stroke-width="2.5" filter="drop-shadow(0 6px 16px rgba(0,0,0,0.7))"/>
+  <path d="M175 78 L208 92 C208 127 192 150 175 160 C158 150 142 127 142 92 Z" fill="#2d171c" stroke="#443036" stroke-width="1.2"/>
+
+  <!-- Crossed Swords (Game Time) -->
+  <g transform="translate(175, 114)">
+    <!-- Sword 1 -->
+    <path d="M-18 -22 L0 -4 L-4 0 L-22 -18 Z" fill="url(#swordGrad)"/>
+    <path d="M-22 -26 L-18 -22 L-22 -18 L-26 -22 Z" fill="#fff8ee"/>
+    <path d="M0 -4 L6 2 L2 6 L-4 0 Z" fill="#ffd15c"/>
+    <line x1="4" y1="4" x2="10" y2="10" stroke="#ffd15c" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="12" cy="12" r="2" fill="#ffd15c"/>
+
+    <!-- Sword 2 -->
+    <path d="M18 -22 L0 -4 L4 0 L22 -18 Z" fill="url(#swordGrad)"/>
+    <path d="M22 -26 L26 -22 L22 -18 L18 -22 Z" fill="#fff8ee"/>
+    <path d="M0 -4 L-6 2 L-2 6 L4 0 Z" fill="#ffd15c"/>
+    <line x1="-4" y1="4" x2="-10" y2="10" stroke="#ffd15c" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="-12" cy="-12" r="2" fill="#ffd15c"/>
+  </g>
+
+  <!-- Gamepad Icon Center -->
+  <g transform="translate(175, 128) scale(0.9)">
+    <!-- Gamepad Body -->
+    <rect x="-22" y="-12" width="44" height="24" rx="10" fill="#140b0d" stroke="#ffd15c" stroke-width="1.8"/>
+    <!-- D-Pad -->
+    <path d="M-14 -4 H-10 V-8 H-6 V-4 H-2 V0 H-6 V4 H-10 V0 H-14 Z" fill="#ffd15c" transform="scale(0.8) translate(-6, 2)"/>
+    <!-- Action Buttons -->
+    <circle cx="8" cy="-3" r="2" fill="#b82442"/>
+    <circle cx="14" cy="-3" r="2" fill="#22c55e"/>
+    <circle cx="11" cy="-6" r="2" fill="#ffd15c"/>
+    <circle cx="11" cy="0" r="2" fill="#38bdf8"/>
+  </g>
+
+  <!-- Decorative Sparkles -->
+  <path d="M50 78 H60 M55 73 V83 M290 152 H300 M295 147 V157" stroke="#ffd15c" stroke-opacity=".7" stroke-width="1.5"/>
+  <circle cx="68" cy="140" r="2.5" fill="#ffd15c" fill-opacity=".6"/>
+  <circle cx="280" cy="85" r="3" fill="#ffd15c" fill-opacity=".7"/>
+  <circle cx="105" cy="55" r="2" fill="#fff8ee" fill-opacity=".8"/>
+  <circle cx="245" cy="165" r="2" fill="#b82442" fill-opacity=".7"/>
+
+  <!-- Left Pill (Giờ Chơi) -->
+  <g transform="translate(36, 110)">
+    <rect width="76" height="22" rx="11" fill="#201215" stroke="#3b292c" stroke-width="1"/>
+    <text x="38" y="15" font-family="'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, Arial, sans-serif" font-weight="800" font-size="8.5" letter-spacing="1" text-anchor="middle" fill="#ffd15c">GIỜ CHƠI</text>
+  </g>
+
+  <!-- Right Pill (Số Game) -->
+  <g transform="translate(238, 110)">
+    <rect width="76" height="22" rx="11" fill="#201215" stroke="#3b292c" stroke-width="1"/>
+    <text x="38" y="15" font-family="'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, Arial, sans-serif" font-weight="800" font-size="8.5" letter-spacing="1" text-anchor="middle" fill="#ffd15c">SỐ GAME</text>
+  </g>
+
+  <!-- Bottom Tagline -->
+  <text x="175" y="196" font-family="'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" font-weight="700" font-size="8" letter-spacing="2.5" text-anchor="middle" fill="#b8a8a8">CÀY GIỜ CHƠI · SỐ GAME · FULL HUY HIỆU PROFILE</text>
+</svg>

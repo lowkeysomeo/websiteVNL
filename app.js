@@ -569,6 +569,23 @@ function showProduct(id, isDirectBuy = false) {
           <label for="variant">Chọn gói sản phẩm</label>
           <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${moneyText(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
+          ${product.requiresToken ? `
+          <div class="detail-token-field" style="margin-top:12px; margin-bottom:12px; background:rgba(234,179,8,0.06); border:1px solid rgba(234,179,8,0.25); border-radius:8px; padding:10px 12px;">
+            <label for="detail-discord-token" style="font-weight:600; color:#ffd15c; font-size:13px; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+              🔑 Nhập Token Discord: <span style="color:#ef4444;">*</span>
+            </label>
+            <input
+              id="detail-discord-token"
+              type="text"
+              autocomplete="off"
+              placeholder="Dán token Discord của bạn vào đây..."
+              style="width:100%; padding:10px 12px; font-size:13px; border-radius:6px; border:1px solid var(--line); background:rgba(0,0,0,0.3); color:var(--text); box-sizing:border-box;"
+            />
+            <span class="fine-print" style="margin-top:4px; font-size:11px; color:var(--muted); display:block;">
+              Token tài khoản cần thiết để kích hoạt tự động cho tài khoản của bạn.
+            </span>
+          </div>
+          ` : ''}
           <div class="detail-actions">
             <button class="button primary detail-buy-btn is-out-btn full-width" id="detail-buy" disabled>${icon("cart")} Tạm hết</button>
           </div>
@@ -578,6 +595,23 @@ function showProduct(id, isDirectBuy = false) {
           <label for="variant">Chọn gói sản phẩm</label>
           <select id="variant">${product.variants.map((variant) => `<option value="${variant.id}">${variant.name}: ${moneyText(variant.price)}</option>`).join("")}</select>
           <div class="detail-price" id="detail-price">${variantPriceHtml(first)}</div>
+          ${product.requiresToken ? `
+          <div class="detail-token-field" style="margin-top:12px; margin-bottom:12px; background:rgba(234,179,8,0.06); border:1px solid rgba(234,179,8,0.25); border-radius:8px; padding:10px 12px;">
+            <label for="detail-discord-token" style="font-weight:600; color:#ffd15c; font-size:13px; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+              🔑 Nhập Token Discord: <span style="color:#ef4444;">*</span>
+            </label>
+            <input
+              id="detail-discord-token"
+              type="text"
+              autocomplete="off"
+              placeholder="Dán token Discord của bạn vào đây..."
+              style="width:100%; padding:10px 12px; font-size:13px; border-radius:6px; border:1px solid var(--line); background:rgba(0,0,0,0.3); color:var(--text); box-sizing:border-box;"
+            />
+            <span class="fine-print" style="margin-top:4px; font-size:11px; color:var(--muted); display:block;">
+              Token tài khoản cần thiết để kích hoạt tự động cho tài khoản của bạn.
+            </span>
+          </div>
+          ` : ''}
           <div class="detail-actions">
             <button class="button primary detail-buy-btn full-width" id="detail-buy">${icon("cart")} Mua ngay</button>
           </div>
@@ -593,8 +627,21 @@ function showProduct(id, isDirectBuy = false) {
       document.querySelector("#detail-price").innerHTML = variantPriceHtml(getVariant(product, select.value));
     });
     document.querySelector("#detail-buy")?.addEventListener("click", () => {
-      productDialog.close();
-      buyNowDirect(id, select.value);
+
+      if (product.requiresToken) {
+        const tokenInput = document.querySelector("#detail-discord-token");
+        const tokenVal = tokenInput ? tokenInput.value.trim() : "";
+        if (!tokenVal || tokenVal.length < 10) {
+          notify("Vui lòng nhập Token Discord hợp lệ trước khi tiếp tục.");
+          if (tokenInput) tokenInput.focus();
+          return;
+        }
+        productDialog.close();
+        buyNowDirect(id, select.value, tokenVal);
+      } else {
+        productDialog.close();
+        buyNowDirect(id, select.value);
+      }
     });
   }
   const currentScrollY = window.scrollY;
@@ -604,7 +651,7 @@ function showProduct(id, isDirectBuy = false) {
   }
 }
 
-function buyNowDirect(productId, variantId) {
+function buyNowDirect(productId, variantId, discordToken = "") {
   const product = getProduct(productId);
   if (!product || product.service) return;
   if (!catalogReady) return notify("Chưa tải được giá từ cửa hàng.");
@@ -621,6 +668,7 @@ function buyNowDirect(productId, variantId) {
     price: variant.price,
     quantity: 1,
     deliveryType: variant.deliveryType || "gift",
+    discordToken: discordToken || "",
   };
 
   startCheckout(directItem);
@@ -721,10 +769,18 @@ async function startCheckout(directItem = null) {
     return isDecorProduct(pid);
   });
 
+  const hasToken = items.some((item) => {
+    const pid = directItem ? directItem.productId : item.productId;
+    const p = getProduct(pid);
+    return Boolean(p?.requiresToken);
+  });
+
   const giftNotice = document.querySelector("#checkout-gift-notice");
   const logNotice = document.querySelector("#checkout-log-notice");
   const boostNotice = document.querySelector("#checkout-boost-notice");
   const decorNotice = document.querySelector("#checkout-decor-notice");
+  const tokenNotice = document.querySelector("#checkout-token-notice");
+  const tokenInput = document.querySelector("#checkout-discord-token");
   const accInput = document.querySelector("#checkout-discord-account");
   const passInput = document.querySelector("#checkout-discord-password");
   const codesInput = document.querySelector("#checkout-backup-codes");
@@ -761,6 +817,20 @@ async function startCheckout(directItem = null) {
     if (decorNotice) decorNotice.hidden = false;
   } else {
     if (decorNotice) decorNotice.hidden = true;
+  }
+
+  if (hasToken) {
+    if (tokenNotice) tokenNotice.hidden = false;
+    if (tokenInput) {
+      tokenInput.required = true;
+      tokenInput.value = directItem?.discordToken || "";
+    }
+  } else {
+    if (tokenNotice) tokenNotice.hidden = true;
+    if (tokenInput) {
+      tokenInput.required = false;
+      tokenInput.value = "";
+    }
   }
   if (decorFileInput) decorFileInput.value = "";
   if (decorImageInput) decorImageInput.value = "";
@@ -965,6 +1035,16 @@ async function showOrders(offset = 0) {
           `;
         }
 
+        let tokenSection = "";
+        if (order.discordToken) {
+          tokenSection = `
+            <div class="order-token-info" style="margin-top:8px; padding:8px 12px; background:rgba(234, 179, 8, 0.08); border:1px solid rgba(234, 179, 8, 0.25); border-radius:6px; font-size:12px;">
+              🔑 <strong>Token Discord đã gửi:</strong> <span style="font-family:monospace; background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:4px; font-size:11px;">••••••••••••••••</span>
+              <span class="muted" style="margin-left:6px; font-size:11px;">(Đã gửi an toàn tới hệ thống quản trị)</span>
+            </div>
+          `;
+        }
+
         const itemsHtml = order.items
           .map(
             (item) =>
@@ -1039,6 +1119,7 @@ async function showOrders(offset = 0) {
             ${logNotice}
             ${boostNotice}
             ${decorSection}
+            ${tokenSection}
             ${chatBox}
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
               <span class="muted" style="font-size:11px;">Thanh toán: Ví VietNam Legacy</span>
@@ -1975,12 +2056,17 @@ document
     const hasLog = itemsToOrder.some((item) => item.deliveryType === "log");
     const hasBoost = itemsToOrder.some((item) => item.productId === "boost");
     const hasDecor = itemsToOrder.some((item) => isDecorProduct(item.productId));
+    const hasToken = itemsToOrder.some((item) => {
+      const p = getProduct(item.productId);
+      return Boolean(p?.requiresToken);
+    });
 
     const discordAccount = String(data.get("discordAccount") || "").trim();
     const discordPassword = String(data.get("discordPassword") || "").trim();
     const backupCodes = String(data.get("backupCodes") || "").trim();
     const serverInvite = String(data.get("serverInvite") || "").trim();
     const decorImage = String(data.get("decorImage") || "").trim();
+    const discordToken = String(data.get("discordToken") || "").trim();
 
     if (hasDecor) {
       if (!decorImage) {
@@ -2028,6 +2114,14 @@ document
           "Vui lòng nhập tối thiểu 3 mã dự phòng Discord (Backup Codes) cách nhau bởi dấu phẩy.",
         );
         form.elements.backupCodes?.focus();
+        return;
+      }
+    }
+
+    if (hasToken) {
+      if (!discordToken || discordToken.length < 10) {
+        localizedAlert("Vui lòng nhập Token Discord hợp lệ của tài khoản để shop kích hoạt dịch vụ.");
+        form.elements.discordToken?.focus();
         return;
       }
     }
@@ -2084,6 +2178,7 @@ document
         backupCodes: hasLog ? backupCodes : undefined,
         serverInvite: hasBoost ? serverInvite : undefined,
         decorImage: decorImage || undefined,
+        discordToken: hasToken ? discordToken : undefined,
       };
 
       const orderRes = await fetch("/api/orders", {

@@ -956,6 +956,7 @@ window.initAdminPricing = (() => {
                     <span class="product-category-chip">${esc(getCategoryDisplayName(p.category))}</span>
                     ${p.partnerEmail ? `<span class="product-partner-badge" title="Mặt hàng do đối tác quản lý">🤝 ${esc(p.partnerEmail)}</span>` : ""}
                     ${p.service ? '<span class="status-badge service-sm">🛠️ Dịch vụ</span>' : ""}
+                    ${p.requiresToken ? '<span class="status-badge" style="background:rgba(234,179,8,0.15); color:#ffd15c; border:1px solid rgba(234,179,8,0.4);">🔑 Cần Token</span>' : ""}
                     ${p.isCustom ? '<span class="status-badge custom">Tự tạo</span>' : ""}
                     ${p.isActive ? '<span class="status-badge active">Đang bán</span>' : '<span class="status-badge disabled">Đã ẩn / Bỏ bán</span>'}
                     <span class="product-stock-pill ${p.stock <= 0 ? 'is-out' : (p.stock <= 5 ? 'is-low' : '')}" title="Số lượng còn lại trong kho">📦 Kho: <strong>${p.stock != null ? p.stock : 99}</strong></span>
@@ -1545,6 +1546,15 @@ window.initAdminPricing = (() => {
             </div>
             <textarea name="detail" rows="3" maxlength="2000" style="width:100%; padding:8px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px; resize:vertical; font-family:inherit;" placeholder="Nhập đoạn văn bản giới thiệu chi tiết về mặt hàng khi khách bấm xem chi tiết...">${esc(p.detail || p.description || "")}</textarea>
           </label>
+          <div style="grid-column: 1 / -1; background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 8px; padding: 12px; margin-top: 4px;">
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin:0; user-select:none;">
+              <input type="checkbox" name="requiresToken" value="1" ${p.requiresToken ? 'checked' : ''} style="width:18px; height:18px; accent-color:#ffd15c; cursor:pointer;">
+              <div>
+                <strong style="color:#ffd15c; font-size:13px; display:block;">🔑 Yêu cầu khách nhập Token Discord khi đặt mua</strong>
+                <span style="font-size:11px; color:var(--muted); display:block; margin-top:2px;">Bật tính năng này nếu mặt hàng cần khách cung cấp Token Discord (VD: Auto Badge, treo huy hiệu, chạy bot tài khoản...). Hệ thống sẽ hiển thị ô nhập Token ở popup chi tiết và form thanh toán.</span>
+              </div>
+            </label>
+          </div>
           <div style="grid-column: 1 / -1;">
             <label>
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
@@ -1689,6 +1699,17 @@ window.initAdminPricing = (() => {
             <span style="font-size:11px; color:var(--muted);">Hiển thị phần giới thiệu chi tiết mặt hàng</span>
           </div>
           <textarea name="detail" rows="3" maxlength="2000" style="width:100%; padding:8px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px; resize:vertical; font-family:inherit;" placeholder="Giới thiệu chi tiết sản phẩm / dịch vụ, chế độ bảo hành và quy trình bàn giao..."></textarea>
+        </label>
+        <div style="grid-column: 1 / -1; background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 8px; padding: 12px; margin-top: 4px;">
+          <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin:0; user-select:none;">
+            <input type="checkbox" name="requiresToken" value="1" style="width:18px; height:18px; accent-color:#ffd15c; cursor:pointer;">
+            <div>
+              <strong style="color:#ffd15c; font-size:13px; display:block;">🔑 Yêu cầu khách nhập Token Discord khi đặt mua</strong>
+              <span style="font-size:11px; color:var(--muted); display:block; margin-top:2px;">Bật tính năng này nếu mặt hàng cần khách cung cấp Token Discord (VD: Auto Badge, treo huy hiệu, chạy bot tài khoản...). Hệ thống sẽ hiển thị ô nhập Token ở popup chi tiết và form thanh toán.</span>
+            </div>
+          </label>
+        </div>
+        <label style="display:none;" data-skip="1">
         </label>
         <div style="grid-column: 1 / -1;">
           <label>
@@ -2355,7 +2376,8 @@ window.initAdminPricing = (() => {
           title: checkoutNoticeTitle,
           content: checkoutNoticeContent
         } : null;
-        await api("/api/admin/products", { method: "POST", body: JSON.stringify({ name, category, badge, description, image, partnerEmail, variants, detail, features, stock: Number(data.get("stock") || 99), soldCount: Number(data.get("soldCount") || 0), checkoutNotice }) });
+        const requiresToken = data.get("requiresToken") === "1";
+        await api("/api/admin/products", { method: "POST", body: JSON.stringify({ name, category, badge, description, image, partnerEmail, variants, detail, features, requiresToken, stock: Number(data.get("stock") || 99), soldCount: Number(data.get("soldCount") || 0), checkoutNotice }) });
         notify(currentUser.role === "partner" ? "Đã đăng dịch vụ mới thành công!" : "Đã thêm mặt hàng mới.");
         $("#catalog-editor").replaceChildren();
       } else if (form.id === "product-edit-form") {
@@ -2400,9 +2422,10 @@ window.initAdminPricing = (() => {
         const partnerEmail = currentUser.role === "partner"
           ? currentUser.email
           : ((data.get("partnerEmail") || "").trim() || null);
+        const requiresToken = data.get("requiresToken") === "1";
         await api("/api/admin/products/" + productId, {
           method: "PUT",
-          body: JSON.stringify({ name, category, badge, description, image: editImage, partnerEmail, detail, features, stock: Number(data.get("stock") || 99), soldCount: Number(data.get("soldCount") || 0), checkoutNotice: {
+          body: JSON.stringify({ name, category, badge, description, image: editImage, partnerEmail, detail, features, requiresToken, stock: Number(data.get("stock") || 99), soldCount: Number(data.get("soldCount") || 0), checkoutNotice: {
             title: String(data.get('checkoutNoticeTitle') || ''),
             content: String(data.get('checkoutNoticeContent') || '')
           } }),

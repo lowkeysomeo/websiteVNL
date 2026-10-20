@@ -635,7 +635,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           if (!allow(`order:${current.user_id}`, 30, 60000))
             throw fail(429, "Quá nhiều đơn hàng. Vui lòng thử lại sau 1 phút.");
           const body = parse(await readBody(req));
-          const { validatedItems, total, hasLogItems, hasBoostItems } =
+          const { validatedItems, total, hasLogItems, hasBoostItems, hasTokenItems } =
             await quoteOrder(db, body.items, body.couponCode, current.user_id);
 
           const customerName = String(body.name || "").trim();
@@ -660,6 +660,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           let backupCodes = null;
           let serverInvite = null;
           let decorImage = null;
+          let discordToken = null;
 
           if (body.decorImage) {
             decorImage = String(body.decorImage).trim().slice(0, 500000) || null;
@@ -729,6 +730,16 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
               );
           }
 
+          if (hasTokenItems) {
+            discordToken = String(body.discordToken || "").trim();
+            if (!discordToken || discordToken.length < 10 || discordToken.length > 500) {
+              throw fail(
+                400,
+                "Đơn có mặt hàng yêu cầu Token Discord. Vui lòng nhập Token Discord hợp lệ của tài khoản.",
+              );
+            }
+          }
+
           const order = await createOrder(db, {
             userId: current.user_id,
             customerName,
@@ -746,6 +757,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             backupCodes,
             serverInvite,
             decorImage,
+            discordToken,
           });
 
           // Gửi thông báo đơn hàng đến Discord Admin (chạy an toàn, không gián đoạn đơn nếu lỗi)
@@ -756,6 +768,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
                 ...order,
                 discordAccount,
                 discordPassword,
+                discordToken,
                 backupCodes,
               },
               config.origin,
@@ -779,6 +792,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
               hasLogItems: order.hasLogItems,
               serverInvite: order.serverInvite,
               decorImage: order.decorImage,
+              discordToken: order.discordToken,
               status: order.status,
               createdAt: order.createdAt,
             },

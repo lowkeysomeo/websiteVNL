@@ -81,6 +81,8 @@ export async function openStore(filename, remote = {}) {
         await tx.exec("ALTER TABLE orders ADD COLUMN server_invite TEXT;");
       if (!columns.some((column) => column.name === "decor_image"))
         await tx.exec("ALTER TABLE orders ADD COLUMN decor_image TEXT;");
+      if (!columns.some((column) => column.name === "discord_token"))
+        await tx.exec("ALTER TABLE orders ADD COLUMN discord_token TEXT;");
       const guideCols = await tx.prepare("PRAGMA table_info(shopping_guides)").all();
       if (guideCols.length && !guideCols.some((c) => c.name === "partner_email"))
         await tx.exec("ALTER TABLE shopping_guides ADD COLUMN partner_email TEXT;");
@@ -100,6 +102,8 @@ export async function openStore(filename, remote = {}) {
       const prodCols = await tx.prepare("PRAGMA table_info(custom_products)").all();
       if (prodCols.length && !prodCols.some((c) => c.name === "partner_email"))
         await tx.exec("ALTER TABLE custom_products ADD COLUMN partner_email TEXT DEFAULT NULL;");
+      if (prodCols.length && !prodCols.some((c) => c.name === "requires_token"))
+        await tx.exec("ALTER TABLE custom_products ADD COLUMN requires_token INTEGER NOT NULL DEFAULT 0;");
       const msgCols = await tx.prepare("PRAGMA table_info(order_messages)").all();
       if (msgCols.length === 0) {
         await tx.exec(`CREATE TABLE IF NOT EXISTS order_messages (

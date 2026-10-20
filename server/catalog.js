@@ -19,6 +19,7 @@ export function validateOrderItems(items, catalog = products) {
   let total = 0;
   let hasLogItems = false;
   let hasBoostItems = false;
+  let hasTokenItems = false;
   const validatedItems = [];
 
   const quantities = new Map();
@@ -64,6 +65,7 @@ export function validateOrderItems(items, catalog = products) {
     const isLog = variant.deliveryType === "log";
     if (isLog) hasLogItems = true;
     if (product.id === "boost") hasBoostItems = true;
+    if (Boolean(product.requiresToken)) hasTokenItems = true;
 
     const subtotal = variant.price * quantity;
     total += subtotal;
@@ -80,5 +82,5 @@ export function validateOrderItems(items, catalog = products) {
     });
   }
 
-  return { validatedItems, total, hasLogItems, hasBoostItems };
+  return { validatedItems, total, hasLogItems, hasBoostItems, hasTokenItems };
 }
