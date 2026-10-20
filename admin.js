@@ -46,7 +46,12 @@
     );
 
   async function api(path, options = {}) {
+    let body = options.body;
+    if (body && typeof body === "object" && !(typeof FormData !== "undefined" && body instanceof FormData)) {
+      body = JSON.stringify(body);
+    }
     const res = await fetch(path, {
+      body,
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -1040,7 +1045,7 @@
     try {
       const res = await api(`/api/admin/orders/${encodeURIComponent(orderId)}/messages`, {
         method: "POST",
-        body: { message: text },
+        body: JSON.stringify({ message: text }),
       });
       if (input) input.value = "";
       const feed = document.getElementById(`admin-chat-feed-${orderId}`);
