@@ -1018,9 +1018,7 @@
     });
   }
 
-  // Init
-  checkAuthAndInit();
-})();
+
 
   // Submit handler for admin order chat
   document.addEventListener("submit", async (e) => {
@@ -1090,3 +1088,7 @@
       }
     }
   });
+
+  // Init
+  checkAuthAndInit();
+})();
