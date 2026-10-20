@@ -31,6 +31,8 @@ import {
   deletePartner,
   createAdminToken,
   getAdminUserFromToken,
+  addOrderMessage,
+  getOrderMessages,
 } from "./store.js";
 import {
   getCatalog,
@@ -797,6 +799,44 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             pagination: { limit, offset, total: stats.totalOrders, hasMore: offset + orders.length < stats.totalOrders },
           });
         }
+        const customerOrderMessagesMatch = route.match(
+          /^\/api\/orders\/([A-Za-z0-9_-]+)\/messages$/,
+        );
+        if (req.method === "GET" && customerOrderMessagesMatch) {
+          const current = await requireSession(req);
+          const orderId = customerOrderMessagesMatch[1];
+          const order = await db
+            .prepare("SELECT id, user_id FROM orders WHERE id = ?")
+            .get(orderId);
+          if (!order || order.user_id !== current.user_id) {
+            throw fail(404, "Không tìm thấy đơn hàng.");
+          }
+          const messages = await getOrderMessages(db, orderId);
+          return json(200, { success: true, messages });
+        }
+        if (req.method === "POST" && customerOrderMessagesMatch) {
+          sameOrigin(req);
+          const current = await requireSession(req);
+          if (!allow(`order-msg:${current.user_id}`, 30, 60000)) {
+            throw fail(429, "Bạn gửi tin nhắn quá nhanh. Vui lòng chờ giây lát.");
+          }
+          const orderId = customerOrderMessagesMatch[1];
+          const order = await db
+            .prepare("SELECT id, user_id, customer_name, customer_email FROM orders WHERE id = ?")
+            .get(orderId);
+          if (!order || order.user_id !== current.user_id) {
+            throw fail(404, "Không tìm thấy đơn hàng.");
+          }
+          const body = parse(await readBody(req));
+          const message = await addOrderMessage(db, {
+            orderId,
+            senderRole: "customer",
+            senderId: current.user_id,
+            senderName: order.customer_name || current.email || "Khách hàng",
+            message: body.message,
+          });
+          return json(201, { success: true, message });
+        }
         if (req.method === "POST" && route === "/api/admin/auth") {
           if (!config.adminPassword)
             throw fail(503, "Quản trị chưa được cấu hình.");
@@ -881,6 +921,71 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             claimLink: body.claimLink,
           }, partnerEmail);
           return json(200, { success: true, order: updated });
+        }
+        const adminOrderMessagesMatch = route.match(
+          /^\/api\/admin\/orders\/([A-Za-z0-9_-]+)\/messages$/,
+        );
+        if (req.method === "GET" && adminOrderMessagesMatch) {
+          const caller = await requireAdminOrPartner(req);
+          const orderId = adminOrderMessagesMatch[1];
+          const order = await db
+            .prepare("SELECT * FROM orders WHERE id = ?")
+            .get(orderId);
+          if (!order) throw fail(404, "Không tìm thấy đơn hàng.");
+          if (caller.role === "partner") {
+            let partnerProductIds = new Set();
+            try {
+              const products = await db
+                .prepare("SELECT id FROM custom_products WHERE LOWER(partner_email) = ?")
+                .all(caller.email.toLowerCase());
+              partnerProductIds = new Set((products || []).map((p) => p.id));
+            } catch {}
+            let items = [];
+            try {
+              items = JSON.parse(order.items_json);
+            } catch {}
+            if (!items.some((it) => partnerProductIds.has(it.productId))) {
+              throw fail(403, "Bạn không có quyền xem đơn hàng này.");
+            }
+          }
+          const messages = await getOrderMessages(db, orderId);
+          return json(200, { success: true, messages });
+        }
+        if (req.method === "POST" && adminOrderMessagesMatch) {
+          sameOrigin(req);
+          const caller = await requireAdminOrPartner(req);
+          const orderId = adminOrderMessagesMatch[1];
+          const order = await db
+            .prepare("SELECT * FROM orders WHERE id = ?")
+            .get(orderId);
+          if (!order) throw fail(404, "Không tìm thấy đơn hàng.");
+          if (caller.role === "partner") {
+            let partnerProductIds = new Set();
+            try {
+              const products = await db
+                .prepare("SELECT id FROM custom_products WHERE LOWER(partner_email) = ?")
+                .all(caller.email.toLowerCase());
+              partnerProductIds = new Set((products || []).map((p) => p.id));
+            } catch {}
+            let items = [];
+            try {
+              items = JSON.parse(order.items_json);
+            } catch {}
+            if (!items.some((it) => partnerProductIds.has(it.productId))) {
+              throw fail(403, "Bạn không có quyền gửi tin nhắn cho đơn hàng này.");
+            }
+          }
+          const body = parse(await readBody(req));
+          const senderRole = caller.role === "partner" ? "partner" : "admin";
+          const senderName = caller.role === "partner" ? `Đối tác (${caller.email})` : "Quản trị viên (Shop)";
+          const message = await addOrderMessage(db, {
+            orderId,
+            senderRole,
+            senderId: caller.role === "partner" ? caller.email : "admin",
+            senderName,
+            message: body.message,
+          });
+          return json(201, { success: true, message });
         }
         if (req.method === "GET" && route === "/api/admin/partners") {
           await requireAdmin(req);

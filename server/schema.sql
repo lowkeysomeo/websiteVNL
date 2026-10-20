@@ -61,6 +61,17 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS orders_user ON orders(user_id, created_at);
 CREATE INDEX IF NOT EXISTS orders_created ON orders(created_at);
 
+CREATE TABLE IF NOT EXISTS order_messages (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(id),
+  sender_role TEXT NOT NULL CHECK(sender_role IN ('admin','partner','customer')),
+  sender_id TEXT NOT NULL,
+  sender_name TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS order_messages_order ON order_messages(order_id, created_at);
+
 CREATE TABLE IF NOT EXISTS site_announcements (
   id TEXT PRIMARY KEY,
   content TEXT NOT NULL,

@@ -100,6 +100,19 @@ export async function openStore(filename, remote = {}) {
       const prodCols = await tx.prepare("PRAGMA table_info(custom_products)").all();
       if (prodCols.length && !prodCols.some((c) => c.name === "partner_email"))
         await tx.exec("ALTER TABLE custom_products ADD COLUMN partner_email TEXT DEFAULT NULL;");
+      const msgCols = await tx.prepare("PRAGMA table_info(order_messages)").all();
+      if (msgCols.length === 0) {
+        await tx.exec(`CREATE TABLE IF NOT EXISTS order_messages (
+          id TEXT PRIMARY KEY,
+          order_id TEXT NOT NULL REFERENCES orders(id),
+          sender_role TEXT NOT NULL CHECK(sender_role IN ('admin','partner','customer')),
+          sender_id TEXT NOT NULL,
+          sender_name TEXT NOT NULL,
+          message TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS order_messages_order ON order_messages(order_id, created_at);`);
+      }
     });
     return db;
   } catch (error) {

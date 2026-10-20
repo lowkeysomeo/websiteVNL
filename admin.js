@@ -447,6 +447,69 @@
           })
           .join("");
 
+        const orderMessages = Array.isArray(order.messages) ? order.messages : [];
+        const messagesHtml = orderMessages.length > 0
+          ? orderMessages
+              .map((m) => {
+                const isShop = m.senderRole === "admin" || m.senderRole === "partner";
+                const roleBadge = isShop
+                  ? `👑 ${escapeHtml(m.senderName || "Shop")}`
+                  : `👤 ${escapeHtml(m.senderName || "Khách hàng")}`;
+                const timeStr = new Date(m.createdAt).toLocaleString("vi-VN", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  day: "2-digit",
+                  month: "2-digit",
+                });
+                return `
+                  <div class="admin-chat-bubble ${isShop ? "bubble-admin" : "bubble-customer"}">
+                    <div class="admin-bubble-header">
+                      <span class="admin-bubble-sender">${roleBadge}</span>
+                      <span class="admin-bubble-time">${timeStr}</span>
+                    </div>
+                    <div class="admin-bubble-text">${escapeHtml(m.message)}</div>
+                  </div>
+                `;
+              })
+              .join("")
+          : '<p class="admin-chat-empty">Chưa có trao đổi nào trên đơn hàng này. Gửi phản hồi bên dưới để nhắn với khách hàng.</p>';
+
+        const adminChatBox = `
+          <div class="admin-order-chat" data-admin-order-id="${escapeHtml(order.id)}">
+            <div class="admin-chat-header">
+              <div class="admin-chat-title-group">
+                <span class="admin-chat-title">💬 Trao đổi & Phản hồi cho khách hàng</span>
+                <span class="admin-chat-count ${orderMessages.length > 0 ? "has-count" : ""}">${orderMessages.length > 0 ? `${orderMessages.length} tin nhắn` : "0 tin nhắn"}</span>
+              </div>
+              <small class="admin-chat-hint">Tin nhắn sẽ hiện ngay trong mục Đơn hàng của tôi của khách</small>
+            </div>
+            <div class="admin-chat-feed" id="admin-chat-feed-${escapeHtml(order.id)}">
+              ${messagesHtml}
+            </div>
+            <div class="admin-chat-quick-replies">
+              <span class="quick-reply-label">⚡ Mẫu phản hồi nhanh:</span>
+              <button type="button" class="admin-quick-chip" data-quick-admin="Shop đang tiến hành nạp gói cho bạn nhé, vui lòng chờ khoảng 5-10 phút!">⏳ Đang nạp gói</button>
+              <button type="button" class="admin-quick-chip" data-quick-admin="Đơn hàng của bạn đã hoàn tất! Bạn kiểm tra lại giúp shop nhé.">✅ Đã hoàn tất</button>
+              <button type="button" class="admin-quick-chip" data-quick-admin="Mã xác thực 2FA hoặc mật khẩu chưa chính xác, bạn kiểm tra và gửi lại giúp shop nhé!">⚠️ Cần mã 2FA mới</button>
+              <button type="button" class="admin-quick-chip" data-quick-admin="Bạn gửi giúp shop link server Discord cần Boost để shop vào thực hiện nhé!">🚀 Cần link server</button>
+            </div>
+            <form class="admin-chat-form" data-admin-chat-order="${escapeHtml(order.id)}">
+              <div class="admin-chat-input-row">
+                <input
+                  type="text"
+                  class="admin-chat-input"
+                  placeholder="Nhập nội dung phản hồi cho khách..."
+                  maxlength="1000"
+                  required
+                />
+                <button type="submit" class="button primary btn-small admin-chat-send-btn">
+                  Gửi khách ✉️
+                </button>
+              </div>
+            </form>
+          </div>
+        `;
+
         // LOG CREDENTIALS BOX (ONLY ADMIN CAN SEE)
         let logCredentialsBox = "";
         if (order.hasLogItems) {
@@ -578,6 +641,7 @@
             ${serverInviteBox}
             ${decorImageBox}
             ${giftClaimBox}
+            ${adminChatBox}
 
             <div class="admin-order-footer">
               <div class="admin-order-total">
@@ -610,6 +674,19 @@
 
   // Global click handler for order actions
   document.addEventListener("click", async (e) => {
+// Quick reply chips click
+    const quickChip = e.target.closest(".admin-quick-chip");
+    if (quickChip) {
+      const chatContainer = quickChip.closest(".admin-order-chat");
+      if (chatContainer) {
+        const input = chatContainer.querySelector(".admin-chat-input");
+        if (input) {
+          input.value = quickChip.getAttribute("data-quick-admin") || "";
+          input.focus();
+        }
+      }
+      return;
+    }
     // 1. Copy text buttons
     const copyBtn = e.target.closest("[data-copy-text]");
     if (copyBtn) {
@@ -944,3 +1021,72 @@
   // Init
   checkAuthAndInit();
 })();
+
+  // Submit handler for admin order chat
+  document.addEventListener("submit", async (e) => {
+    const form = e.target.closest(".admin-chat-form");
+    if (!form) return;
+    e.preventDefault();
+    const orderId = form.getAttribute("data-admin-chat-order");
+    if (!orderId) return;
+    const input = form.querySelector(".admin-chat-input");
+    const sendBtn = form.querySelector(".admin-chat-send-btn");
+    const text = (input?.value || "").trim();
+    if (!text) return;
+
+    if (sendBtn) {
+      sendBtn.disabled = true;
+      sendBtn.textContent = "Đang gửi...";
+    }
+
+    try {
+      const res = await api(`/api/admin/orders/${encodeURIComponent(orderId)}/messages`, {
+        method: "POST",
+        body: { message: text },
+      });
+      if (input) input.value = "";
+      const feed = document.getElementById(`admin-chat-feed-${orderId}`);
+      if (feed) {
+        const emptyEl = feed.querySelector(".admin-chat-empty");
+        if (emptyEl) emptyEl.remove();
+        const m = res.message;
+        const timeStr = new Date(m.createdAt).toLocaleString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          day: "2-digit",
+          month: "2-digit",
+        });
+        const bubble = document.createElement("div");
+        bubble.className = "admin-chat-bubble bubble-admin";
+        bubble.innerHTML = `
+          <div class="admin-bubble-header">
+            <span class="admin-bubble-sender">👑 ${escapeHtml(m.senderName || "Shop (Quản trị)")}</span>
+            <span class="admin-bubble-time">${timeStr}</span>
+          </div>
+          <div class="admin-bubble-text">${escapeHtml(m.message)}</div>
+        `;
+        feed.appendChild(bubble);
+        feed.scrollTop = feed.scrollHeight;
+        const chatBox = feed.closest(".admin-order-chat");
+        const countBadge = chatBox?.querySelector(".admin-chat-count");
+        if (countBadge) {
+          const totalBubbles = feed.querySelectorAll(".admin-chat-bubble").length;
+          countBadge.textContent = `${totalBubbles} tin nhắn`;
+          countBadge.classList.add("has-count");
+        }
+      }
+      const targetOrder = allOrders.find((o) => o.id === orderId);
+      if (targetOrder) {
+        targetOrder.messages = targetOrder.messages || [];
+        targetOrder.messages.push(res.message);
+      }
+      notify("Đã gửi phản hồi đến khách hàng thành công!");
+    } catch (err) {
+      alert(err.message || "Gửi phản hồi cho khách thất bại.");
+    } finally {
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Gửi khách ✉️";
+      }
+    }
+  });

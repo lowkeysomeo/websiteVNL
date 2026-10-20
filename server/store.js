@@ -404,6 +404,7 @@ export async function getUserOrders(db, userId, { limit = 50, offset = 0 } = {})
       "SELECT o.id, o.customer_name, o.customer_email, o.customer_note, o.items_json, o.total, o.payment_method, o.has_log_items, o.server_invite, o.decor_image, o.claim_link, o.status, o.created_at, o.completed_at, op.snapshot_json AS pricing_json FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id WHERE o.user_id = ? ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?",
     )
     .all(userId, limit, offset);
+  const messagesByOrder = await attachOrderMessages(db, rows.map((r) => r.id));
   return rows.map((row) => ({
     id: row.id,
     pricing: row.pricing_json ? JSON.parse(row.pricing_json) : null,
@@ -420,6 +421,105 @@ export async function getUserOrders(db, userId, { limit = 50, offset = 0 } = {})
     status: row.status,
     createdAt: row.created_at,
     completedAt: row.completed_at,
+    messages: messagesByOrder.get(row.id) || [],
+  }));
+}
+
+async function attachOrderMessages(db, orderIds) {
+  const messagesByOrder = new Map();
+  if (!orderIds || orderIds.length === 0) return messagesByOrder;
+  try {
+    const placeholders = orderIds.map(() => "?").join(",");
+    const rows = await db
+      .prepare(
+        `SELECT id, order_id, sender_role, sender_id, sender_name, message, created_at FROM order_messages WHERE order_id IN (${placeholders}) ORDER BY created_at ASC, rowid ASC`,
+      )
+      .all(...orderIds);
+    for (const r of rows) {
+      if (!messagesByOrder.has(r.order_id)) {
+        messagesByOrder.set(r.order_id, []);
+      }
+      messagesByOrder.get(r.order_id).push({
+        id: r.id,
+        orderId: r.order_id,
+        senderRole: r.sender_role,
+        senderId: r.sender_id,
+        senderName: r.sender_name,
+        message: r.message,
+        createdAt: r.created_at,
+      });
+    }
+  } catch {
+    // Bỏ qua nếu bảng chưa tồn tại
+  }
+  return messagesByOrder;
+}
+
+export async function addOrderMessage(
+  db,
+  { orderId, senderRole, senderId, senderName, message, now = Date.now() },
+) {
+  if (!orderId || typeof orderId !== "string") {
+    throw Object.assign(new Error("Mã đơn hàng không hợp lệ."), { status: 400 });
+  }
+  const order = await db
+    .prepare("SELECT id, user_id, customer_name, customer_email, items_json FROM orders WHERE id = ?")
+    .get(orderId);
+  if (!order) {
+    throw Object.assign(new Error("Không tìm thấy đơn hàng."), { status: 404 });
+  }
+
+  const cleanMsg = typeof message === "string" ? message.trim() : "";
+  if (!cleanMsg) {
+    throw Object.assign(new Error("Nội dung phản hồi không được để trống."), { status: 400 });
+  }
+  if (cleanMsg.length > 2000) {
+    throw Object.assign(new Error("Nội dung phản hồi quá dài (tối đa 2000 ký tự)."), { status: 400 });
+  }
+  if (!["admin", "partner", "customer"].includes(senderRole)) {
+    throw Object.assign(new Error("Vai trò người gửi không hợp lệ."), { status: 400 });
+  }
+
+  const cleanSenderId = String(senderId || "unknown");
+  const cleanSenderName = String(
+    senderName || (senderRole === "admin" ? "Quản trị viên" : senderRole === "partner" ? "Đối tác shop" : "Khách hàng"),
+  ).slice(0, 100);
+
+  const id = "msg_" + randomUUID();
+  await db
+    .prepare(
+      "INSERT INTO order_messages (id, order_id, sender_role, sender_id, sender_name, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    )
+    .run(id, orderId, senderRole, cleanSenderId, cleanSenderName, cleanMsg, now);
+
+  return {
+    id,
+    orderId,
+    senderRole,
+    senderId: cleanSenderId,
+    senderName: cleanSenderName,
+    message: cleanMsg,
+    createdAt: now,
+  };
+}
+
+export async function getOrderMessages(db, orderId) {
+  if (!orderId || typeof orderId !== "string") {
+    throw Object.assign(new Error("Mã đơn hàng không hợp lệ."), { status: 400 });
+  }
+  const rows = await db
+    .prepare(
+      "SELECT id, order_id, sender_role, sender_id, sender_name, message, created_at FROM order_messages WHERE order_id = ? ORDER BY created_at ASC, rowid ASC",
+    )
+    .all(orderId);
+  return rows.map((r) => ({
+    id: r.id,
+    orderId: r.order_id,
+    senderRole: r.sender_role,
+    senderId: r.sender_id,
+    senderName: r.sender_name,
+    message: r.message,
+    createdAt: r.created_at,
   }));
 }
 
@@ -487,7 +587,12 @@ export async function getAdminOrders(
     orders = orders.filter(o => o.items && o.items.some(it => partnerProductIds.has(it.productId)));
   }
 
-  return orders.slice(offset, offset + limit);
+  const slicedOrders = orders.slice(offset, offset + limit);
+  const messagesByOrder = await attachOrderMessages(db, slicedOrders.map(o => o.id));
+  return slicedOrders.map(o => ({
+    ...o,
+    messages: messagesByOrder.get(o.id) || [],
+  }));
 }
 
 // Thống kê toàn bộ dữ liệu, không phụ thuộc số đơn đang tải ở danh sách.

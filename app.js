@@ -971,6 +971,59 @@ async function showOrders(offset = 0) {
               `<li>${escapeHtml(item.productName || item.name)}: ${escapeHtml(item.variantName || item.variant)} [${escapeHtml((item.deliveryType || "gift").toUpperCase())}] × ${item.quantity} (${money(item.subtotal || item.price * item.quantity)})</li>`,
           )
           .join("");
+        const orderMessages = Array.isArray(order.messages) ? order.messages : [];
+        const messagesHtml = orderMessages.length > 0
+          ? orderMessages
+              .map((m) => {
+                const isShop = m.senderRole === "admin" || m.senderRole === "partner";
+                const roleBadge = isShop ? "👑 Shop (Quản trị viên)" : "👤 Bạn";
+                const timeStr = new Date(m.createdAt).toLocaleTimeString("vi-VN", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  day: "2-digit",
+                  month: "2-digit",
+                });
+                return `
+                  <div class="customer-chat-bubble ${isShop ? "bubble-shop" : "bubble-user"}">
+                    <div class="chat-bubble-header">
+                      <span class="chat-bubble-sender">${escapeHtml(roleBadge)}</span>
+                      <span class="chat-bubble-time">${escapeHtml(timeStr)}</span>
+                    </div>
+                    <div class="chat-bubble-text">${escapeHtml(m.message)}</div>
+                  </div>
+                `;
+              })
+              .join("")
+          : '<p class="customer-chat-empty">Chưa có tin nhắn nào. Nếu bạn có thắc mắc hoặc cần hỗ trợ về đơn hàng này, hãy nhắn tin ngay cho shop tại đây nhé!</p>';
+
+        const chatBox = `
+          <div class="customer-order-chat" data-order-id="${escapeHtml(order.id)}">
+            <div class="customer-chat-header">
+              <span class="customer-chat-title">💬 Trao đổi với Shop về đơn này</span>
+              <span class="customer-chat-badge">${orderMessages.length > 0 ? `${orderMessages.length} phản hồi` : "Hỗ trợ trực tiếp"}</span>
+            </div>
+            <div class="customer-chat-feed" id="customer-chat-feed-${escapeHtml(order.id)}">
+              ${messagesHtml}
+            </div>
+            <div class="customer-chat-chips">
+              <button type="button" class="chat-quick-chip" data-quick-chip="Shop ơi đơn này xử lý đến đâu rồi ạ?">⏳ Hỏi tiến độ</button>
+              <button type="button" class="chat-quick-chip" data-quick-chip="Em vừa kiểm tra / gửi lại thông tin mới rồi ạ.">🔄 Gửi lại thông tin</button>
+              <button type="button" class="chat-quick-chip" data-quick-chip="Em đã nhận được hàng, cảm ơn shop nhiều ạ!">❤️ Cảm ơn shop</button>
+            </div>
+            <form class="customer-chat-form" data-chat-order="${escapeHtml(order.id)}">
+              <input
+                type="text"
+                class="customer-chat-input"
+                placeholder="Nhắn tin với shop (ví dụ: hỏi tiến độ nạp, gửi mã 2FA mới...)"
+                maxlength="1000"
+                required
+              />
+              <button type="submit" class="button primary btn-small customer-chat-send-btn">
+                Gửi phản hồi 💬
+              </button>
+            </form>
+          </div>
+        `;
 
         return `
           <article class="order-card">
@@ -986,6 +1039,7 @@ async function showOrders(offset = 0) {
             ${logNotice}
             ${boostNotice}
             ${decorSection}
+            ${chatBox}
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
               <span class="muted" style="font-size:11px;">Thanh toán: Ví VietNam Legacy</span>
               <strong class="order-total" style="color:#7170ff; font-size:15px;">${money(order.total)}</strong>
@@ -1015,6 +1069,152 @@ document.addEventListener("vnl:logout", () => {
   }
   notify("Đã đăng xuất tài khoản thành công.");
 });
+
+function formatChatTime(ts) {
+  try {
+    return new Date(ts).toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
+function renderCustomerChatFeed(feed, messages) {
+  if (!feed) return;
+  if (!messages || messages.length === 0) {
+    feed.innerHTML = '<p class="customer-chat-empty">Chưa có tin nhắn nào. Nếu bạn có thắc mắc hoặc cần hỗ trợ về đơn hàng này, hãy nhắn tin ngay cho shop tại đây nhé!</p>';
+    return;
+  }
+  feed.innerHTML = messages
+    .map((m) => {
+      const isShop = m.senderRole === "admin" || m.senderRole === "partner";
+      const roleBadge = isShop ? "👑 Shop (Quản trị viên)" : "👤 Bạn";
+      const timeStr = formatChatTime(m.createdAt);
+      return `
+        <div class="customer-chat-bubble ${isShop ? "bubble-shop" : "bubble-user"}">
+          <div class="chat-bubble-header">
+            <span class="chat-bubble-sender">${escapeHtml(roleBadge)}</span>
+            <span class="chat-bubble-time">${escapeHtml(timeStr)}</span>
+          </div>
+          <div class="chat-bubble-text">${escapeHtml(m.message)}</div>
+        </div>
+      `;
+    })
+    .join("");
+  feed.scrollTop = feed.scrollHeight;
+}
+
+// Click chip để điền tin nhắn nhanh
+document.addEventListener("click", (e) => {
+  const chip = e.target.closest(".chat-quick-chip");
+  if (!chip) return;
+  const chatContainer = chip.closest(".customer-order-chat");
+  if (!chatContainer) return;
+  const input = chatContainer.querySelector(".customer-chat-input");
+  if (input) {
+    input.value = chip.getAttribute("data-quick-chip") || "";
+    input.focus();
+  }
+});
+
+// Gửi tin nhắn phản hồi đơn hàng
+document.addEventListener("submit", async (e) => {
+  const form = e.target.closest(".customer-chat-form");
+  if (!form) return;
+  e.preventDefault();
+  const orderId = form.getAttribute("data-chat-order");
+  if (!orderId) return;
+  const input = form.querySelector(".customer-chat-input");
+  const sendBtn = form.querySelector(".customer-chat-send-btn");
+  const text = (input?.value || "").trim();
+  if (!text) return;
+
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Đang gửi...";
+  }
+
+  try {
+    const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+      credentials: "same-origin",
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Không thể gửi tin nhắn phản hồi.");
+    }
+    if (input) input.value = "";
+    const feed = document.getElementById(`customer-chat-feed-${orderId}`);
+    if (feed) {
+      const emptyEl = feed.querySelector(".customer-chat-empty");
+      if (emptyEl) emptyEl.remove();
+      const m = data.message;
+      const timeStr = formatChatTime(m.createdAt);
+      const bubble = document.createElement("div");
+      bubble.className = "customer-chat-bubble bubble-user";
+      bubble.innerHTML = `
+        <div class="chat-bubble-header">
+          <span class="chat-bubble-sender">👤 Bạn</span>
+          <span class="chat-bubble-time">${escapeHtml(timeStr)}</span>
+        </div>
+        <div class="chat-bubble-text">${escapeHtml(m.message)}</div>
+      `;
+      feed.appendChild(bubble);
+      feed.scrollTop = feed.scrollHeight;
+      const chatBox = feed.closest(".customer-order-chat");
+      const badge = chatBox?.querySelector(".customer-chat-badge");
+      if (badge) {
+        const totalBubbles = feed.querySelectorAll(".customer-chat-bubble").length;
+        badge.textContent = `${totalBubbles} phản hồi`;
+      }
+    }
+    notify("Đã gửi tin nhắn đến shop thành công!");
+  } catch (err) {
+    alert(err.message || "Gửi phản hồi thất bại.");
+  } finally {
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Gửi phản hồi 💬";
+    }
+  }
+});
+
+// Định kỳ cập nhật tin nhắn đơn hàng đang mở
+async function refreshActiveCustomerChats() {
+  if (document.hidden || !infoDialog || !infoDialog.open) return;
+  const chatContainers = document.querySelectorAll(".customer-order-chat[data-order-id]");
+  if (chatContainers.length === 0) return;
+  for (const container of chatContainers) {
+    const orderId = container.getAttribute("data-order-id");
+    if (!orderId) continue;
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/messages`, {
+        credentials: "same-origin",
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (!data.success || !Array.isArray(data.messages)) continue;
+      const feed = document.getElementById(`customer-chat-feed-${orderId}`);
+      if (!feed) continue;
+      const currentCount = feed.querySelectorAll(".customer-chat-bubble").length;
+      if (data.messages.length !== currentCount) {
+        renderCustomerChatFeed(feed, data.messages);
+        const badge = container.querySelector(".customer-chat-badge");
+        if (badge) {
+          badge.textContent = `${data.messages.length} phản hồi`;
+        }
+      }
+    } catch {}
+  }
+}
+setInterval(refreshActiveCustomerChats, 12000);
 
 
 let cachedGuide = null;
