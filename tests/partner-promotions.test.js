@@ -245,7 +245,7 @@ test("Partner promotions: mã giảm giá & đợt giảm giá riêng cho đối
 
     // b. Khách đăng ký và tạo phiên
     const userSessionToken = "c".repeat(64);
-    await db.prepare("INSERT INTO users VALUES (?, ?, 'unused', 1)").run("user-p1-test", "customer@test.com");
+    await db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, 'unused', 1)").run("user-p1-test", "customer@test.com");
     await db.prepare("INSERT INTO deposits (id,user_id,code,amount,status,created_at,expires_at) VALUES (?,?,?,?,'credited',1,9999999999999)").run("dep-p1", "user-p1-test", "DEPOSIT-P1", 1000000);
     await db.prepare("INSERT INTO bank_events (transaction_id,deposit_id,amount,outcome,received_at) VALUES (?,?,?,'credited',1)").run("evt-p1", "dep-p1", 1000000);
     await db.prepare("INSERT INTO wallet_ledger VALUES (?,?,?,?,?,1)").run("led-p1", "user-p1-test", "dep-p1", "evt-p1", 1000000);

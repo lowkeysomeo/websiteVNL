@@ -81,6 +81,12 @@ import {
   getContactsSettings,
   saveContactsSettings,
 } from "./contacts.js";
+import {
+  getDiscordAuthorizeUrl,
+  exchangeDiscordCode,
+  fetchDiscordUser,
+  syncDiscordUser,
+} from "./discord-oauth.js";
 
 const SESSION_AGE = 7 * 24 * 60 * 60 * 1000;
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -159,7 +165,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
     if (!raw || !/^[a-f0-9]{64}$/.test(raw)) return null;
     return await db
       .prepare(
-        "SELECT s.*, u.email FROM sessions s JOIN users u ON u.id = s.user_id WHERE token_hash = ? AND expires_at > ?",
+        "SELECT s.*, u.email, u.discord_id, u.discord_username, u.discord_global_name, u.discord_avatar FROM sessions s JOIN users u ON u.id = s.user_id WHERE token_hash = ? AND expires_at > ?",
       )
       .get(digest(raw), Date.now());
   }
@@ -269,11 +275,26 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
         if (req.method === "GET" && route === "/api/session") {
           const current = await session(req);
           const bankSettings = await getBankSettings(db, config);
+          const discordSettings = await getDiscordSettings(db, process.env);
           return json(200, {
-            user: current ? { email: current.email } : null,
+            user: current
+              ? {
+                  id: current.user_id,
+                  email: current.email,
+                  discordId: current.discord_id || null,
+                  discordUsername: current.discord_username || null,
+                  discordGlobalName: current.discord_global_name || null,
+                  discordAvatar: current.discord_avatar || null,
+                }
+              : null,
             csrfToken: current?.csrf_token ?? null,
             balance: current ? await balance(db, current.user_id) : null,
             paymentsEnabled: bankSettings.enabled,
+            discordAuthEnabled: Boolean(
+              discordSettings.oauthEnabled &&
+                discordSettings.clientId &&
+                discordSettings.clientSecret,
+            ),
             bank: {
               code: bankSettings.bank.code,
               name: bankSettings.bank.gateway,
@@ -419,6 +440,147 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             .run(current.token_hash);
           res.setHeader("Set-Cookie", cookie("", 0));
           return json(200, { ok: true });
+        }
+        if (req.method === "GET" && route === "/api/auth/discord") {
+          const action = url.searchParams.get("action") || "login";
+          const discordSettings = await getDiscordSettings(db, process.env);
+          const clientId = discordSettings.clientId;
+          const clientSecret = discordSettings.clientSecret;
+          const redirectUri = discordSettings.redirectUri || `${config.origin}/api/auth/discord/callback`;
+
+          if (!discordSettings.oauthEnabled || !clientId || !clientSecret) {
+            const errorMsg = "Chức năng đăng nhập Discord chưa được kích hoạt hoặc chưa cấu hình Client ID / Secret trên trang Admin.";
+            if (req.headers.accept?.includes("application/json")) {
+              throw fail(400, errorMsg);
+            }
+            res.writeHead(302, {
+              Location: `${config.origin}/?discord_auth_error=${encodeURIComponent(errorMsg)}`,
+            });
+            res.end();
+            return;
+          }
+
+          const state = token();
+          const stateData = `${state}:${action}`;
+          const authUrl = getDiscordAuthorizeUrl({
+            clientId,
+            redirectUri,
+            state,
+          });
+
+          const stateCookie = `vnl_discord_oauth_state=${stateData}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600${config.production ? "; Secure" : ""}`;
+          res.writeHead(302, {
+            Location: authUrl,
+            "Set-Cookie": stateCookie,
+          });
+          res.end();
+          return;
+        }
+        if (req.method === "GET" && route === "/api/auth/discord/callback") {
+          const code = url.searchParams.get("code");
+          const state = url.searchParams.get("state");
+          const error = url.searchParams.get("error");
+          const errorDesc = url.searchParams.get("error_description");
+
+          const clearStateCookie = `vnl_discord_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${config.production ? "; Secure" : ""}`;
+
+          if (error) {
+            res.writeHead(302, {
+              Location: `${config.origin}/?discord_auth_error=${encodeURIComponent(errorDesc || error || "Bạn đã từ chối cấp quyền Discord.")}`,
+              "Set-Cookie": clearStateCookie,
+            });
+            res.end();
+            return;
+          }
+
+          const rawCookie = String(req.headers.cookie || "");
+          const savedStateCookie = rawCookie
+            .split(";")
+            .map((c) => c.trim())
+            .find((c) => c.startsWith("vnl_discord_oauth_state="))
+            ?.slice("vnl_discord_oauth_state=".length);
+
+          if (!savedStateCookie || !state) {
+            res.writeHead(302, {
+              Location: `${config.origin}/?discord_auth_error=${encodeURIComponent("Phiên đăng nhập Discord không hợp lệ hoặc đã hết hạn.")}`,
+              "Set-Cookie": clearStateCookie,
+            });
+            res.end();
+            return;
+          }
+
+          const [expectedState, action] = savedStateCookie.split(":");
+          if (!expectedState || expectedState !== state) {
+            res.writeHead(302, {
+              Location: `${config.origin}/?discord_auth_error=${encodeURIComponent("Xác thực Discord thất bại (State mismatch).")}`,
+              "Set-Cookie": clearStateCookie,
+            });
+            res.end();
+            return;
+          }
+
+          const discordSettings = await getDiscordSettings(db, process.env);
+          const clientId = discordSettings.clientId;
+          const clientSecret = discordSettings.clientSecret;
+          const redirectUri = discordSettings.redirectUri || `${config.origin}/api/auth/discord/callback`;
+
+          try {
+            const tokenRes = await exchangeDiscordCode(
+              { code, clientId, clientSecret, redirectUri },
+              fetchFn,
+            );
+            const discordUser = await fetchDiscordUser(tokenRes.access_token, fetchFn);
+
+            if (action === "link") {
+              const current = await session(req);
+              if (!current) {
+                throw new Error("Vui lòng đăng nhập trước khi liên kết Discord.");
+              }
+              await syncDiscordUser(db, discordUser, current.user_id);
+              res.writeHead(302, {
+                Location: `${config.origin}/?discord_auth=linked`,
+                "Set-Cookie": clearStateCookie,
+              });
+              res.end();
+              return;
+            }
+
+            const user = await syncDiscordUser(db, discordUser);
+
+            const previous = await session(req);
+            if (previous) {
+              await db
+                .prepare("DELETE FROM sessions WHERE token_hash = ?")
+                .run(previous.token_hash);
+            }
+
+            await startSession(res, user.id);
+            const sessionCookieHeader = res.getHeader("Set-Cookie");
+            const combinedCookies = [sessionCookieHeader, clearStateCookie].filter(Boolean);
+            res.setHeader("Set-Cookie", combinedCookies);
+            res.writeHead(302, {
+              Location: `${config.origin}/?discord_auth=success`,
+            });
+            res.end();
+            return;
+          } catch (err) {
+            console.error("[Discord OAuth Error]", err);
+            res.writeHead(302, {
+              Location: `${config.origin}/?discord_auth_error=${encodeURIComponent(err.message || "Đăng nhập bằng Discord thất bại.")}`,
+              "Set-Cookie": clearStateCookie,
+            });
+            res.end();
+            return;
+          }
+        }
+        if (req.method === "POST" && route === "/api/auth/discord/unlink") {
+          const current = await protect(req);
+          await db
+            .prepare(
+              "UPDATE users SET discord_id = NULL, discord_username = NULL, discord_global_name = NULL, discord_avatar = NULL WHERE id = ?",
+            )
+            .run(current.user_id);
+          return json(200, { success: true, message: "Đã hủy liên kết tài khoản Discord." });
         }
         if (req.method === "GET" && route === "/api/wallet") {
           const current = await requireSession(req);
@@ -777,12 +939,22 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             discordToken,
           });
 
+          const buyerDiscord = current.discord_id
+            ? {
+                id: current.discord_id,
+                username: current.discord_username,
+                globalName: current.discord_global_name,
+                avatar: current.discord_avatar,
+              }
+            : null;
+
           // Gửi thông báo đơn hàng đến Discord Admin (chạy an toàn, không gián đoạn đơn nếu lỗi)
           try {
             await sendDiscordOrderNotification(
               db,
               {
                 ...order,
+                buyerDiscord,
                 discordAccount,
                 discordPassword,
                 discordToken,

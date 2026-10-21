@@ -104,6 +104,17 @@
   }
   function authView() {
     const register = wallet.mode === "register";
+    const discordBtn = `
+      <div class="wallet-discord-divider">
+        <span>hoặc</span>
+      </div>
+      <a href="/api/auth/discord" class="button button-discord-login full-width">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+        </svg>
+        <span>${register ? "Đăng ký bằng Discord" : "Đăng nhập bằng Discord"}</span>
+      </a>
+    `;
     content.innerHTML = `<div class="wallet-tabs" role="tablist" aria-label="Tài khoản">
       <button role="tab" aria-selected="${!register}" data-auth-mode="login">Đăng nhập</button>
       <button role="tab" aria-selected="${register}" data-auth-mode="register">Đăng ký</button></div>
@@ -111,6 +122,7 @@
       <label>Mật khẩu<input name="password" type="password" minlength="10" maxlength="128" autocomplete="${register ? "new-password" : "current-password"}" required placeholder="Tối thiểu 10 ký tự"></label>
       ${register ? '<label>Nhập lại mật khẩu<input name="confirmation" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label>' : ""}
       <button class="button wallet-blue full-width" type="submit">${register ? "Tạo tài khoản" : "Đăng nhập"}</button></form>
+      ${discordBtn}
       <p class="wallet-muted">Số dư và lịch sử nạp được lưu theo tài khoản trên máy chủ.</p>`;
     content
       .querySelector("#wallet-auth-form")
@@ -158,7 +170,21 @@
     const result = await api("/api/wallet");
     wallet.balance = result.balance;
     updateLabel();
+
+    const discordBadge = wallet.user.discordId
+      ? `<div class="wallet-discord-connected" style="display:flex; align-items:center; gap:8px; margin:8px 0 14px 0; padding:7px 10px; background:rgba(88,101,242,0.12); border:1px solid rgba(88,101,242,0.35); border-radius:6px; font-size:12px; color:#c7d2fe;">
+          ${wallet.user.discordAvatar ? `<img src="${safe(wallet.user.discordAvatar)}" style="width:20px; height:20px; border-radius:50%; object-fit:cover;" alt="Avatar" />` : `<span>🎮</span>`}
+          <span>Discord: <b>@${safe(wallet.user.discordUsername || "Buyer")}</b> <code style="font-size:11px; opacity:0.8; background:rgba(0,0,0,0.3); padding:1px 4px; border-radius:3px;">${safe(wallet.user.discordId)}</code></span>
+          <span style="margin-left:auto; font-size:10px; background:rgba(34,197,94,0.2); color:#86efac; padding:2px 6px; border-radius:4px; font-weight:600;">✓ Đã xác thực Buyer</span>
+        </div>`
+      : `<div style="margin:8px 0 14px 0;">
+          <a href="/api/auth/discord?action=link" style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:#818cf8; text-decoration:none; padding:5px 9px; background:rgba(88,101,242,0.1); border:1px solid rgba(88,101,242,0.25); border-radius:5px; transition:all 0.15s ease;">
+            <span>🎮</span> Liên kết Discord để xác thực tài khoản Buyer →
+          </a>
+        </div>`;
+
     content.innerHTML = `<div class="wallet-account"><p>${safe(wallet.user.email)}</p><button data-wallet="logout">Đăng xuất</button></div>
+      ${discordBadge}
       <div class="wallet-summary"><span>SỐ DƯ KHẢ DỤNG</span><strong>${money(result.balance)}</strong></div>
       <section class="purchase-summary" aria-label="Thống kê mua hàng">
         <div><span>Đơn đã mua</span><strong>${result.purchaseStats.purchasedOrders}</strong></div>
@@ -443,5 +469,27 @@
     }
   });
   dialog.addEventListener("close", stopPolling);
-  loadSession();
+  loadSession().then(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("discord_auth") === "success" || urlParams.get("discord_auth") === "linked") {
+        const isLinked = urlParams.get("discord_auth") === "linked";
+        urlParams.delete("discord_auth");
+        const cleanQuery = urlParams.toString();
+        const cleanUrl = window.location.pathname + (cleanQuery ? "?" + cleanQuery : "") + window.location.hash;
+        window.history.replaceState({}, "", cleanUrl);
+        dialog?.showModal();
+        showWallet();
+        say(isLinked ? "✅ Đã liên kết tài khoản Discord thành công!" : "✅ Đăng nhập bằng Discord thành công!");
+      } else if (urlParams.get("discord_auth_error")) {
+        const errText = urlParams.get("discord_auth_error");
+        urlParams.delete("discord_auth_error");
+        const cleanQuery = urlParams.toString();
+        const cleanUrl = window.location.pathname + (cleanQuery ? "?" + cleanQuery : "") + window.location.hash;
+        window.history.replaceState({}, "", cleanUrl);
+        dialog?.showModal();
+        say("❌ " + errText);
+      }
+    } catch {}
+  });
 })();

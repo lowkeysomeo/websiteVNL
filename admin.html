@@ -436,6 +436,80 @@
               </div>
             </div>
 
+            <!-- Cấu hình Đăng nhập / Đăng ký tài khoản qua Discord (Discord OAuth2) -->
+            <div id="admin-discord-oauth-section" style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 14px; margin-top: 14px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
+                <div>
+                  <h4 style="margin: 0; font-size: 13px; font-weight: 700; color: #818cf8; display: flex; align-items: center; gap: 6px;">
+                    <span>🔑</span> Đăng nhập / Đăng ký qua Discord (Discord OAuth2 Login)
+                  </h4>
+                  <p style="margin: 3px 0 0 0; font-size: 11.5px; color: var(--muted, #94a3b8);">
+                    Cho phép khách hàng đăng nhập và đăng ký bằng tài khoản Discord để shop dễ dàng kiểm soát, xác thực và quản lý Buyer Discord.
+                  </p>
+                </div>
+                <div class="announcement-toggle-group">
+                  <label class="switch-label" style="transform: scale(0.9); transform-origin: right center;">
+                    <input type="checkbox" id="admin-discord-oauth-active" aria-label="Bật đăng nhập Discord" checked />
+                    <span class="switch-slider"></span>
+                  </label>
+                  <span id="admin-discord-oauth-status-text" class="status-active" style="font-size: 11.5px;">Bật OAuth</span>
+                </div>
+              </div>
+
+              <div class="admin-discord-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 10px;">
+                <div>
+                  <label for="admin-discord-client-id" style="display: block; font-size: 12px; font-weight: 600; color: #c7d2fe; margin-bottom: 6px;">
+                    Discord Application Client ID
+                  </label>
+                  <input
+                    type="text"
+                    id="admin-discord-client-id"
+                    placeholder="Nhập Client ID (VD: 134567890123456789)"
+                    style="width: 100%; box-sizing: border-box; padding: 8px 10px; background: #140b0e; border: 1px solid var(--line); border-radius: 6px; color: #fff; font-size: 12.5px;"
+                  />
+                  <small style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted, #94a3b8);">
+                    Lấy tại Discord Developer Portal → Ứng dụng của bạn → OAuth2 → General.
+                  </small>
+                </div>
+
+                <div>
+                  <label for="admin-discord-client-secret" style="display: block; font-size: 12px; font-weight: 600; color: #c7d2fe; margin-bottom: 6px;">
+                    Discord Application Client Secret
+                  </label>
+                  <input
+                    type="password"
+                    id="admin-discord-client-secret"
+                    placeholder="Nhập Client Secret..."
+                    autocomplete="new-password"
+                    style="width: 100%; box-sizing: border-box; padding: 8px 10px; background: #140b0e; border: 1px solid var(--line); border-radius: 6px; color: #fff; font-size: 12.5px;"
+                  />
+                  <small style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted, #94a3b8);">
+                    Mã bí mật Client Secret để xác thực token người dùng.
+                  </small>
+                </div>
+              </div>
+
+              <div style="margin-top: 12px; background: rgba(88, 101, 242, 0.08); border: 1px dashed rgba(88, 101, 242, 0.35); border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #c7d2fe;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                  <div>
+                    <strong style="color: #a5b4fc;">📌 Redirect URI (Dán vào mục OAuth2 → Redirects trên Discord Developer Portal):</strong><br/>
+                    <code id="admin-discord-redirect-uri" style="background: rgba(0,0,0,0.4); padding: 2px 8px; border-radius: 4px; color: #86efac; font-size: 12px; word-break: break-all; margin-top: 3px; display: inline-block;">
+                      https://vietnamlegacy.com/api/auth/discord/callback
+                    </code>
+                  </div>
+                  <button type="button" class="button secondary btn-small" id="admin-copy-redirect-btn" style="padding: 4px 10px; font-size: 11.5px; border-color: rgba(88, 101, 242, 0.4); color: #c7d2fe;">
+                    📋 Sao chép URI
+                  </button>
+                </div>
+                <div style="margin-top: 8px; font-size: 11px; color: var(--muted, #94a3b8); line-height: 1.5;">
+                  💡 <b>Hướng dẫn kích hoạt 3 bước:</b><br/>
+                  1. Truy cập <a href="https://discord.com/developers/applications" target="_blank" rel="noopener" style="color: #818cf8; text-decoration: underline;">Discord Developer Portal</a> → Bấm <b>New Application</b> (đặt tên shop của bạn).<br/>
+                  2. Chọn menu <b>OAuth2</b> bên trái → Bấm <b>Add Redirect</b> → Dán URL Redirect ở trên vào → Bấm <b>Save Changes</b>.<br/>
+                  3. Copy <b>Client ID</b> và <b>Client Secret</b> dán vào 2 ô bên trên và bấm nút <b>Lưu cấu hình Discord</b> bên dưới.
+                </div>
+              </div>
+            </div>
+
             <p id="admin-discord-feedback" class="announcement-feedback" role="status" aria-live="polite" style="margin: 0;"></p>
             <div class="admin-announcement-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 2px;">
               <button type="button" class="button secondary btn-small" id="admin-test-feedback-btn" style="border-color: rgba(74, 222, 128, 0.4); color: #86efac;">

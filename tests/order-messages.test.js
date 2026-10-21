@@ -86,7 +86,7 @@ test("Order messages: Store functions validate input, roles, and message orderin
   try {
     const userId = randomUUID();
     const orderId = "VNL-TEST-MSG-01";
-    await db.prepare("INSERT INTO users VALUES (?, ?, 'pw', ?)").run(userId, "user1@example.com", Date.now());
+    await db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, 'pw', ?)").run(userId, "user1@example.com", Date.now());
     await db.prepare(`
       INSERT INTO orders (id, user_id, customer_name, customer_email, items_json, total, status, created_at)
       VALUES (?, ?, 'Nguyen Van A', 'user1@example.com', '[]', 50000, 'processing', ?)
@@ -160,8 +160,8 @@ test("Order messages HTTP API: Customer can view/send messages on own orders; fo
     const user1Id = randomUUID();
     const user2Id = randomUUID();
     const now = Date.now();
-    await ctx.db.prepare("INSERT INTO users VALUES (?, ?, 'pw', ?)").run(user1Id, "user1@example.com", now);
-    await ctx.db.prepare("INSERT INTO users VALUES (?, ?, 'pw', ?)").run(user2Id, "user2@example.com", now);
+    await ctx.db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, 'pw', ?)").run(user1Id, "user1@example.com", now);
+    await ctx.db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, 'pw', ?)").run(user2Id, "user2@example.com", now);
 
     const token1 = "a".repeat(64);
     const token2 = "b".repeat(64);
@@ -222,8 +222,8 @@ test("Order messages HTTP API: Admin and Partner permissions and replies", async
     const partnerEmail = "partner@example.com";
     const now = Date.now();
 
-    await ctx.db.prepare("INSERT INTO users VALUES (?, ?, 'pw', ?)").run(userId, "cust@example.com", now);
-    await ctx.db.prepare("INSERT INTO users VALUES (?, ?, ?, ?)").run(
+    await ctx.db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, 'pw', ?)").run(userId, "cust@example.com", now);
+    await ctx.db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)").run(
       partnerUserId,
       partnerEmail,
       await passwordHash("partnerpass123"),
@@ -324,7 +324,7 @@ test("Customer order message triggers Discord webhook notification pinging admin
     const orderId = "VNL-DISCORD-MSG-TEST";
     const now = Date.now();
 
-    await ctx.db.prepare("INSERT INTO users VALUES (?, ?, 'pw', ?)").run(userId, "customer@example.com", now);
+    await ctx.db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, 'pw', ?)").run(userId, "customer@example.com", now);
     await ctx.db.prepare(`
       INSERT INTO orders (id, user_id, customer_name, customer_email, items_json, total, status, created_at)
       VALUES (?, ?, 'Tran Van B', 'customer@example.com', '[]', 99000, 'processing', ?)
@@ -389,8 +389,8 @@ test("Real-time Chat Sync API (/api/admin/orders-chat-sync) returns new messages
     const partnerEmail = "partner2@example.com";
     const t0 = 10000;
 
-    await ctx.db.prepare("INSERT INTO users VALUES (?, ?, 'pw', ?)").run(userId, "buyer@example.com", t0);
-    await ctx.db.prepare("INSERT INTO users VALUES (?, ?, ?, ?)").run(
+    await ctx.db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, 'pw', ?)").run(userId, "buyer@example.com", t0);
+    await ctx.db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)").run(
       partnerUserId,
       partnerEmail,
       await passwordHash("pass123"),

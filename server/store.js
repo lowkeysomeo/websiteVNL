@@ -553,7 +553,7 @@ export async function getAdminOrders(
   }
 
   let query =
-    "SELECT o.*, op.snapshot_json AS pricing_json FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id";
+    "SELECT o.*, op.snapshot_json AS pricing_json, u.discord_id AS buyer_discord_id, u.discord_username AS buyer_discord_username, u.discord_global_name AS buyer_discord_global_name, u.discord_avatar AS buyer_discord_avatar FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id LEFT JOIN users u ON u.id = o.user_id";
   const params = [];
   if (
     status &&
@@ -569,6 +569,14 @@ export async function getAdminOrders(
     id: row.id,
     pricing: row.pricing_json ? JSON.parse(row.pricing_json) : null,
     userId: row.user_id,
+    buyerDiscord: row.buyer_discord_id
+      ? {
+          id: row.buyer_discord_id,
+          username: row.buyer_discord_username,
+          globalName: row.buyer_discord_global_name,
+          avatar: row.buyer_discord_avatar,
+        }
+      : null,
     customerName: row.customer_name,
     customerEmail: row.customer_email,
     customerNote: row.customer_note,
@@ -702,10 +710,28 @@ export async function updateAdminOrder(db, orderId, { status, claimLink }, partn
     } catch {}
   }
 
+  let buyerDiscord = null;
+  if (order.user_id) {
+    try {
+      const u = await db
+        .prepare("SELECT discord_id, discord_username, discord_global_name, discord_avatar FROM users WHERE id = ?")
+        .get(order.user_id);
+      if (u?.discord_id) {
+        buyerDiscord = {
+          id: u.discord_id,
+          username: u.discord_username,
+          globalName: u.discord_global_name,
+          avatar: u.discord_avatar,
+        };
+      }
+    } catch {}
+  }
+
   return {
     id: order.id,
     pricing: await orderPricing(db, order.id),
     userId: order.user_id,
+    buyerDiscord,
     customerName: order.customer_name,
     customerEmail: order.customer_email,
     customerNote: order.customer_note,

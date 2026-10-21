@@ -76,6 +76,17 @@ export async function openStore(filename, remote = {}) {
     );
     await db.transaction(async (tx) => {
       await tx.exec(schema);
+      const userCols = await tx.prepare("PRAGMA table_info(users)").all();
+      if (!userCols.some((c) => c.name === "discord_id"))
+        await tx.exec("ALTER TABLE users ADD COLUMN discord_id TEXT;");
+      if (!userCols.some((c) => c.name === "discord_username"))
+        await tx.exec("ALTER TABLE users ADD COLUMN discord_username TEXT;");
+      if (!userCols.some((c) => c.name === "discord_global_name"))
+        await tx.exec("ALTER TABLE users ADD COLUMN discord_global_name TEXT;");
+      if (!userCols.some((c) => c.name === "discord_avatar"))
+        await tx.exec("ALTER TABLE users ADD COLUMN discord_avatar TEXT;");
+      await tx.exec("CREATE INDEX IF NOT EXISTS users_discord_id ON users(discord_id);");
+
       const columns = await tx.prepare("PRAGMA table_info(orders)").all();
       if (!columns.some((column) => column.name === "server_invite"))
         await tx.exec("ALTER TABLE orders ADD COLUMN server_invite TEXT;");

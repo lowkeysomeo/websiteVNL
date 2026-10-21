@@ -25,7 +25,7 @@ async function fixture() {
   const user = randomUUID();
   const deposit = randomUUID();
   await db
-    .prepare("INSERT INTO users VALUES (?, ?, ?, ?)")
+    .prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)")
     .run(user, "test@example.com", "not-used", Date.now());
   await db
     .prepare(
@@ -216,7 +216,7 @@ test("wallet balances survive closing and reopening the database", async () => {
     const user = randomUUID();
     const deposit = randomUUID();
     await db
-      .prepare("INSERT INTO users VALUES (?, ?, ?, ?)")
+      .prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)")
       .run(user, "persist@example.com", "unused", Date.now());
     await db
       .prepare(

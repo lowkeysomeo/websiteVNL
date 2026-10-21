@@ -102,7 +102,7 @@ test("libSQL adapter serializes duplicate credits and competing wallet purchases
       await readFile(new URL("../server/schema.sql", import.meta.url), "utf8"),
     );
     await db
-      .prepare("INSERT INTO users VALUES (?, ?, ?, ?)")
+      .prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)")
       .run("user", "test@example.com", "unused", Date.now());
     await db
       .prepare(

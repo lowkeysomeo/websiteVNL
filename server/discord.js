@@ -113,6 +113,33 @@ export async function getDiscordSettings(db, env = process.env) {
     ...(saved?.legitTemplate || {}),
   };
 
+  const oauthEnabled =
+    saved?.oauthEnabled !== undefined
+      ? Boolean(saved.oauthEnabled)
+      : Boolean(
+          env.DISCORD_OAUTH_ENABLED === "1" ||
+            env.DISCORD_OAUTH_ENABLED === "true" ||
+            (env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET),
+        );
+
+  const clientId = String(
+    saved?.clientId !== undefined
+      ? saved.clientId
+      : env.DISCORD_CLIENT_ID || "",
+  ).trim();
+
+  const clientSecret = String(
+    saved?.clientSecret !== undefined
+      ? saved.clientSecret
+      : env.DISCORD_CLIENT_SECRET || "",
+  ).trim();
+
+  const redirectUri = String(
+    saved?.redirectUri !== undefined
+      ? saved.redirectUri
+      : env.DISCORD_REDIRECT_URI || "",
+  ).trim();
+
   return {
     enabled,
     feedbackEnabled,
@@ -121,6 +148,10 @@ export async function getDiscordSettings(db, env = process.env) {
     legitChannelId: legitChannelId || DEFAULT_LEGIT_CHANNEL_ID,
     adminId: adminId || DEFAULT_ADMIN_ID,
     legitTemplate,
+    oauthEnabled,
+    clientId,
+    clientSecret,
+    redirectUri,
     updatedAt: row?.updated_at || null,
   };
 }
@@ -144,6 +175,12 @@ export async function saveDiscordSettings(
     ...DEFAULT_LEGIT_TEMPLATE,
     ...(data.legitTemplate || {}),
   };
+
+  const oauthEnabled =
+    data.oauthEnabled !== undefined ? Boolean(data.oauthEnabled) : true;
+  const clientId = String(data.clientId ?? "").trim();
+  const clientSecret = String(data.clientSecret ?? "").trim();
+  const redirectUri = String(data.redirectUri ?? "").trim();
 
   if (webhookUrl && !/^https?:\/\//i.test(webhookUrl)) {
     throw Object.assign(
@@ -189,6 +226,10 @@ export async function saveDiscordSettings(
     legitChannelId,
     adminId,
     legitTemplate,
+    oauthEnabled,
+    clientId,
+    clientSecret,
+    redirectUri,
   });
 
   await db
@@ -209,6 +250,10 @@ export async function saveDiscordSettings(
     legitChannelId,
     adminId,
     legitTemplate,
+    oauthEnabled,
+    clientId,
+    clientSecret,
+    redirectUri,
     updatedAt: now,
   };
 }
@@ -242,6 +287,17 @@ export function buildOrderEmbed(order, settings = {}, origin = "") {
       value: `**${order.customerName || "Khách hàng"}**\nEmail: \`${order.customerEmail || "N/A"}\``,
       inline: true,
     },
+  ];
+
+  if (order.buyerDiscord) {
+    fields.push({
+      name: "🎮 Discord Buyer (Đã xác thực)",
+      value: `<@${order.buyerDiscord.id}>\n**@${order.buyerDiscord.username || order.buyerDiscord.globalName}** (ID: \`${order.buyerDiscord.id}\`)`,
+      inline: true,
+    });
+  }
+
+  fields.push(
     {
       name: "💰 Tổng thanh toán",
       value: `**${formatVND(order.total || 0)}**\nPhương thức: \`${order.paymentMethod === "wallet" ? "Ví tài khoản shop" : order.paymentMethod || "wallet"}\``,
@@ -252,7 +308,7 @@ export function buildOrderEmbed(order, settings = {}, origin = "") {
       value: itemSummary,
       inline: false,
     },
-  ];
+  );
 
   if (order.customerNote && String(order.customerNote).trim()) {
     fields.push({

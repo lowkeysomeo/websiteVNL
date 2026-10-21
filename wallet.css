@@ -94,6 +94,51 @@
 .wallet-blue.button:hover {
   background: #12569f;
 }
+
+/* Discord OAuth2 Login */
+.wallet-discord-divider {
+  display: flex;
+  align-items: center;
+  margin: 14px 0;
+  color: var(--tone-c6bdcd, #94a3b8);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.wallet-discord-divider::before,
+.wallet-discord-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.wallet-discord-divider span {
+  padding: 0 10px;
+}
+.button-discord-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #5865f2 !important;
+  color: #ffffff !important;
+  border: 1px solid #4752c4 !important;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  box-sizing: border-box;
+}
+.button-discord-login:hover {
+  background: #4752c4 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+.button-discord-login svg {
+  flex-shrink: 0;
+}
 .wallet-dialog button:disabled {
   cursor: not-allowed;
   opacity: 0.45;

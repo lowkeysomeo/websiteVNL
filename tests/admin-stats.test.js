@@ -16,7 +16,7 @@ test("Thống kê toàn bộ đơn, không cộng tiền nạp vào doanh thu v�
   const db = await openStore(":memory:");
   const now = Date.now();
   try {
-    await db.prepare("INSERT INTO users VALUES ('user','test@example.com','unused',?)").run(now);
+    await db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES ('user','test@example.com','unused',?)").run(now);
     for (let i = 0; i < 110; i++) await addOrder(db, "done-" + i, "completed");
     await addOrder(db, "process-1", "processing");
     await addOrder(db, "process-2", "processing");
@@ -44,7 +44,7 @@ test("API thống kê yêu cầu đăng nhập và chỉ trả dữ liệu thu�
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   const root = "http://127.0.0.1:" + server.address().port;
   try {
-    await db.prepare("INSERT INTO users VALUES ('partner','partner@example.com','unused',?)").run(Date.now());
+    await db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES ('partner','partner@example.com','unused',?)").run(Date.now());
     await db.prepare("INSERT INTO custom_products (id,name,category,partner_email,created_at,updated_at) VALUES ('owned','TEST','test','partner@example.com',?,?)").run(Date.now(),Date.now());
     await addOrder(db, "owned-order", "completed", [{productId:"owned",price:10000,quantity:1}]);
     await addOrder(db, "other-order", "completed", [{productId:"other",price:90000,quantity:1}],90000);

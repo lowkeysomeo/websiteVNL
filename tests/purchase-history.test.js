@@ -15,7 +15,7 @@ test("Tổng đơn và lịch sử mua hàng phân trang thuộc đúng khách, 
   const rawToken="a".repeat(64);
   const headers={cookie:"vnl_session="+rawToken};
   try {
-    for(const id of ["one","two"]) await db.prepare("INSERT INTO users VALUES (?,?,'unused',?)").run(id,id+"@example.com",Date.now());
+    for(const id of ["one","two"]) await db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?,?,'unused',?)").run(id,id+"@example.com",Date.now());
     await db.prepare("INSERT INTO sessions VALUES (?, 'one', 'test-csrf', ?)").run(digest(rawToken),Date.now()+60000);
     for(let i=0;i<70;i++){
       const status=i<60?"completed":i<65?"processing":i<68?"cancelled":"pending";

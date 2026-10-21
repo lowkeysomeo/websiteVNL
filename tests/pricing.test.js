@@ -13,7 +13,7 @@ const item = { productId: "nitro", variantId: "boost_gift_1m", quantity: 1 };
 const campaign = changes => ({ kind: "campaign", name: "Cuối tuần", enabled: true, type: "percent", value: 20, startsAt: null, endsAt: null, productIds: [], ...changes });
 const coupon = changes => ({ ...campaign(), kind: "coupon", code: "VNL10", name: "Ưu đãi thành viên", value: 10, minOrder: 0, usageLimit: null, perUserLimit: null, maxDiscount: null, stackWithSale: true, ...changes });
 async function seed(db, id = "buyer", credit = 1000000) {
-  await db.prepare("INSERT INTO users VALUES (?, ?, 'unused', 1)").run(id, id + "@example.test");
+  await db.prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, 'unused', 1)").run(id, id + "@example.test");
   if (!credit) return;
   await db.prepare("INSERT INTO deposits (id,user_id,code,amount,status,created_at,expires_at) VALUES (?,?,?,?,'credited',1,9999999999999)").run(id, id, "DEPOSIT-" + id, credit);
   await db.prepare("INSERT INTO bank_events (transaction_id,deposit_id,amount,outcome,received_at) VALUES (?,?,?,'credited',1)").run(id, id, credit);
