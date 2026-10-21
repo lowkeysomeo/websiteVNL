@@ -474,7 +474,7 @@
     }
   });
   dialog.addEventListener("close", stopPolling);
-  loadSession().then(() => {
+  loadSession().then(async () => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get("discord_auth") === "success" || urlParams.get("discord_auth") === "linked") {
@@ -484,7 +484,7 @@
         const cleanUrl = window.location.pathname + (cleanQuery ? "?" + cleanQuery : "") + window.location.hash;
         window.history.replaceState({}, "", cleanUrl);
         dialog?.showModal();
-        showWallet();
+        await showWallet();
         say(isLinked ? "✅ Đã liên kết tài khoản Discord thành công!" : "✅ Đăng nhập bằng Discord thành công!");
       } else if (urlParams.get("discord_auth_error")) {
         const errText = urlParams.get("discord_auth_error");
@@ -493,6 +493,7 @@
         const cleanUrl = window.location.pathname + (cleanQuery ? "?" + cleanQuery : "") + window.location.hash;
         window.history.replaceState({}, "", cleanUrl);
         dialog?.showModal();
+        await showWallet();
         say("❌ " + errText);
       }
     } catch {}
