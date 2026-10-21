@@ -74,6 +74,8 @@ import {
   sendDiscordOrderMessageNotification,
   sendDiscordTestNotification,
   sendPartnerDiscordTestNotification,
+  sendDiscordLegitFeedbackNotification,
+  sendDiscordLegitFeedbackTestNotification,
 } from "./discord.js";
 import {
   getContactsSettings,
@@ -959,10 +961,31 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           const caller = await requireAdminOrPartner(req);
           const body = parse(await readBody(req));
           const partnerEmail = caller.role === "partner" ? caller.email : undefined;
-          const updated = await updateAdminOrder(db, adminOrderMatch[1], {
+          const orderId = adminOrderMatch[1];
+          const prevOrder = await db
+            .prepare("SELECT status FROM orders WHERE id = ?")
+            .get(orderId);
+          const updated = await updateAdminOrder(db, orderId, {
             status: body.status,
             claimLink: body.claimLink,
           }, partnerEmail);
+
+          if (
+            (prevOrder?.status !== "completed" || body.sendLegitFeedback) &&
+            updated.status === "completed"
+          ) {
+            try {
+              await sendDiscordLegitFeedbackNotification(
+                db,
+                updated,
+                config.origin,
+                fetchFn,
+              );
+            } catch (discordErr) {
+              console.error("[Discord Legit Feedback Notification Error]", discordErr);
+            }
+          }
+
           return json(200, { success: true, order: updated });
         }
         const adminOrderMessagesMatch = route.match(
@@ -1165,10 +1188,23 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           const settings = await saveDiscordSettings(db, body);
           return json(200, { success: true, settings, role: "admin" });
         }
-        if (req.method === "POST" && (route === "/api/admin/discord/test" || route === "/api/partner/discord/test")) {
+        if (
+          req.method === "POST" &&
+          (route === "/api/admin/discord/test" ||
+            route === "/api/partner/discord/test" ||
+            route === "/api/admin/discord/test-feedback")
+        ) {
           const caller = await requireAdminOrPartner(req);
           sameOrigin(req);
           const body = parse(await readBody(req));
+          if (route === "/api/admin/discord/test-feedback" || body.type === "feedback") {
+            const result = await sendDiscordLegitFeedbackTestNotification(
+              db,
+              body,
+              fetchFn,
+            );
+            return json(200, { success: true, ...result, role: "admin" });
+          }
           if (caller.role === "partner" || route === "/api/partner/discord/test") {
             const partnerEmail = caller.role === "partner" ? caller.email : (body.partnerEmail || "");
             if (!partnerEmail) throw fail(400, "Vui lòng chỉ định email đối tác.");

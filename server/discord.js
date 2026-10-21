@@ -1,8 +1,29 @@
 export const DEFAULT_ADMIN_ID = "604729446649298963";
+export const DEFAULT_LEGIT_CHANNEL_ID = "1562154223783907560";
 
 export function formatVND(amount) {
   const numeric = typeof amount === "number" ? amount : Number(amount) || 0;
   return new Intl.NumberFormat("vi-VN").format(numeric) + "₫";
+}
+
+export function maskCustomerName(name) {
+  if (!name || typeof name !== "string") return "Khách hàng";
+  const trimmed = name.trim();
+  if (!trimmed) return "Khách hàng";
+  if (trimmed.length <= 2) return trimmed[0] + "*";
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) {
+    return trimmed.slice(0, 2) + "***";
+  }
+  return `${parts[0]} ***`;
+}
+
+export function maskEmail(email) {
+  if (!email || typeof email !== "string" || !email.includes("@")) return "N/A";
+  const [user, domain] = email.trim().split("@");
+  if (!user || !domain) return "N/A";
+  const maskedUser = user.length <= 2 ? user[0] + "***" : user.slice(0, 2) + "***";
+  return `${maskedUser}@${domain}`;
 }
 
 export async function getDiscordSettings(db, env = process.env) {
@@ -32,6 +53,18 @@ export async function getDiscordSettings(db, env = process.env) {
       : env.DISCORD_WEBHOOK_URL || "",
   ).trim();
 
+  const feedbackWebhookUrl = String(
+    saved?.feedbackWebhookUrl !== undefined
+      ? saved.feedbackWebhookUrl
+      : env.DISCORD_FEEDBACK_WEBHOOK_URL || env.DISCORD_LEGIT_WEBHOOK_URL || "",
+  ).trim();
+
+  const legitChannelId = String(
+    saved?.legitChannelId !== undefined && saved.legitChannelId !== ""
+      ? saved.legitChannelId
+      : env.DISCORD_LEGIT_CHANNEL_ID || DEFAULT_LEGIT_CHANNEL_ID,
+  ).trim();
+
   const adminId = String(
     saved?.adminId !== undefined && saved.adminId !== ""
       ? saved.adminId
@@ -41,11 +74,19 @@ export async function getDiscordSettings(db, env = process.env) {
   const enabled =
     saved?.enabled !== undefined
       ? Boolean(saved.enabled)
-      : Boolean(webhookUrl);
+      : Boolean(webhookUrl || feedbackWebhookUrl);
+
+  const feedbackEnabled =
+    saved?.feedbackEnabled !== undefined
+      ? Boolean(saved.feedbackEnabled)
+      : true;
 
   return {
     enabled,
+    feedbackEnabled,
     webhookUrl,
+    feedbackWebhookUrl,
+    legitChannelId: legitChannelId || DEFAULT_LEGIT_CHANNEL_ID,
     adminId: adminId || DEFAULT_ADMIN_ID,
     updatedAt: row?.updated_at || null,
   };
@@ -57,14 +98,37 @@ export async function saveDiscordSettings(
   now = Date.now(),
 ) {
   const webhookUrl = String(data.webhookUrl ?? "").trim();
+  const feedbackWebhookUrl = String(data.feedbackWebhookUrl ?? "").trim();
+  const rawLegitChannelId = String(data.legitChannelId ?? "").trim();
+  const legitChannelId = rawLegitChannelId || DEFAULT_LEGIT_CHANNEL_ID;
   const rawAdminId = String(data.adminId ?? "").trim();
   const adminId = rawAdminId || DEFAULT_ADMIN_ID;
   const enabled = Boolean(data.enabled);
+  const feedbackEnabled =
+    data.feedbackEnabled !== undefined ? Boolean(data.feedbackEnabled) : true;
 
   if (webhookUrl && !/^https?:\/\//i.test(webhookUrl)) {
     throw Object.assign(
       new Error(
         "Discord Webhook URL không hợp lệ (phải bắt đầu bằng http:// hoặc https://).",
+      ),
+      { status: 400 },
+    );
+  }
+
+  if (feedbackWebhookUrl && !/^https?:\/\//i.test(feedbackWebhookUrl)) {
+    throw Object.assign(
+      new Error(
+        "Webhook Kênh Check Legit không hợp lệ (phải bắt đầu bằng http:// hoặc https://).",
+      ),
+      { status: 400 },
+    );
+  }
+
+  if (legitChannelId && !/^\d{16,22}$/.test(legitChannelId)) {
+    throw Object.assign(
+      new Error(
+        "ID Kênh Check Legit không hợp lệ (phải là chuỗi số từ 16 đến 22 chữ số).",
       ),
       { status: 400 },
     );
@@ -81,7 +145,10 @@ export async function saveDiscordSettings(
 
   const payload = JSON.stringify({
     enabled,
+    feedbackEnabled,
     webhookUrl,
+    feedbackWebhookUrl,
+    legitChannelId,
     adminId,
   });
 
@@ -97,7 +164,10 @@ export async function saveDiscordSettings(
 
   return {
     enabled,
+    feedbackEnabled,
     webhookUrl,
+    feedbackWebhookUrl,
+    legitChannelId,
     adminId,
     updatedAt: now,
   };
@@ -986,5 +1056,237 @@ export async function sendDiscordOrderMessageNotification(
   }
 
   return result;
+}
+
+export function buildLegitFeedbackEmbed(order, settings = {}, origin = "") {
+  const channelId = String(
+    settings.legitChannelId || DEFAULT_LEGIT_CHANNEL_ID,
+  ).trim();
+  const content = `⭐ **[LEGIT CHECK]** Đơn hàng \`${order.id || "N/A"}\` đã hoàn tất thành công! Cảm ơn bạn đã tin tưởng dịch vụ tại **VietNam Legacy Store**!`.trim();
+
+  let items = [];
+  if (Array.isArray(order.items)) {
+    items = order.items;
+  } else if (order.items_json) {
+    try {
+      items = JSON.parse(order.items_json);
+    } catch {}
+  }
+
+  let itemSummary = items
+    .map((item) => {
+      const pName = item.productName || item.productId || "Sản phẩm";
+      const vName = item.variantName || item.variantId || "";
+      const qty = item.quantity || 1;
+      return `• **${pName}**${vName ? ` (${vName})` : ""} x${qty}`;
+    })
+    .join("\n");
+
+  if (!itemSummary) {
+    itemSummary = "Mặt hàng kỹ thuật số / Dịch vụ";
+  }
+  if (itemSummary.length > 1024) {
+    itemSummary = itemSummary.slice(0, 1020) + "...";
+  }
+
+  const maskedName = maskCustomerName(order.customerName || order.customer_name);
+  const maskedEmail = maskEmail(order.customerEmail || order.customer_email);
+  const completedAt = Number(order.completedAt || order.completed_at || Date.now());
+  const discordTimestamp = Math.floor(completedAt / 1000);
+
+  const fields = [
+    {
+      name: "🔖 Mã đơn hàng",
+      value: `\`${order.id || "N/A"}\``,
+      inline: true,
+    },
+    {
+      name: "👤 Khách hàng",
+      value: `**${maskedName}**\n\`${maskedEmail}\``,
+      inline: true,
+    },
+    {
+      name: "💰 Tổng thanh toán",
+      value: `**${formatVND(order.total || 0)}**`,
+      inline: true,
+    },
+    {
+      name: `📦 Mặt hàng đã bàn giao (${items.length || 1})`,
+      value: itemSummary,
+      inline: false,
+    },
+    {
+      name: "🛡️ Trạng thái xác thực",
+      value: "✅ **100% Hoàn Tất • Uy Tín & Bảo Hành**",
+      inline: true,
+    },
+    {
+      name: "🕒 Thời gian hoàn tất",
+      value: `<t:${discordTimestamp}:f> (<t:${discordTimestamp}:R>)`,
+      inline: true,
+    },
+  ];
+
+  const embed = {
+    title: "✅ ĐƠN HÀNG HOÀN TẤT • VIETNAM LEGACY LEGIT CHECK",
+    url: origin || undefined,
+    color: 0x22c55e, // Emerald Green (Legit Check)
+    description: "🎉 Cảm ơn quý khách đã tin tưởng và ủng hộ **VietNam Legacy Store**!\nĐơn hàng đã được xử lý và bàn giao thành công. Chúc bạn có trải nghiệm tuyệt vời! ⭐⭐⭐⭐⭐",
+    fields,
+    timestamp: new Date(completedAt).toISOString(),
+    footer: {
+      text: `VietNam Legacy Store • Kênh Check Legit • Channel ID: ${channelId}`,
+    },
+  };
+
+  return {
+    content,
+    embeds: [embed],
+  };
+}
+
+export async function sendDiscordLegitFeedbackNotification(
+  db,
+  order,
+  origin = "",
+  fetchFn = globalThis.fetch,
+) {
+  const result = { sent: false };
+  try {
+    const settings = await getDiscordSettings(db);
+    if (!settings.enabled || settings.feedbackEnabled === false) {
+      result.reason = "disabled";
+      return result;
+    }
+
+    const targetWebhookUrl = String(
+      settings.feedbackWebhookUrl || settings.webhookUrl || "",
+    ).trim();
+
+    if (!targetWebhookUrl) {
+      result.reason = "no_webhook_url";
+      return result;
+    }
+
+    const payload = buildLegitFeedbackEmbed(order, settings, origin);
+    const res = await fetchFn(targetWebhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.error(
+        `[Discord Legit Feedback Webhook Warning] Status ${res.status}: ${errText}`,
+      );
+      result.error = errText;
+      result.status = res.status;
+    } else {
+      result.sent = true;
+    }
+  } catch (err) {
+    console.error("[Discord Legit Feedback Webhook Error]", err.message);
+    result.error = err.message;
+  }
+  return result;
+}
+
+export async function sendDiscordLegitFeedbackTestNotification(
+  db,
+  params = {},
+  fetchFn = globalThis.fetch,
+) {
+  const currentSettings = await getDiscordSettings(db);
+  const webhookUrl = String(
+    params.feedbackWebhookUrl ||
+      params.webhookUrl ||
+      currentSettings.feedbackWebhookUrl ||
+      currentSettings.webhookUrl ||
+      "",
+  ).trim();
+  const channelId = String(
+    params.legitChannelId ||
+      currentSettings.legitChannelId ||
+      DEFAULT_LEGIT_CHANNEL_ID,
+  ).trim();
+
+  if (!webhookUrl) {
+    throw Object.assign(
+      new Error(
+        "Vui lòng nhập Webhook URL cho Kênh Check Legit trước khi thử nghiệm.",
+      ),
+      { status: 400 },
+    );
+  }
+
+  if (!/^https?:\/\//i.test(webhookUrl)) {
+    throw Object.assign(
+      new Error(
+        "Discord Webhook URL không hợp lệ (phải bắt đầu bằng http:// hoặc https://).",
+      ),
+      { status: 400 },
+    );
+  }
+
+  if (channelId && !/^\d{16,22}$/.test(channelId)) {
+    throw Object.assign(
+      new Error(
+        "ID Kênh Check Legit không hợp lệ (phải là chuỗi số từ 16 đến 22 chữ số).",
+      ),
+      { status: 400 },
+    );
+  }
+
+  const sampleOrder = {
+    id: "VNL-TEST" + Math.floor(1000 + Math.random() * 9000),
+    customerName: "Nguyễn Văn A (Khách Test)",
+    customerEmail: "khachtest@gmail.com",
+    total: 120000,
+    items: [
+      {
+        productName: "Discord Nitro Boost 1 Tháng",
+        variantName: "Gói bảo hành full",
+        quantity: 1,
+        price: 120000,
+      },
+    ],
+    completedAt: Date.now(),
+  };
+
+  const payload = buildLegitFeedbackEmbed(
+    sampleOrder,
+    { ...currentSettings, legitChannelId: channelId },
+    params.origin || "",
+  );
+
+  payload.content = `🧪 **[TEST CHECK LEGIT]** Đang kiểm tra kết nối Webhook tới kênh Check Legit <#${channelId}> (ID: \`${channelId}\`)!`;
+
+  const res = await fetchFn(webhookUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(8000),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw Object.assign(
+      new Error(
+        `Discord trả về lỗi ${res.status}: ${errText || "Không thể gửi webhook check legit"}`,
+      ),
+      { status: 502 },
+    );
+  }
+
+  return {
+    success: true,
+    message: `Gửi tin thử nghiệm Check Legit thành công về kênh ${channelId}!`,
+  };
 }
 

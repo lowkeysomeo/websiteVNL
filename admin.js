@@ -239,6 +239,10 @@
         if (discordIdHint) {
           discordIdHint.innerHTML = 'Nhập ID Discord của bạn để bot tag <code>&lt;@ID&gt;</code> khi có đơn mới (hoặc để trống nếu không cần tag).';
         }
+        const legitSection = document.querySelector("#admin-discord-legit-section");
+        const testFeedbackBtn = document.querySelector("#admin-test-feedback-btn");
+        if (legitSection) legitSection.hidden = true;
+        if (testFeedbackBtn) testFeedbackBtn.hidden = true;
       }
 
       if (ordersBtn) ordersBtn.textContent = "📦 Đơn hàng của tôi";
@@ -275,6 +279,10 @@
         if (discordIdHint) {
           discordIdHint.innerHTML = 'Mặc định: <code style="color: #c084fc;">604729446649298963</code> (bot sẽ gắn thẻ <code>&lt;@604729446649298963&gt;</code>).';
         }
+        const legitSection = document.querySelector("#admin-discord-legit-section");
+        const testFeedbackBtn = document.querySelector("#admin-test-feedback-btn");
+        if (legitSection) legitSection.hidden = false;
+        if (testFeedbackBtn) testFeedbackBtn.hidden = false;
       }
 
       if (ordersBtn) ordersBtn.textContent = "Đơn hàng & thông báo";
@@ -1080,14 +1088,19 @@
     });
   }
 
-  // Discord Admin Notification Management
+  // Discord Admin & Legit Check Notification Management
   const discordWebhookInput = document.querySelector("#admin-discord-webhook");
   const discordAdminIdInput = document.querySelector("#admin-discord-admin-id");
   const discordActive = document.querySelector("#admin-discord-active");
   const discordStatusText = document.querySelector("#admin-discord-status-text");
+  const discordFeedbackWebhookInput = document.querySelector("#admin-discord-feedback-webhook");
+  const discordLegitChannelInput = document.querySelector("#admin-discord-legit-channel");
+  const discordFeedbackActive = document.querySelector("#admin-discord-feedback-active");
+  const discordFeedbackStatusText = document.querySelector("#admin-discord-feedback-status-text");
   const discordFeedback = document.querySelector("#admin-discord-feedback");
   const saveDiscordBtn = document.querySelector("#admin-save-discord-btn");
   const testDiscordBtn = document.querySelector("#admin-test-discord-btn");
+  const testFeedbackBtn = document.querySelector("#admin-test-feedback-btn");
 
   function discordStatus(message, error = false) {
     if (!discordFeedback) return;
@@ -1103,8 +1116,19 @@
     discordStatusText.classList.toggle("status-inactive", !isEnabled);
   }
 
+  function updateFeedbackStatusLabel() {
+    if (!discordFeedbackActive || !discordFeedbackStatusText) return;
+    const isEnabled = discordFeedbackActive.checked;
+    discordFeedbackStatusText.textContent = isEnabled ? "Bật Legit" : "Tắt Legit";
+    discordFeedbackStatusText.classList.toggle("status-active", isEnabled);
+    discordFeedbackStatusText.classList.toggle("status-inactive", !isEnabled);
+  }
+
   if (discordActive) {
     discordActive.addEventListener("change", updateDiscordStatusLabel);
+  }
+  if (discordFeedbackActive) {
+    discordFeedbackActive.addEventListener("change", updateFeedbackStatusLabel);
   }
 
   async function loadDiscordSettings() {
@@ -1121,7 +1145,17 @@
         if (discordActive) {
           discordActive.checked = Boolean(data.settings.enabled);
         }
+        if (discordFeedbackWebhookInput) {
+          discordFeedbackWebhookInput.value = data.settings.feedbackWebhookUrl || "";
+        }
+        if (discordLegitChannelInput) {
+          discordLegitChannelInput.value = data.settings.legitChannelId || "1562154223783907560";
+        }
+        if (discordFeedbackActive) {
+          discordFeedbackActive.checked = data.settings.feedbackEnabled !== undefined ? Boolean(data.settings.feedbackEnabled) : true;
+        }
         updateDiscordStatusLabel();
+        updateFeedbackStatusLabel();
       }
     } catch (err) {
       discordStatus("Chưa tải được cấu hình Discord: " + err.message, true);
@@ -1134,9 +1168,12 @@
       const isPartner = currentUser?.role === "partner";
       const adminId = discordAdminIdInput ? discordAdminIdInput.value.trim() : (isPartner ? "" : "604729446649298963");
       const enabled = discordActive ? discordActive.checked : false;
+      const feedbackWebhookUrl = discordFeedbackWebhookInput ? discordFeedbackWebhookInput.value.trim() : "";
+      const legitChannelId = discordLegitChannelInput ? discordLegitChannelInput.value.trim() : "1562154223783907560";
+      const feedbackEnabled = discordFeedbackActive ? discordFeedbackActive.checked : true;
 
-      if (enabled && !webhookUrl) {
-        discordStatus("Vui lòng nhập Discord Webhook URL trước khi bật thông báo.", true);
+      if (enabled && !webhookUrl && !feedbackWebhookUrl) {
+        discordStatus("Vui lòng nhập ít nhất một Discord Webhook URL trước khi bật thông báo.", true);
         notify("Vui lòng nhập Discord Webhook URL.");
         discordWebhookInput?.focus();
         return;
@@ -1154,13 +1191,20 @@
             webhookUrl,
             adminId: adminId || "604729446649298963",
             enabled,
+            feedbackWebhookUrl,
+            legitChannelId: legitChannelId || "1562154223783907560",
+            feedbackEnabled,
           }),
         });
 
         if (discordWebhookInput) discordWebhookInput.value = data.settings.webhookUrl || "";
         if (discordAdminIdInput) discordAdminIdInput.value = data.settings.discordId || data.settings.adminId || (isPartner ? "" : "604729446649298963");
         if (discordActive) discordActive.checked = Boolean(data.settings.enabled);
+        if (discordFeedbackWebhookInput) discordFeedbackWebhookInput.value = data.settings.feedbackWebhookUrl || "";
+        if (discordLegitChannelInput) discordLegitChannelInput.value = data.settings.legitChannelId || "1562154223783907560";
+        if (discordFeedbackActive) discordFeedbackActive.checked = data.settings.feedbackEnabled !== undefined ? Boolean(data.settings.feedbackEnabled) : true;
         updateDiscordStatusLabel();
+        updateFeedbackStatusLabel();
 
         const savedAt = new Date().toLocaleTimeString("vi-VN");
         discordStatus(
@@ -1214,6 +1258,45 @@
       } finally {
         testDiscordBtn.disabled = false;
         testDiscordBtn.textContent = "Gửi tin thử nghiệm 🧪";
+      }
+    });
+  }
+
+  if (testFeedbackBtn) {
+    testFeedbackBtn.addEventListener("click", async () => {
+      const feedbackWebhookUrl = discordFeedbackWebhookInput ? discordFeedbackWebhookInput.value.trim() : "";
+      const legitChannelId = discordLegitChannelInput ? discordLegitChannelInput.value.trim() : "1562154223783907560";
+      const webhookUrl = discordWebhookInput ? discordWebhookInput.value.trim() : "";
+
+      const targetUrl = feedbackWebhookUrl || webhookUrl;
+      if (!targetUrl) {
+        discordStatus("Vui lòng nhập Webhook URL Kênh Check Legit trước khi gửi tin thử nghiệm.", true);
+        notify("Vui lòng nhập Webhook URL Kênh Check Legit.");
+        discordFeedbackWebhookInput?.focus();
+        return;
+      }
+
+      testFeedbackBtn.disabled = true;
+      testFeedbackBtn.textContent = "Đang gửi...";
+      discordStatus("Đang gửi tin thử nghiệm Check Legit tới Discord...");
+
+      try {
+        const data = await api("/api/admin/discord/test", {
+          method: "POST",
+          body: JSON.stringify({
+            type: "feedback",
+            feedbackWebhookUrl: targetUrl,
+            legitChannelId,
+          }),
+        });
+        discordStatus("✅ " + (data.message || "Đã gửi thông báo Check Legit thử nghiệm thành công! Hãy kiểm tra kênh " + legitChannelId));
+        notify("Gửi thử nghiệm Check Legit thành công!");
+      } catch (err) {
+        discordStatus("❌ Gửi thử nghiệm Check Legit thất bại: " + err.message, true);
+        notify("Lỗi thử nghiệm Check Legit: " + err.message);
+      } finally {
+        testFeedbackBtn.disabled = false;
+        testFeedbackBtn.textContent = "Test Kênh Legit 🛡️";
       }
     });
   }

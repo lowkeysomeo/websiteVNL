@@ -183,7 +183,7 @@
             <div class="admin-discord-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
               <div>
                 <label for="admin-discord-webhook" style="display: block; font-size: 12px; font-weight: 600; color: #d8b4fe; margin-bottom: 6px;">
-                  Discord Webhook URL
+                  Discord Webhook URL (Kênh Đơn Hàng Mới)
                 </label>
                 <input
                   type="url"
@@ -211,8 +211,64 @@
                 </small>
               </div>
             </div>
+
+            <!-- Kênh Check Legit / Feedback (Channel ID: 1562154223783907560) -->
+            <div id="admin-discord-legit-section" style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 14px; margin-top: 2px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
+                <div>
+                  <h4 style="margin: 0; font-size: 13px; font-weight: 700; color: #4ade80; display: flex; align-items: center; gap: 6px;">
+                    <span>🛡️</span> Kênh Check Legit / Feedback (Channel ID: <code style="color: #86efac; font-size: 12px;">1562154223783907560</code>)
+                  </h4>
+                  <p style="margin: 3px 0 0 0; font-size: 11.5px; color: var(--muted, #94a3b8);">
+                    Tự động gửi hóa đơn xác thực uy tín (Legit Check - ẩn thông tin nhạy cảm) về kênh Discord này khi hoàn tất đơn hàng.
+                  </p>
+                </div>
+                <div class="announcement-toggle-group">
+                  <label class="switch-label" style="transform: scale(0.9); transform-origin: right center;">
+                    <input type="checkbox" id="admin-discord-feedback-active" aria-label="Bật gửi feedback check legit" checked />
+                    <span class="switch-slider"></span>
+                  </label>
+                  <span id="admin-discord-feedback-status-text" class="status-active" style="font-size: 11.5px;">Bật Legit</span>
+                </div>
+              </div>
+              <div class="admin-discord-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+                <div>
+                  <label for="admin-discord-feedback-webhook" style="display: block; font-size: 12px; font-weight: 600; color: #86efac; margin-bottom: 6px;">
+                    Webhook URL Kênh Check Legit
+                  </label>
+                  <input
+                    type="url"
+                    id="admin-discord-feedback-webhook"
+                    placeholder="https://discord.com/api/webhooks/..."
+                    style="width: 100%; box-sizing: border-box; padding: 9px 12px; background: #140b0e; border: 1px solid var(--line); border-radius: 8px; color: #fff; font-size: 13px;"
+                  />
+                  <small style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted, #94a3b8);">
+                    Tạo Webhook tại kênh <code>1562154223783907560</code> rồi dán link vào đây.
+                  </small>
+                </div>
+                <div>
+                  <label for="admin-discord-legit-channel" style="display: block; font-size: 12px; font-weight: 600; color: #86efac; margin-bottom: 6px;">
+                    ID Kênh Check Legit
+                  </label>
+                  <input
+                    type="text"
+                    id="admin-discord-legit-channel"
+                    value="1562154223783907560"
+                    placeholder="1562154223783907560"
+                    style="width: 100%; box-sizing: border-box; padding: 9px 12px; background: #140b0e; border: 1px solid var(--line); border-radius: 8px; color: #fff; font-size: 13px;"
+                  />
+                  <small style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted, #94a3b8);">
+                    Mặc định: <code>1562154223783907560</code> (hiển thị trong footer embed check legit).
+                  </small>
+                </div>
+              </div>
+            </div>
+
             <p id="admin-discord-feedback" class="announcement-feedback" role="status" aria-live="polite" style="margin: 0;"></p>
             <div class="admin-announcement-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 2px;">
+              <button type="button" class="button secondary btn-small" id="admin-test-feedback-btn" style="border-color: rgba(74, 222, 128, 0.4); color: #86efac;">
+                Test Kênh Legit 🛡️
+              </button>
               <button type="button" class="button secondary btn-small" id="admin-test-discord-btn">
                 Gửi tin thử nghiệm 🧪
               </button>
