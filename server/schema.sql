@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS users (
   discord_global_name TEXT,
   discord_avatar TEXT
 );
-CREATE INDEX IF NOT EXISTS users_discord_id ON users(discord_id);
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id),
