@@ -1,6 +1,33 @@
 export const DEFAULT_ADMIN_ID = "604729446649298963";
 export const DEFAULT_LEGIT_CHANNEL_ID = "1562154223783907560";
 
+export const DEFAULT_LEGIT_TEMPLATE = {
+  content: "⭐ **[LEGIT CHECK]** Đơn hàng `{orderId}` đã hoàn tất thành công! Cảm ơn bạn đã tin tưởng dịch vụ tại **VietNam Legacy Store**!",
+  title: "✅ ĐƠN HÀNG HOÀN TẤT • VIETNAM LEGACY LEGIT CHECK",
+  description: "🎉 Cảm ơn quý khách đã tin tưởng và ủng hộ **VietNam Legacy Store**!\nĐơn hàng đã được xử lý và bàn giao thành công. Chúc bạn có trải nghiệm tuyệt vời! ⭐⭐⭐⭐⭐",
+  color: "#22c55e",
+  statusLabel: "🛡️ Trạng thái xác thực",
+  statusValue: "✅ **100% Hoàn Tất • Uy Tín & Bảo Hành**",
+  footerText: "VietNam Legacy Store • Kênh Check Legit • Channel ID: {channelId}",
+  thumbnailUrl: "",
+  bannerUrl: "",
+  showCustomer: true,
+  showTotal: true,
+  showItems: true,
+  showTimestamp: true,
+};
+
+export function renderLegitTemplateText(templateText, data = {}) {
+  if (templateText === undefined || templateText === null) return "";
+  return String(templateText)
+    .replace(/\{orderId\}/g, data.orderId || "N/A")
+    .replace(/\{customerName\}/g, data.customerName || "Khách hàng")
+    .replace(/\{customerEmail\}/g, data.customerEmail || "N/A")
+    .replace(/\{total\}/g, data.total || "0₫")
+    .replace(/\{itemsCount\}/g, String(data.itemsCount || 1))
+    .replace(/\{channelId\}/g, data.channelId || DEFAULT_LEGIT_CHANNEL_ID);
+}
+
 export function formatVND(amount) {
   const numeric = typeof amount === "number" ? amount : Number(amount) || 0;
   return new Intl.NumberFormat("vi-VN").format(numeric) + "₫";
@@ -81,6 +108,11 @@ export async function getDiscordSettings(db, env = process.env) {
       ? Boolean(saved.feedbackEnabled)
       : true;
 
+  const legitTemplate = {
+    ...DEFAULT_LEGIT_TEMPLATE,
+    ...(saved?.legitTemplate || {}),
+  };
+
   return {
     enabled,
     feedbackEnabled,
@@ -88,6 +120,7 @@ export async function getDiscordSettings(db, env = process.env) {
     feedbackWebhookUrl,
     legitChannelId: legitChannelId || DEFAULT_LEGIT_CHANNEL_ID,
     adminId: adminId || DEFAULT_ADMIN_ID,
+    legitTemplate,
     updatedAt: row?.updated_at || null,
   };
 }
@@ -106,6 +139,11 @@ export async function saveDiscordSettings(
   const enabled = Boolean(data.enabled);
   const feedbackEnabled =
     data.feedbackEnabled !== undefined ? Boolean(data.feedbackEnabled) : true;
+
+  const legitTemplate = {
+    ...DEFAULT_LEGIT_TEMPLATE,
+    ...(data.legitTemplate || {}),
+  };
 
   if (webhookUrl && !/^https?:\/\//i.test(webhookUrl)) {
     throw Object.assign(
@@ -150,6 +188,7 @@ export async function saveDiscordSettings(
     feedbackWebhookUrl,
     legitChannelId,
     adminId,
+    legitTemplate,
   });
 
   await db
@@ -169,6 +208,7 @@ export async function saveDiscordSettings(
     feedbackWebhookUrl,
     legitChannelId,
     adminId,
+    legitTemplate,
     updatedAt: now,
   };
 }
@@ -1062,7 +1102,10 @@ export function buildLegitFeedbackEmbed(order, settings = {}, origin = "") {
   const channelId = String(
     settings.legitChannelId || DEFAULT_LEGIT_CHANNEL_ID,
   ).trim();
-  const content = `⭐ **[LEGIT CHECK]** Đơn hàng \`${order.id || "N/A"}\` đã hoàn tất thành công! Cảm ơn bạn đã tin tưởng dịch vụ tại **VietNam Legacy Store**!`.trim();
+  const template = {
+    ...DEFAULT_LEGIT_TEMPLATE,
+    ...(settings.legitTemplate || {}),
+  };
 
   let items = [];
   if (Array.isArray(order.items)) {
@@ -1093,6 +1136,21 @@ export function buildLegitFeedbackEmbed(order, settings = {}, origin = "") {
   const maskedEmail = maskEmail(order.customerEmail || order.customer_email);
   const completedAt = Number(order.completedAt || order.completed_at || Date.now());
   const discordTimestamp = Math.floor(completedAt / 1000);
+  const formattedTotal = formatVND(order.total || 0);
+
+  const tplData = {
+    orderId: order.id || "N/A",
+    customerName: maskedName,
+    customerEmail: maskedEmail,
+    total: formattedTotal,
+    itemsCount: items.length || 1,
+    channelId,
+  };
+
+  const content = renderLegitTemplateText(
+    template.content !== undefined ? template.content : DEFAULT_LEGIT_TEMPLATE.content,
+    tplData,
+  ).trim();
 
   const fields = [
     {
@@ -1100,44 +1158,78 @@ export function buildLegitFeedbackEmbed(order, settings = {}, origin = "") {
       value: `\`${order.id || "N/A"}\``,
       inline: true,
     },
-    {
+  ];
+
+  if (template.showCustomer !== false) {
+    fields.push({
       name: "👤 Khách hàng",
       value: `**${maskedName}**\n\`${maskedEmail}\``,
       inline: true,
-    },
-    {
+    });
+  }
+
+  if (template.showTotal !== false) {
+    fields.push({
       name: "💰 Tổng thanh toán",
-      value: `**${formatVND(order.total || 0)}**`,
+      value: `**${formattedTotal}**`,
       inline: true,
-    },
-    {
+    });
+  }
+
+  if (template.showItems !== false) {
+    fields.push({
       name: `📦 Mặt hàng đã bàn giao (${items.length || 1})`,
       value: itemSummary,
       inline: false,
-    },
-    {
-      name: "🛡️ Trạng thái xác thực",
-      value: "✅ **100% Hoàn Tất • Uy Tín & Bảo Hành**",
+    });
+  }
+
+  if (template.statusLabel || template.statusValue) {
+    fields.push({
+      name: renderLegitTemplateText(template.statusLabel || "🛡️ Trạng thái xác thực", tplData),
+      value: renderLegitTemplateText(template.statusValue || "✅ **100% Hoàn Tất • Uy Tín & Bảo Hành**", tplData),
       inline: true,
-    },
-    {
+    });
+  }
+
+  if (template.showTimestamp !== false) {
+    fields.push({
       name: "🕒 Thời gian hoàn tất",
       value: `<t:${discordTimestamp}:f> (<t:${discordTimestamp}:R>)`,
       inline: true,
-    },
-  ];
+    });
+  }
+
+  let colorInt = 0x22c55e;
+  if (template.color) {
+    const hex = String(template.color).replace(/^#/, "").trim();
+    if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+      colorInt = parseInt(hex, 16);
+    }
+  }
 
   const embed = {
-    title: "✅ ĐƠN HÀNG HOÀN TẤT • VIETNAM LEGACY LEGIT CHECK",
+    title: renderLegitTemplateText(template.title || DEFAULT_LEGIT_TEMPLATE.title, tplData),
     url: origin || undefined,
-    color: 0x22c55e, // Emerald Green (Legit Check)
-    description: "🎉 Cảm ơn quý khách đã tin tưởng và ủng hộ **VietNam Legacy Store**!\nĐơn hàng đã được xử lý và bàn giao thành công. Chúc bạn có trải nghiệm tuyệt vời! ⭐⭐⭐⭐⭐",
+    color: colorInt,
+    description: renderLegitTemplateText(
+      template.description !== undefined ? template.description : DEFAULT_LEGIT_TEMPLATE.description,
+      tplData,
+    ),
     fields,
     timestamp: new Date(completedAt).toISOString(),
     footer: {
-      text: `VietNam Legacy Store • Kênh Check Legit • Channel ID: ${channelId}`,
+      text: renderLegitTemplateText(template.footerText || DEFAULT_LEGIT_TEMPLATE.footerText, tplData),
     },
   };
+
+  if (template.thumbnailUrl && /^https?:\/\//i.test(template.thumbnailUrl)) {
+    embed.thumbnail = { url: template.thumbnailUrl };
+  }
+
+  if (template.bannerUrl && /^https?:\/\//i.test(template.bannerUrl)) {
+    embed.image = { url: template.bannerUrl };
+  }
 
   return {
     content,
@@ -1257,13 +1349,18 @@ export async function sendDiscordLegitFeedbackTestNotification(
     completedAt: Date.now(),
   };
 
+  const legitTemplate = {
+    ...currentSettings.legitTemplate,
+    ...(params.legitTemplate || {}),
+  };
+
   const payload = buildLegitFeedbackEmbed(
     sampleOrder,
-    { ...currentSettings, legitChannelId: channelId },
+    { ...currentSettings, legitChannelId: channelId, legitTemplate },
     params.origin || "",
   );
 
-  payload.content = `🧪 **[TEST CHECK LEGIT]** Đang kiểm tra kết nối Webhook tới kênh Check Legit <#${channelId}> (ID: \`${channelId}\`)!`;
+  payload.content = `🧪 **[TEST CHECK LEGIT]** Đang kiểm tra kết nối Webhook tới kênh Check Legit <#${channelId}> (ID: \`${channelId}\`)!\n${payload.content || ""}`.trim();
 
   const res = await fetchFn(webhookUrl, {
     method: "POST",

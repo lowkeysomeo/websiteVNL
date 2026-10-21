@@ -7,6 +7,8 @@ import { readConfig } from "../server/config.js";
 import { createApp } from "../server/app.js";
 import {
   DEFAULT_LEGIT_CHANNEL_ID,
+  DEFAULT_LEGIT_TEMPLATE,
+  renderLegitTemplateText,
   maskCustomerName,
   maskEmail,
   buildLegitFeedbackEmbed,
@@ -453,6 +455,168 @@ test("HTTP POST /api/admin/orders/:id/send-legit: nút gửi feedback Check Legi
     assert.equal(sentWebhooks.length, 1);
     assert.ok(sentWebhooks[0].url.includes("1562154223783907560"));
     assert.ok(sentWebhooks[0].body.embeds[0].title.includes("VIETNAM LEGACY LEGIT CHECK"));
+  } finally {
+    server.close();
+  }
+});
+
+test("Tùy chỉnh Embed Legit Check: DEFAULT_LEGIT_TEMPLATE và renderLegitTemplateText", () => {
+  assert.ok(DEFAULT_LEGIT_TEMPLATE.title.includes("VIETNAM LEGACY LEGIT CHECK"));
+  assert.equal(DEFAULT_LEGIT_TEMPLATE.color, "#22c55e");
+  assert.equal(DEFAULT_LEGIT_TEMPLATE.showCustomer, true);
+  assert.equal(DEFAULT_LEGIT_TEMPLATE.showTotal, true);
+  assert.equal(DEFAULT_LEGIT_TEMPLATE.showItems, true);
+  assert.equal(DEFAULT_LEGIT_TEMPLATE.showTimestamp, true);
+
+  const text = "Đơn {orderId} của {customerName} ({customerEmail}) có tổng {total} ({itemsCount} món) gửi tới {channelId}";
+  const rendered = renderLegitTemplateText(text, {
+    orderId: "VNL-TEST01",
+    customerName: "Nam",
+    customerEmail: "nam@test.com",
+    total: "100.000₫",
+    itemsCount: 3,
+    channelId: "123456",
+  });
+  assert.equal(rendered, "Đơn VNL-TEST01 của Nam (nam@test.com) có tổng 100.000₫ (3 món) gửi tới 123456");
+});
+
+test("Tùy chỉnh Embed Legit Check: buildLegitFeedbackEmbed áp dụng custom template toàn diện", () => {
+  const sampleOrder = {
+    id: "VNL-CUSTOM-99",
+    customerName: "Trần Văn A",
+    customerEmail: "tva@gmail.com",
+    total: 300000,
+    items: [{ productName: "Game Pass", variantName: "1 Tháng", quantity: 1, price: 300000 }],
+    completedAt: 1774320000000,
+  };
+
+  const customTemplate = {
+    title: "🌟 [GIAO DỊCH THÀNH CÔNG] ĐƠN HÀNG {orderId}",
+    content: "🔔 Khách hàng {customerName} vừa hoàn tất đơn {orderId}!",
+    description: "Cảm ơn bạn đã mua sắm tại shop! Uy tín 100%.",
+    color: "#3b82f6",
+    statusLabel: "Trạng thái bảo hành",
+    statusValue: "Bảo hành trọn đời",
+    footerText: "Shop Uy Tín • Channel: {channelId}",
+    thumbnailUrl: "https://example.com/logo.png",
+    bannerUrl: "https://example.com/banner.png",
+    showCustomer: false,
+    showTotal: true,
+    showItems: true,
+    showTimestamp: false,
+  };
+
+  const payload = buildLegitFeedbackEmbed(
+    sampleOrder,
+    { legitChannelId: "1562154223783907560", legitTemplate: customTemplate },
+    "https://vietnamlegacy.com",
+  );
+
+  assert.equal(payload.content, "🔔 Khách hàng Trần *** vừa hoàn tất đơn VNL-CUSTOM-99!");
+  assert.equal(payload.embeds.length, 1);
+  const embed = payload.embeds[0];
+
+  assert.equal(embed.title, "🌟 [GIAO DỊCH THÀNH CÔNG] ĐƠN HÀNG VNL-CUSTOM-99");
+  assert.equal(embed.description, "Cảm ơn bạn đã mua sắm tại shop! Uy tín 100%.");
+  assert.equal(embed.color, 0x3b82f6);
+  assert.equal(embed.footer.text, "Shop Uy Tín • Channel: 1562154223783907560");
+  assert.equal(embed.thumbnail.url, "https://example.com/logo.png");
+  assert.equal(embed.image.url, "https://example.com/banner.png");
+
+  const fieldNames = embed.fields.map((f) => f.name);
+  assert.ok(fieldNames.includes("🔖 Mã đơn hàng"));
+  assert.ok(!fieldNames.includes("👤 Khách hàng"));
+  assert.ok(fieldNames.includes("💰 Tổng thanh toán"));
+  assert.ok(fieldNames.includes("📦 Mặt hàng đã bàn giao (1)"));
+  assert.ok(fieldNames.includes("Trạng thái bảo hành"));
+  assert.ok(!fieldNames.includes("🕒 Thời gian hoàn tất"));
+});
+
+test("HTTP API Admin: Lưu và tải cấu hình tùy chỉnh legitTemplate qua PUT/GET /api/admin/discord", async () => {
+  const { db, server, request, adminHeaders } = await setupTestApp();
+
+  try {
+    const customTemplate = {
+      title: "🔥 SHOP LEGIT CHECK {orderId}",
+      content: "Đơn mới {orderId}",
+      description: "Mô tả tùy chỉnh",
+      color: "#ec4899",
+      statusLabel: "Chứng thực",
+      statusValue: "Đã xác nhận",
+      footerText: "Chân trang {channelId}",
+      showCustomer: true,
+      showTotal: false,
+      showItems: true,
+      showTimestamp: true,
+    };
+
+    const putRes = await request(
+      "PUT",
+      "/api/admin/discord",
+      {
+        enabled: true,
+        webhookUrl: "https://discord.com/api/webhooks/test/admin",
+        feedbackEnabled: true,
+        feedbackWebhookUrl: "https://discord.com/api/webhooks/test/legit",
+        legitChannelId: "1562154223783907560",
+        legitTemplate: customTemplate,
+      },
+      adminHeaders,
+    );
+
+    assert.equal(putRes.status, 200);
+    assert.equal(putRes.body.success, true);
+    assert.equal(putRes.body.settings.legitTemplate.title, "🔥 SHOP LEGIT CHECK {orderId}");
+    assert.equal(putRes.body.settings.legitTemplate.color, "#ec4899");
+    assert.equal(putRes.body.settings.legitTemplate.showTotal, false);
+
+    const getRes = await request("GET", "/api/admin/discord", null, adminHeaders);
+    assert.equal(getRes.status, 200);
+    assert.equal(getRes.body.settings.legitTemplate.title, "🔥 SHOP LEGIT CHECK {orderId}");
+    assert.equal(getRes.body.settings.legitTemplate.color, "#ec4899");
+    assert.equal(getRes.body.settings.legitTemplate.showTotal, false);
+    assert.equal(getRes.body.settings.legitTemplate.showCustomer, true);
+  } finally {
+    server.close();
+  }
+});
+
+test("HTTP API Admin: Gửi thử nghiệm Check Legit với custom legitTemplate", async () => {
+  let testedPayload = null;
+  const mockFetch = async (url, opts) => {
+    testedPayload = JSON.parse(opts.body);
+    return { ok: true, status: 204, text: async () => "" };
+  };
+
+  const { server, request, adminHeaders } = await setupTestApp({}, mockFetch);
+
+  try {
+    const customTemplate = {
+      title: "🧪 EMBED TEST TÙY CHỈNH",
+      color: "#f59e0b",
+      statusLabel: "Trạng thái test",
+      statusValue: "Thành công 100%",
+    };
+
+    const res = await request(
+      "POST",
+      "/api/admin/discord/test",
+      {
+        type: "feedback",
+        feedbackWebhookUrl: "https://discord.com/api/webhooks/test/custom-legit",
+        legitChannelId: "1562154223783907560",
+        legitTemplate: customTemplate,
+      },
+      adminHeaders,
+    );
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.success, true);
+    assert.ok(testedPayload);
+    assert.equal(testedPayload.embeds[0].title, "🧪 EMBED TEST TÙY CHỈNH");
+    assert.equal(testedPayload.embeds[0].color, 0xf59e0b);
+    const fieldNames = testedPayload.embeds[0].fields.map((f) => f.name);
+    assert.ok(fieldNames.includes("Trạng thái test"));
   } finally {
     server.close();
   }

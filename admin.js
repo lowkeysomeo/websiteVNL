@@ -1138,6 +1138,263 @@
   const testDiscordBtn = document.querySelector("#admin-test-discord-btn");
   const testFeedbackBtn = document.querySelector("#admin-test-feedback-btn");
 
+  // Legit Check Embed Customizer Elements
+  const legitTplTitle = document.querySelector("#legit-tpl-title");
+  const legitTplContent = document.querySelector("#legit-tpl-content");
+  const legitTplDesc = document.querySelector("#legit-tpl-desc");
+  const legitTplColorPicker = document.querySelector("#legit-tpl-color-picker");
+  const legitTplColor = document.querySelector("#legit-tpl-color");
+  const legitTplStatusLabel = document.querySelector("#legit-tpl-status-label");
+  const legitTplStatusValue = document.querySelector("#legit-tpl-status-value");
+  const legitTplFooter = document.querySelector("#legit-tpl-footer");
+  const legitTplThumb = document.querySelector("#legit-tpl-thumb");
+  const legitTplShowCustomer = document.querySelector("#legit-tpl-show-customer");
+  const legitTplShowTotal = document.querySelector("#legit-tpl-show-total");
+  const legitTplShowItems = document.querySelector("#legit-tpl-show-items");
+  const legitTplShowTime = document.querySelector("#legit-tpl-show-time");
+  const legitTplResetBtn = document.querySelector("#legit-tpl-reset-btn");
+
+  const previewContainer = document.querySelector("#discord-preview-container");
+  const previewContent = document.querySelector("#discord-preview-content");
+  const previewEmbed = document.querySelector("#discord-preview-embed");
+  const previewTitle = document.querySelector("#discord-preview-title");
+  const previewDesc = document.querySelector("#discord-preview-desc");
+  const previewFields = document.querySelector("#discord-preview-fields");
+  const previewFooter = document.querySelector("#discord-preview-footer");
+
+  const DEFAULT_LEGIT_TEMPLATE = {
+    content: "⭐ **[LEGIT CHECK]** Đơn hàng `{orderId}` đã hoàn tất thành công! Cảm ơn bạn đã tin tưởng dịch vụ tại **VietNam Legacy Store**!",
+    title: "✅ ĐƠN HÀNG HOÀN TẤT • VIETNAM LEGACY LEGIT CHECK",
+    description: "🎉 Cảm ơn quý khách đã tin tưởng và ủng hộ **VietNam Legacy Store**!\nĐơn hàng đã được xử lý và bàn giao thành công. Chúc bạn có trải nghiệm tuyệt vời! ⭐⭐⭐⭐⭐",
+    color: "#22c55e",
+    statusLabel: "🛡️ Trạng thái xác thực",
+    statusValue: "✅ **100% Hoàn Tất • Uy Tín & Bảo Hành**",
+    footerText: "VietNam Legacy Store • Kênh Check Legit • Channel ID: {channelId}",
+    thumbnailUrl: "",
+    showCustomer: true,
+    showTotal: true,
+    showItems: true,
+    showTimestamp: true,
+  };
+
+  function populateLegitTemplate(tpl = {}) {
+    const data = { ...DEFAULT_LEGIT_TEMPLATE, ...tpl };
+    if (legitTplTitle) legitTplTitle.value = data.title || "";
+    if (legitTplContent) legitTplContent.value = data.content || "";
+    if (legitTplDesc) legitTplDesc.value = data.description || "";
+    if (legitTplColor) legitTplColor.value = (data.color || "#22c55e").toUpperCase();
+    if (legitTplColorPicker) legitTplColorPicker.value = data.color || "#22c55e";
+    if (legitTplStatusLabel) legitTplStatusLabel.value = data.statusLabel || "";
+    if (legitTplStatusValue) legitTplStatusValue.value = data.statusValue || "";
+    if (legitTplFooter) legitTplFooter.value = data.footerText || "";
+    if (legitTplThumb) legitTplThumb.value = data.thumbnailUrl || "";
+    if (legitTplShowCustomer) legitTplShowCustomer.checked = data.showCustomer !== false;
+    if (legitTplShowTotal) legitTplShowTotal.checked = data.showTotal !== false;
+    if (legitTplShowItems) legitTplShowItems.checked = data.showItems !== false;
+    if (legitTplShowTime) legitTplShowTime.checked = data.showTimestamp !== false;
+  }
+
+  function getLegitTemplateData() {
+    let colorVal = legitTplColor ? legitTplColor.value.trim() : "#22c55e";
+    if (!colorVal.startsWith("#")) colorVal = "#" + colorVal;
+    if (!/^#[0-9a-fA-F]{6}$/.test(colorVal)) colorVal = "#22c55e";
+
+    return {
+      title: legitTplTitle ? legitTplTitle.value.trim() : DEFAULT_LEGIT_TEMPLATE.title,
+      content: legitTplContent ? legitTplContent.value.trim() : DEFAULT_LEGIT_TEMPLATE.content,
+      description: legitTplDesc ? legitTplDesc.value : DEFAULT_LEGIT_TEMPLATE.description,
+      color: colorVal,
+      statusLabel: legitTplStatusLabel ? legitTplStatusLabel.value.trim() : DEFAULT_LEGIT_TEMPLATE.statusLabel,
+      statusValue: legitTplStatusValue ? legitTplStatusValue.value.trim() : DEFAULT_LEGIT_TEMPLATE.statusValue,
+      footerText: legitTplFooter ? legitTplFooter.value.trim() : DEFAULT_LEGIT_TEMPLATE.footerText,
+      thumbnailUrl: legitTplThumb ? legitTplThumb.value.trim() : "",
+      showCustomer: legitTplShowCustomer ? legitTplShowCustomer.checked : true,
+      showTotal: legitTplShowTotal ? legitTplShowTotal.checked : true,
+      showItems: legitTplShowItems ? legitTplShowItems.checked : true,
+      showTimestamp: legitTplShowTime ? legitTplShowTime.checked : true,
+    };
+  }
+
+  function formatDiscordMarkdown(str) {
+    if (!str) return "";
+    let safe = escapeHtml(str);
+    safe = safe.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    safe = safe.replace(/\*(.*?)\*/g, "<em>$1</em>");
+    safe = safe.replace(/`([^`]+)`/g, '<code style="background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px; font-size: 11.5px; color: #f2f3f5;">$1</code>');
+    safe = safe.replace(/\n/g, "<br/>");
+    return safe;
+  }
+
+  function renderTemplateText(str, data) {
+    if (!str) return "";
+    return String(str)
+      .replace(/\{orderId\}/g, data.orderId || "N/A")
+      .replace(/\{customerName\}/g, data.customerName || "Khách hàng")
+      .replace(/\{customerEmail\}/g, data.customerEmail || "N/A")
+      .replace(/\{total\}/g, data.total || "0₫")
+      .replace(/\{itemsCount\}/g, String(data.itemsCount || 1))
+      .replace(/\{channelId\}/g, data.channelId || "1562154223783907560");
+  }
+
+  function updateDiscordPreview() {
+    if (!previewContainer) return;
+
+    const channelId = discordLegitChannelInput ? discordLegitChannelInput.value.trim() || "1562154223783907560" : "1562154223783907560";
+    const sample = {
+      orderId: "VNL-20261021-8888",
+      customerName: "Nguyễn ***",
+      customerEmail: "kh***@example.com",
+      total: "250.000₫",
+      itemsCount: 2,
+      channelId,
+    };
+
+    const tpl = getLegitTemplateData();
+
+    // Content (outer ping)
+    if (previewContent) {
+      const renderedContent = renderTemplateText(tpl.content, sample);
+      previewContent.innerHTML = formatDiscordMarkdown(renderedContent);
+      previewContent.style.display = renderedContent ? "block" : "none";
+    }
+
+    // Embed border color
+    if (previewEmbed) {
+      previewEmbed.style.borderLeftColor = tpl.color || "#22c55e";
+    }
+
+    // Embed title
+    if (previewTitle) {
+      previewTitle.innerHTML = formatDiscordMarkdown(renderTemplateText(tpl.title, sample));
+    }
+
+    // Embed description
+    if (previewDesc) {
+      const renderedDesc = renderTemplateText(tpl.description, sample);
+      previewDesc.innerHTML = formatDiscordMarkdown(renderedDesc);
+      previewDesc.style.display = renderedDesc ? "block" : "none";
+    }
+
+    // Embed fields
+    if (previewFields) {
+      const fieldsHtml = [];
+
+      // Order ID
+      fieldsHtml.push(`
+        <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 4px;">
+          <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 2px;">🔖 Mã đơn hàng</div>
+          <div style="font-size: 12.5px; color: #f2f3f5; font-family: monospace;">${escapeHtml(sample.orderId)}</div>
+        </div>
+      `);
+
+      // Customer
+      if (tpl.showCustomer) {
+        fieldsHtml.push(`
+          <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 2px;">👤 Khách hàng</div>
+            <div style="font-size: 12.5px; color: #f2f3f5;"><strong>${escapeHtml(sample.customerName)}</strong><br/><code style="font-size: 11px; color: #94a3b8;">${escapeHtml(sample.customerEmail)}</code></div>
+          </div>
+        `);
+      }
+
+      // Total
+      if (tpl.showTotal) {
+        fieldsHtml.push(`
+          <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 2px;">💰 Tổng thanh toán</div>
+            <div style="font-size: 12.5px; color: #4ade80; font-weight: 700;">${escapeHtml(sample.total)}</div>
+          </div>
+        `);
+      }
+
+      // Items delivered
+      if (tpl.showItems) {
+        fieldsHtml.push(`
+          <div style="grid-column: 1 / -1; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 3px;">📦 Mặt hàng đã bàn giao (${sample.itemsCount})</div>
+            <div style="font-size: 12px; color: #dbdee1;">• <strong>Discord Nitro Boost 1 Tháng</strong> (125.000₫) (Gói full) x2</div>
+          </div>
+        `);
+      }
+
+      // Status
+      if (tpl.statusLabel || tpl.statusValue) {
+        fieldsHtml.push(`
+          <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 2px;">${formatDiscordMarkdown(renderTemplateText(tpl.statusLabel, sample))}</div>
+            <div style="font-size: 12.5px; color: #f2f3f5;">${formatDiscordMarkdown(renderTemplateText(tpl.statusValue, sample))}</div>
+          </div>
+        `);
+      }
+
+      // Timestamp
+      if (tpl.showTimestamp) {
+        fieldsHtml.push(`
+          <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 2px;">🕒 Thời gian hoàn tất</div>
+            <div style="font-size: 12px; color: #dbdee1;">Hôm nay lúc 23:45 (Vừa xong)</div>
+          </div>
+        `);
+      }
+
+      previewFields.innerHTML = fieldsHtml.join("");
+    }
+
+    // Embed footer
+    if (previewFooter) {
+      const renderedFooter = renderTemplateText(tpl.footerText, sample);
+      previewFooter.innerHTML = formatDiscordMarkdown(renderedFooter);
+    }
+  }
+
+  // Event listeners for template inputs live preview
+  [
+    legitTplTitle,
+    legitTplContent,
+    legitTplDesc,
+    legitTplStatusLabel,
+    legitTplStatusValue,
+    legitTplFooter,
+    legitTplThumb,
+    discordLegitChannelInput,
+  ].forEach((input) => {
+    if (input) input.addEventListener("input", updateDiscordPreview);
+  });
+
+  [
+    legitTplShowCustomer,
+    legitTplShowTotal,
+    legitTplShowItems,
+    legitTplShowTime,
+  ].forEach((chk) => {
+    if (chk) chk.addEventListener("change", updateDiscordPreview);
+  });
+
+  if (legitTplColorPicker && legitTplColor) {
+    legitTplColorPicker.addEventListener("input", () => {
+      legitTplColor.value = legitTplColorPicker.value.toUpperCase();
+      updateDiscordPreview();
+    });
+    legitTplColor.addEventListener("input", () => {
+      let val = legitTplColor.value.trim();
+      if (!val.startsWith("#") && /^[0-9a-fA-F]{6}$/.test(val)) {
+        val = "#" + val;
+      }
+      if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+        legitTplColorPicker.value = val;
+      }
+      updateDiscordPreview();
+    });
+  }
+
+  if (legitTplResetBtn) {
+    legitTplResetBtn.addEventListener("click", () => {
+      populateLegitTemplate(DEFAULT_LEGIT_TEMPLATE);
+      updateDiscordPreview();
+      notify("Đã đặt lại mẫu Legit Check về mặc định.");
+    });
+  }
+
   function discordStatus(message, error = false) {
     if (!discordFeedback) return;
     discordFeedback.textContent = message;
@@ -1190,8 +1447,14 @@
         if (discordFeedbackActive) {
           discordFeedbackActive.checked = data.settings.feedbackEnabled !== undefined ? Boolean(data.settings.feedbackEnabled) : true;
         }
+        if (data.settings.legitTemplate) {
+          populateLegitTemplate(data.settings.legitTemplate);
+        } else {
+          populateLegitTemplate(DEFAULT_LEGIT_TEMPLATE);
+        }
         updateDiscordStatusLabel();
         updateFeedbackStatusLabel();
+        updateDiscordPreview();
       }
     } catch (err) {
       discordStatus("Chưa tải được cấu hình Discord: " + err.message, true);
@@ -1207,6 +1470,7 @@
       const feedbackWebhookUrl = discordFeedbackWebhookInput ? discordFeedbackWebhookInput.value.trim() : "";
       const legitChannelId = discordLegitChannelInput ? discordLegitChannelInput.value.trim() : "1562154223783907560";
       const feedbackEnabled = discordFeedbackActive ? discordFeedbackActive.checked : true;
+      const legitTemplate = getLegitTemplateData();
 
       if (enabled && !webhookUrl && !feedbackWebhookUrl) {
         discordStatus("Vui lòng nhập ít nhất một Discord Webhook URL trước khi bật thông báo.", true);
@@ -1230,6 +1494,7 @@
             feedbackWebhookUrl,
             legitChannelId: legitChannelId || "1562154223783907560",
             feedbackEnabled,
+            legitTemplate,
           }),
         });
 
@@ -1239,8 +1504,12 @@
         if (discordFeedbackWebhookInput) discordFeedbackWebhookInput.value = data.settings.feedbackWebhookUrl || "";
         if (discordLegitChannelInput) discordLegitChannelInput.value = data.settings.legitChannelId || "1562154223783907560";
         if (discordFeedbackActive) discordFeedbackActive.checked = data.settings.feedbackEnabled !== undefined ? Boolean(data.settings.feedbackEnabled) : true;
+        if (data.settings.legitTemplate) {
+          populateLegitTemplate(data.settings.legitTemplate);
+        }
         updateDiscordStatusLabel();
         updateFeedbackStatusLabel();
+        updateDiscordPreview();
 
         const savedAt = new Date().toLocaleTimeString("vi-VN");
         discordStatus(
@@ -1303,6 +1572,7 @@
       const feedbackWebhookUrl = discordFeedbackWebhookInput ? discordFeedbackWebhookInput.value.trim() : "";
       const legitChannelId = discordLegitChannelInput ? discordLegitChannelInput.value.trim() : "1562154223783907560";
       const webhookUrl = discordWebhookInput ? discordWebhookInput.value.trim() : "";
+      const legitTemplate = getLegitTemplateData();
 
       const targetUrl = feedbackWebhookUrl || webhookUrl;
       if (!targetUrl) {
@@ -1323,6 +1593,7 @@
             type: "feedback",
             feedbackWebhookUrl: targetUrl,
             legitChannelId,
+            legitTemplate,
           }),
         });
         discordStatus("✅ " + (data.message || "Đã gửi thông báo Check Legit thử nghiệm thành công! Hãy kiểm tra kênh " + legitChannelId));
