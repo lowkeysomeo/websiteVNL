@@ -52,16 +52,23 @@ export function adaptClient(client) {
 }
 
 export async function openStore(filename, remote = {}) {
-  if (process.env.VERCEL && !remote.url)
+  let remoteUrl = String(remote.url || "").trim();
+  let remoteAuthToken = String(remote.authToken || "").trim();
+
+  if (remoteUrl && !/^(libsql|https):\/\//i.test(remoteUrl)) {
+    remoteUrl = `libsql://${remoteUrl}`;
+  }
+
+  if (process.env.VERCEL && !remoteUrl)
     throw new Error(
       "TURSO_DATABASE_URL is required on Vercel; local wallets are disabled.",
     );
   let client;
-  if (remote.url) {
-    if (!/^(libsql|https):\/\//.test(remote.url) || !remote.authToken)
+  if (remoteUrl) {
+    if (!remoteAuthToken)
       throw new Error("Configure TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.");
     const { createClient } = await import("@libsql/client/web");
-    client = createClient({ url: remote.url, authToken: remote.authToken });
+    client = createClient({ url: remoteUrl, authToken: remoteAuthToken });
   } else {
     if (filename !== ":memory:")
       mkdirSync(path.dirname(filename), { recursive: true });

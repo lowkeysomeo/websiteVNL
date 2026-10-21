@@ -7,13 +7,33 @@ export const root = path.resolve(
 );
 
 export function readConfig(env = process.env) {
-  const origin = new URL(
-    env.PUBLIC_ORIGIN ||
-      (env.VERCEL_PROJECT_PRODUCTION_URL
-        ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}`
-        : "http://localhost:3000"),
-  );
-  const production = env.NODE_ENV === "production" || env.VERCEL === "1";
+  const isVercel = env.VERCEL === "1" || env.VERCEL === "true";
+  const production = env.NODE_ENV === "production" || isVercel;
+
+  let originStr = String(env.PUBLIC_ORIGIN || "").trim();
+  if (originStr && !/^https?:\/\//i.test(originStr)) {
+    originStr = `https://${originStr}`;
+  }
+  if (!originStr) {
+    if (env.VERCEL_PROJECT_PRODUCTION_URL) {
+      originStr = `https://${env.VERCEL_PROJECT_PRODUCTION_URL}`;
+    } else if (env.VERCEL_URL) {
+      originStr = `https://${env.VERCEL_URL}`;
+    } else if (production) {
+      originStr = "https://vietnamlegacy.com";
+    } else {
+      originStr = "http://localhost:3000";
+    }
+  }
+
+  let parsedOrigin;
+  try {
+    parsedOrigin = new URL(originStr);
+  } catch {
+    parsedOrigin = new URL(production ? "https://vietnamlegacy.com" : "http://localhost:3000");
+  }
+
+  const origin = new URL(parsedOrigin.origin);
   if (production && origin.protocol !== "https:")
     throw new Error("PUBLIC_ORIGIN must use HTTPS in production.");
   if (
@@ -33,8 +53,19 @@ export function readConfig(env = process.env) {
     production,
     databasePath: path.resolve(root, env.DATABASE_PATH || "./data/vnl.sqlite"),
     remoteDatabase: {
-      url: env.TURSO_DATABASE_URL || env.TURSO_URL,
-      authToken: env.TURSO_AUTH_TOKEN || env.TURSO_DATABASE_AUTH_TOKEN,
+      url:
+        env.TURSO_DATABASE_URL ||
+        env.TURSO_URL ||
+        env.DATABASE_URL ||
+        env.LIBSQL_URL ||
+        env.TURSO_CONNECTION_URL ||
+        "",
+      authToken:
+        env.TURSO_AUTH_TOKEN ||
+        env.TURSO_DATABASE_AUTH_TOKEN ||
+        env.DATABASE_AUTH_TOKEN ||
+        env.LIBSQL_AUTH_TOKEN ||
+        "",
     },
     paymentsMode: env.PAYMENTS_MODE || "disabled",
     adminPassword: env.ADMIN_PASSWORD || "",

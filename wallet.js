@@ -97,8 +97,10 @@
   async function loadSession() {
     try {
       Object.assign(wallet, await api("/api/session"), { available: true });
-    } catch {
+      wallet.unavailableReason = null;
+    } catch (err) {
       wallet.available = false;
+      wallet.unavailableReason = err.message || "";
     }
     updateLabel();
   }
@@ -158,8 +160,11 @@
       });
   }
   function unavailable() {
+    const errorNotice = wallet.unavailableReason
+      ? `<div style="margin-top: 8px; font-size: 11.5px; color: #fca5a5; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 6px 10px; word-break: break-word;"><b>Thông báo lỗi từ máy chủ:</b> ${safe(wallet.unavailableReason)}</div>`
+      : "";
     content.innerHTML =
-      '<div class="wallet-notice">Hệ thống tài khoản và nạp tiền chưa được kết nối trên địa chỉ này. Chức năng sẽ mở khi máy chủ của shop sẵn sàng.</div><p class="wallet-muted">Hiện chưa thể đăng ký, chuyển khoản hoặc nhận số dư tại đây.</p>';
+      `<div class="wallet-notice">Hệ thống tài khoản và nạp tiền chưa được kết nối trên địa chỉ này. Chức năng sẽ mở khi máy chủ của shop sẵn sàng.${errorNotice}</div><p class="wallet-muted">Hiện chưa thể đăng ký, chuyển khoản hoặc nhận số dư tại đây.</p>`;
   }
   async function showWallet() {
     stopPolling();

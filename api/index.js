@@ -20,8 +20,11 @@ async function handler(req, res) {
     const handle = await ready;
     await handle(req, res);
   } catch (error) {
-    // Do not expose database URLs, tokens or provider error details to clients/logs.
-    console.error("Backend initialization failed:", error.code || error.name);
+    console.error("Backend initialization failed:", error?.message || error?.name || error);
+    const safeError =
+      error?.message && !/token|secret|password|key/i.test(error.message)
+        ? error.message
+        : "Tài khoản và ví đang được cấu hình. Vui lòng thử lại sau.";
     res.writeHead(503, {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
@@ -29,7 +32,7 @@ async function handler(req, res) {
     res.end(
       JSON.stringify({
         success: false,
-        error: "Tài khoản và ví đang được cấu hình. Vui lòng thử lại sau.",
+        error: safeError,
       }),
     );
   }
