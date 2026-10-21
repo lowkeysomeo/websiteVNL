@@ -3952,12 +3952,13 @@ body.modal-open .floating-contacts {
   border: 1px solid rgba(168, 85, 247, 0.3);
 }
 .customer-chat-feed {
-  max-height: 180px;
+  max-height: 280px;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 4px 2px;
+  gap: 10px;
+  padding: 6px 4px;
   scrollbar-width: thin;
 }
 .customer-chat-empty {
@@ -3966,35 +3967,39 @@ body.modal-open .floating-contacts {
   font-style: italic;
   margin: 4px 0;
   text-align: center;
-  padding: 6px;
+  padding: 8px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
 }
 .customer-chat-bubble {
-  padding: 8px 12px;
-  border-radius: 8px;
+  flex-shrink: 0;
+  flex-grow: 0;
+  padding: 9px 13px;
+  border-radius: 9px;
   font-size: 12.5px;
   line-height: 1.45;
-  max-width: 90%;
+  width: fit-content;
+  max-width: 86%;
   word-break: break-word;
   white-space: pre-wrap;
-  min-height: 42px;
+  height: auto;
+  min-height: auto;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   box-sizing: border-box;
 }
 .customer-chat-bubble.bubble-shop {
   align-self: flex-start;
-  background: rgba(147, 51, 234, 0.22);
-  border: 1px solid rgba(168, 85, 247, 0.45);
+  background: rgba(147, 51, 234, 0.25);
+  border: 1px solid rgba(168, 85, 247, 0.5);
   border-left: 3px solid #a855f7;
   color: #ffffff;
 }
 .customer-chat-bubble.bubble-user {
   align-self: flex-end;
-  background: rgba(59, 130, 246, 0.18);
-  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.45);
   border-right: 3px solid #3b82f6;
   color: #ffffff;
 }
@@ -4002,22 +4007,26 @@ body.modal-open .floating-contacts {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   margin-bottom: 2px;
   font-size: 10.5px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 .chat-bubble-sender {
   font-weight: 700;
   color: #f8fafc;
 }
 .chat-bubble-time {
-  color: #cbd5e1;
+  color: #94a3b8;
   font-size: 9.5px;
+  white-space: nowrap;
 }
 .chat-bubble-text {
   color: #ffffff;
   font-size: 12px;
   line-height: 1.45;
+  word-break: break-word;
 }
 .customer-chat-chips {
   display: flex;

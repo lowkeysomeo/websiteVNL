@@ -1063,12 +1063,20 @@
     const form = e.target.closest(".admin-chat-form");
     if (!form) return;
     e.preventDefault();
+    if (form.dataset.submitting === "true") return;
+    form.dataset.submitting = "true";
     const orderId = form.getAttribute("data-admin-chat-order");
-    if (!orderId) return;
+    if (!orderId) {
+      delete form.dataset.submitting;
+      return;
+    }
     const input = form.querySelector(".admin-chat-input");
     const sendBtn = form.querySelector(".admin-chat-send-btn");
     const text = (input?.value || "").trim();
-    if (!text) return;
+    if (!text) {
+      delete form.dataset.submitting;
+      return;
+    }
 
     if (sendBtn) {
       sendBtn.disabled = true;
@@ -1108,6 +1116,7 @@
     } catch (err) {
       alert(err.message || "Gửi phản hồi cho khách thất bại.");
     } finally {
+      delete form.dataset.submitting;
       if (sendBtn) {
         sendBtn.disabled = false;
         sendBtn.textContent = "Gửi khách ✉️";

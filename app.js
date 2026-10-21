@@ -1188,12 +1188,20 @@ document.addEventListener("submit", async (e) => {
   const form = e.target.closest(".customer-chat-form");
   if (!form) return;
   e.preventDefault();
+  if (form.dataset.submitting === "true") return;
+  form.dataset.submitting = "true";
   const orderId = form.getAttribute("data-chat-order");
-  if (!orderId) return;
+  if (!orderId) {
+    delete form.dataset.submitting;
+    return;
+  }
   const input = form.querySelector(".customer-chat-input");
   const sendBtn = form.querySelector(".customer-chat-send-btn");
   const text = (input?.value || "").trim();
-  if (!text) return;
+  if (!text) {
+    delete form.dataset.submitting;
+    return;
+  }
 
   if (sendBtn) {
     sendBtn.disabled = true;
@@ -1232,6 +1240,7 @@ document.addEventListener("submit", async (e) => {
   } catch (err) {
     alert(err.message || "Gửi phản hồi thất bại.");
   } finally {
+    delete form.dataset.submitting;
     if (sendBtn) {
       sendBtn.disabled = false;
       sendBtn.textContent = "Gửi phản hồi 💬";
