@@ -758,7 +758,7 @@
                 <span class="order-status-badge status-${order.status}">${statusText}</span>
                 ${
                   order.status === "completed"
-                    ? `<span class="legit-badge" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:3px 8px; border-radius:6px; background:rgba(34, 197, 94, 0.15); border:1px solid rgba(34, 197, 94, 0.35); color:#86efac; font-weight:600;">🛡️ Kênh Legit: 1562154223783907560</span>`
+                    ? `<span class="legit-badge" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:3px 8px; border-radius:6px; background:rgba(34, 197, 94, 0.15); border:1px solid rgba(34, 197, 94, 0.35); color:#86efac; font-weight:600;">🛡️ Đã gửi Check Legit</span>`
                     : ""
                 }
               </div>
@@ -783,7 +783,7 @@
               <div class="admin-action-buttons">
                 ${
                   order.status === "completed"
-                    ? `<button class="admin-status-btn btn-legit" data-action="send-legit" data-order-id="${order.id}" title="Gửi feedback Check Legit về kênh Discord 1562154223783907560" style="background:rgba(34, 197, 94, 0.15); border:1px solid rgba(34, 197, 94, 0.4); color:#86efac; font-weight:600;">🛡️ Gửi Check Legit (1562154223783907560)</button>`
+                    ? `<button class="admin-status-btn btn-legit" data-action="send-legit" data-order-id="${order.id}" title="Gửi feedback Check Legit về kênh Discord" style="background:rgba(34, 197, 94, 0.15); border:1px solid rgba(34, 197, 94, 0.4); color:#86efac; font-weight:600;">🛡️ Gửi Check Legit</button>`
                     : ""
                 }
                 ${
@@ -963,7 +963,7 @@
         const idx = allOrders.findIndex((o) => o.id === orderId);
         if (idx !== -1) allOrders[idx] = res.order;
         renderOrders();
-        notify(`Đã lưu Link Claim & hoàn tất đơn ${orderId} (đã gửi Check Legit về kênh 1562154223783907560)! 🛡️`);
+        notify(`Đã lưu Link Claim & hoàn tất đơn ${orderId} (đã gửi Check Legit)! 🛡️`);
       } catch (err) {
         alert(err.message);
       }
@@ -992,7 +992,7 @@
         if (idx !== -1) allOrders[idx] = res.order;
         renderOrders();
         if (nextStatus === "completed") {
-          notify(`Đã hoàn tất đơn ${orderId} & gửi feedback Check Legit về kênh Discord 1562154223783907560! 🛡️`);
+          notify(`Đã hoàn tất đơn ${orderId} & gửi feedback Check Legit! 🛡️`);
         } else {
           notify(`Đã cập nhật trạng thái đơn ${orderId} thành "${nextStatus}".`);
         }
@@ -1012,12 +1012,12 @@
         const res = await api(`/api/admin/orders/${encodeURIComponent(orderId)}/send-legit`, {
           method: "POST",
         });
-        notify(`✅ ${res.message || `Đã gửi feedback Check Legit cho đơn ${orderId} về kênh 1562154223783907560!`}`);
+        notify(`✅ ${res.message || `Đã gửi feedback Check Legit cho đơn ${orderId}!`}`);
       } catch (err) {
         alert("Lỗi gửi Check Legit: " + err.message);
       } finally {
         sendLegitBtn.disabled = false;
-        sendLegitBtn.textContent = "🛡️ Gửi Check Legit (1562154223783907560)";
+        sendLegitBtn.textContent = "🛡️ Gửi Check Legit";
       }
       return;
     }
@@ -1596,7 +1596,7 @@
             legitTemplate,
           }),
         });
-        discordStatus("✅ " + (data.message || "Đã gửi thông báo Check Legit thử nghiệm thành công! Hãy kiểm tra kênh " + legitChannelId));
+        discordStatus("✅ " + (data.message || "Đã gửi thông báo Check Legit thử nghiệm thành công! Hãy kiểm tra Discord."));
         notify("Gửi thử nghiệm Check Legit thành công!");
       } catch (err) {
         discordStatus("❌ Gửi thử nghiệm Check Legit thất bại: " + err.message, true);

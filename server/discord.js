@@ -1360,7 +1360,7 @@ export async function sendDiscordLegitFeedbackTestNotification(
     params.origin || "",
   );
 
-  payload.content = `🧪 **[TEST CHECK LEGIT]** Đang kiểm tra kết nối Webhook tới kênh Check Legit <#${channelId}> (ID: \`${channelId}\`)!\n${payload.content || ""}`.trim();
+  payload.content = `🧪 **[TEST CHECK LEGIT]** Đang kiểm tra kết nối Webhook tới kênh Check Legit <#${channelId}>!\n${payload.content || ""}`.trim();
 
   const res = await fetchFn(webhookUrl, {
     method: "POST",

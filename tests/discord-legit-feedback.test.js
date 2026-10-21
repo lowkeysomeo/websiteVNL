@@ -404,6 +404,7 @@ test("HTTP POST /api/admin/discord/test: hỗ trợ gửi tin thử nghiệm che
     assert.equal(testedUrl, "https://discord.com/api/webhooks/test/legit-1562154223783907560");
     assert.ok(testedBody.content.includes("TEST CHECK LEGIT"));
     assert.ok(testedBody.content.includes("1562154223783907560"));
+    assert.ok(!testedBody.content.includes("(ID:"));
   } finally {
     server.close();
   }
