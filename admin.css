@@ -307,6 +307,51 @@ body {
   background: var(--tone-2a1519);
   color: var(--accent);
 }
+.admin-filter-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.admin-hide-done-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  transition: all 0.2s;
+}
+.admin-hide-done-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+}
+.admin-hide-done-toggle input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+.admin-hidden-done-banner {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px dashed rgba(34, 197, 94, 0.35);
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--text);
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .admin-search-group {
   display: flex;
   gap: 8px;
@@ -329,13 +374,14 @@ body {
   border-radius: 10px;
   padding: 20px;
   margin-bottom: 18px;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, opacity 0.2s;
 }
 .admin-order-card:hover {
   border-color: var(--tone-5c3b42);
 }
 .admin-order-card.status-completed {
   border-left: 4px solid #22c55e;
+  background: rgba(18, 28, 20, 0.4);
 }
 .admin-order-card.status-processing {
   border-left: 4px solid #3b82f6;
@@ -345,7 +391,32 @@ body {
 }
 .admin-order-card.status-cancelled {
   border-left: 4px solid #ef4444;
+  background: rgba(30, 16, 18, 0.35);
   opacity: 0.75;
+}
+.admin-order-card.status-cancelled:hover {
+  opacity: 0.95;
+}
+
+.admin-locked-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  user-select: none;
+}
+.admin-locked-pill.completed {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #86efac;
+}
+.admin-locked-pill.cancelled {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
 }
 
 .admin-order-header {
@@ -566,11 +637,22 @@ body {
   padding: 14px 16px;
   margin-bottom: 14px;
 }
+.admin-gift-claim-box.locked-completed {
+  background: rgba(34, 197, 94, 0.05);
+  border: 1px dashed rgba(34, 197, 94, 0.35);
+}
+.admin-gift-claim-box.locked-cancelled {
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px dashed rgba(239, 68, 68, 0.35);
+}
 .admin-gift-claim-header {
   color: #86efac;
   font-size: 12px;
   font-weight: 700;
   margin-bottom: 8px;
+}
+.admin-gift-claim-box.locked-cancelled .admin-gift-claim-header {
+  color: #fca5a5;
 }
 .admin-claim-input-group {
   display: flex;
@@ -584,6 +666,19 @@ body {
   padding: 7px 10px;
   color: var(--tone-ffffff);
   font-size: 12px;
+}
+.admin-claim-input:read-only,
+.admin-claim-input.readonly {
+  background: rgba(0, 0, 0, 0.35);
+  border-color: rgba(34, 197, 94, 0.25);
+  color: #a7f3d0;
+  cursor: default;
+}
+.admin-claim-input:disabled {
+  background: rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--muted);
+  cursor: not-allowed;
 }
 .admin-claim-save-btn {
   background: #15803d;

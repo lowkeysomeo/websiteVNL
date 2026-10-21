@@ -5,6 +5,7 @@
   let statsRequest = 0;
   let currentFilter = "all";
   let searchQuery = "";
+  let hideDoneOrders = localStorage.getItem("vnl_admin_hide_done") !== "false";
   let lastAdminChatSync = 0;
   const openAdminChatDrawers = new Set();
 
@@ -55,6 +56,7 @@
   const logoutBtn = document.querySelector("#admin-logout-btn");
   const refreshBtn = document.querySelector("#admin-refresh-btn");
   const searchInput = document.querySelector("#admin-search-input");
+  const hideDoneCheckbox = document.querySelector("#admin-hide-done-checkbox");
   const ordersContainer = document.querySelector("#admin-orders-list");
   const tabsContainer = document.querySelector("#admin-status-tabs");
   const toast = document.querySelector("#toast");
@@ -388,6 +390,15 @@
     renderOrders();
   });
 
+  if (hideDoneCheckbox) {
+    hideDoneCheckbox.checked = hideDoneOrders;
+    hideDoneCheckbox.addEventListener("change", (e) => {
+      hideDoneOrders = e.target.checked;
+      localStorage.setItem("vnl_admin_hide_done", hideDoneOrders ? "true" : "false");
+      renderOrders();
+    });
+  }
+
   tabsContainer.addEventListener("click", (e) => {
     const tab = e.target.closest(".admin-tab");
     if (!tab) return;
@@ -453,13 +464,17 @@
     return allOrders.filter((order) => {
       // Status filter
       if (currentFilter === "processing") {
-        if (order.status !== "processing" && order.status !== "cancelled" && order.status !== "pending") return false;
+        if (order.status !== "processing" && order.status !== "pending") return false;
       } else if (currentFilter === "completed") {
-        if (order.status !== "completed" && order.status !== "cancelled") return false;
+        if (order.status !== "completed") return false;
       } else if (currentFilter === "cancelled") {
         if (order.status !== "cancelled") return false;
       } else if (currentFilter === "messages") {
         if (!Array.isArray(order.messages) || order.messages.length === 0) return false;
+      } else if (currentFilter === "all") {
+        if (hideDoneOrders && !searchQuery) {
+          if (order.status === "completed" || order.status === "cancelled") return false;
+        }
       }
 
       // Keyword search
@@ -480,9 +495,31 @@
 
   function renderOrders() {
     const list = filterOrders();
+
+    let hiddenCount = 0;
+    if (currentFilter === "all" && hideDoneOrders && !searchQuery) {
+      hiddenCount = allOrders.filter(
+        (o) => o.status === "completed" || o.status === "cancelled"
+      ).length;
+    }
+
+    const bannerHtml =
+      hiddenCount > 0
+        ? `
+        <div class="admin-hidden-done-banner">
+          <span>🔒 Đang ẩn <strong>${hiddenCount}</strong> đơn đã hoàn tất / đã hủy để tránh bấm nhầm và nhìn nhầm.</span>
+          <button type="button" class="button secondary btn-small" id="admin-show-done-quick-btn" style="padding: 4px 10px; font-size: 11.5px;">
+            Hiện tất cả đơn 👁️
+          </button>
+        </div>
+      `
+        : "";
+
     if (list.length === 0) {
       ordersContainer.innerHTML =
-        '<p class="admin-empty-text">Không có đơn hàng nào phù hợp với bộ lọc.</p>';
+        hiddenCount > 0
+          ? `${bannerHtml}<p class="admin-empty-text">🎉 Tuyệt vời! Không còn đơn hàng nào đang chờ xử lý.</p>`
+          : '<p class="admin-empty-text">Không có đơn hàng nào phù hợp với bộ lọc.</p>';
       return;
     }
 
@@ -493,7 +530,7 @@
       cancelled: "Đã hủy",
     };
 
-    ordersContainer.innerHTML = list
+    ordersContainer.innerHTML = bannerHtml + list
       .map((order) => {
         const dateStr = new Date(order.createdAt).toLocaleString("vi-VN");
         const statusText = statusLabels[order.status] || order.status;
@@ -731,22 +768,69 @@
         let giftClaimBox = "";
         const hasGift = (order.items || []).some((i) => i.deliveryType !== "log");
         if (hasGift) {
-          giftClaimBox = `
-            <div class="admin-gift-claim-box">
-              <div class="admin-gift-claim-header">🎁 LINK CLAIM QUÀ TẶNG / NỘI DUNG GIAO HÀNG (KEY, LINK, ACC...)</div>
-              <div class="admin-claim-input-group">
-                <input
-                  class="admin-claim-input"
-                  data-order-claim="${order.id}"
-                  placeholder="Dán link claim quà, key kích hoạt, link tải hoặc thông tin bàn giao..."
-                  value="${escapeHtml(order.claimLink || "")}"
-                />
-                <button class="admin-claim-save-btn" data-action="save-claim" data-order-id="${order.id}">
-                  Cập nhật & Hoàn tất
-                </button>
+          const isCompleted = order.status === "completed";
+          const isCancelled = order.status === "cancelled";
+
+          if (isCompleted) {
+            giftClaimBox = `
+              <div class="admin-gift-claim-box locked-completed">
+                <div class="admin-gift-claim-header" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span>🎁 LINK CLAIM QUÀ TẶNG / NỘI DUNG BÀN GIAO</span>
+                  <span class="admin-claim-lock-tag" style="font-size:11.5px; color:#86efac; font-weight:600;">🔒 Đã giao hàng (Đã khóa)</span>
+                </div>
+                <div class="admin-claim-input-group">
+                  <input
+                    class="admin-claim-input readonly"
+                    data-order-claim="${order.id}"
+                    placeholder="Chưa có link claim"
+                    value="${escapeHtml(order.claimLink || "")}"
+                    readonly
+                  />
+                  <button type="button" class="button secondary btn-small" data-action="unlock-claim" data-order-id="${order.id}" title="Mở khóa nếu cần sửa link bàn giao">
+                    ✏️ Sửa link
+                  </button>
+                  <button class="admin-claim-save-btn" data-action="save-claim" data-order-id="${order.id}" style="display:none;">
+                    Lưu thay đổi
+                  </button>
+                </div>
               </div>
-            </div>
-          `;
+            `;
+          } else if (isCancelled) {
+            giftClaimBox = `
+              <div class="admin-gift-claim-box locked-cancelled">
+                <div class="admin-gift-claim-header" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span>🎁 LINK CLAIM QUÀ TẶNG / NỘI DUNG BÀN GIAO</span>
+                  <span class="admin-claim-lock-tag" style="font-size:11.5px; color:#fca5a5; font-weight:600;">🔒 Đơn đã hủy</span>
+                </div>
+                <div class="admin-claim-input-group">
+                  <input
+                    class="admin-claim-input"
+                    data-order-claim="${order.id}"
+                    placeholder="Đơn đã hủy"
+                    value="${escapeHtml(order.claimLink || "")}"
+                    disabled
+                  />
+                </div>
+              </div>
+            `;
+          } else {
+            giftClaimBox = `
+              <div class="admin-gift-claim-box">
+                <div class="admin-gift-claim-header">🎁 LINK CLAIM QUÀ TẶNG / NỘI DUNG GIAO HÀNG (KEY, LINK, ACC...)</div>
+                <div class="admin-claim-input-group">
+                  <input
+                    class="admin-claim-input"
+                    data-order-claim="${order.id}"
+                    placeholder="Dán link claim quà, key kích hoạt, link tải hoặc thông tin bàn giao..."
+                    value="${escapeHtml(order.claimLink || "")}"
+                  />
+                  <button class="admin-claim-save-btn" data-action="save-claim" data-order-id="${order.id}">
+                    Cập nhật & Hoàn tất
+                  </button>
+                </div>
+              </div>
+            `;
+          }
         }
 
         return `
@@ -775,7 +859,12 @@
                 <span class="order-status-badge status-${order.status}">${statusText}</span>
                 ${
                   order.status === "completed"
-                    ? `<span class="legit-badge" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:3px 8px; border-radius:6px; background:rgba(34, 197, 94, 0.15); border:1px solid rgba(34, 197, 94, 0.35); color:#86efac; font-weight:600;">🛡️ Đã gửi Check Legit</span>`
+                    ? `<span class="admin-locked-pill completed" style="padding: 2px 8px; font-size: 11px;">🔒 Đã khóa</span>`
+                    : ""
+                }
+                ${
+                  order.status === "cancelled"
+                    ? `<span class="admin-locked-pill cancelled" style="padding: 2px 8px; font-size: 11px;">🔒 Đã khóa</span>`
                     : ""
                 }
               </div>
@@ -800,7 +889,13 @@
               <div class="admin-action-buttons">
                 ${
                   order.status === "completed"
-                    ? `<button class="admin-status-btn btn-legit" data-action="send-legit" data-order-id="${order.id}" title="Gửi feedback Check Legit về kênh Discord" style="background:rgba(34, 197, 94, 0.15); border:1px solid rgba(34, 197, 94, 0.4); color:#86efac; font-weight:600;">🛡️ Gửi Check Legit</button>`
+                    ? `<span class="admin-locked-pill completed">🔒 Đơn đã hoàn tất (Đã khóa)</span>
+                       <button class="admin-status-btn btn-legit" data-action="send-legit" data-order-id="${order.id}" title="Gửi feedback Check Legit về kênh Discord" style="background:rgba(34, 197, 94, 0.15); border:1px solid rgba(34, 197, 94, 0.4); color:#86efac; font-weight:600;">🛡️ Gửi Check Legit</button>`
+                    : ""
+                }
+                ${
+                  order.status === "cancelled"
+                    ? `<span class="admin-locked-pill cancelled">🔒 Đơn đã hủy (Đã hoàn tiền)</span>`
                     : ""
                 }
                 ${
@@ -809,12 +904,12 @@
                     : ""
                 }
                 ${
-                  order.status !== "processing" && order.status !== "cancelled"
+                  order.status !== "processing" && order.status !== "cancelled" && order.status !== "completed"
                     ? `<button class="admin-status-btn" data-action="set-status" data-status="processing" data-order-id="${order.id}">🔄 Đang nạp</button>`
                     : ""
                 }
                 ${
-                  order.status !== "cancelled"
+                  order.status !== "cancelled" && order.status !== "completed"
                     ? `<button class="admin-status-btn btn-cancel" data-action="set-status" data-status="cancelled" data-order-id="${order.id}">❌ Hủy đơn (Hoàn tiền)</button>`
                     : ""
                 }
@@ -953,6 +1048,37 @@
         valEl.textContent = "••••••••••••";
         valEl.dataset.masked = "true";
         toggleBtn.textContent = "Hiện";
+      }
+      return;
+    }
+
+    // Banner quick button: show all done/cancelled orders
+    const showDoneBtn = e.target.closest("#admin-show-done-quick-btn");
+    if (showDoneBtn) {
+      hideDoneOrders = false;
+      if (hideDoneCheckbox) hideDoneCheckbox.checked = false;
+      localStorage.setItem("vnl_admin_hide_done", "false");
+      renderOrders();
+      return;
+    }
+
+    // Unlock claim link input for editing
+    const unlockClaimBtn = e.target.closest('[data-action="unlock-claim"]');
+    if (unlockClaimBtn) {
+      const orderId = unlockClaimBtn.dataset.orderId;
+      const box = unlockClaimBtn.closest(".admin-gift-claim-box");
+      const input = box ? box.querySelector(`[data-order-claim="${orderId}"]`) : null;
+      const saveBtn = box ? box.querySelector('[data-action="save-claim"]') : null;
+      if (input) {
+        input.removeAttribute("readonly");
+        input.classList.remove("readonly");
+        input.focus();
+        input.select();
+      }
+      unlockClaimBtn.style.display = "none";
+      if (saveBtn) {
+        saveBtn.style.display = "inline-block";
+        saveBtn.textContent = "Lưu thay đổi";
       }
       return;
     }

@@ -530,19 +530,25 @@
           <div class="admin-tabs" id="admin-status-tabs" role="tablist">
             <button class="admin-tab active" data-filter="all">Tất cả</button>
             <button class="admin-tab" data-filter="processing">Đang nạp / Chờ</button>
-            <button class="admin-tab" data-filter="completed">Hoàn tất</button>
+            <button class="admin-tab" data-filter="completed">Hoàn tất (Đã khóa)</button>
             <button class="admin-tab" data-filter="cancelled">Đã hủy</button>
             <button class="admin-tab" data-filter="messages">💬 Có tin nhắn</button>
           </div>
-          <div class="admin-search-group">
-            <input
-              id="admin-search-input"
-              type="search"
-              placeholder="Tìm theo mã đơn, email, acc discord..."
-            />
-            <button class="button secondary btn-small" id="admin-refresh-btn">
-              Làm mới ↻
-            </button>
+          <div class="admin-filter-tools">
+            <label class="admin-hide-done-toggle" title="Tự động ẩn các đơn đã hoàn tất hoặc đã hủy để tránh bấm nhầm và nhìn nhầm">
+              <input type="checkbox" id="admin-hide-done-checkbox" />
+              <span>🔒 Ẩn đơn đã xong & đã hủy</span>
+            </label>
+            <div class="admin-search-group">
+              <input
+                id="admin-search-input"
+                type="search"
+                placeholder="Tìm theo mã đơn, email, acc discord..."
+              />
+              <button class="button secondary btn-small" id="admin-refresh-btn">
+                Làm mới ↻
+              </button>
+            </div>
           </div>
         </section>
 
