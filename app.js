@@ -1052,15 +1052,55 @@ async function showOrders(offset = 0) {
           )
           .join("");
         const orderMessages = Array.isArray(order.messages) ? order.messages : [];
+        const lastMsg = orderMessages.length > 0 ? orderMessages[orderMessages.length - 1] : null;
+        const isShopLast = lastMsg && (lastMsg.senderRole === "admin" || lastMsg.senderRole === "partner");
+        const isDrawerOpen = openCustomerChatDrawers.has(order.id);
+
+        let snippetText = "Chưa có trao đổi nào. Bấm để nhắn tin với Shop...";
+        let lastMsgTime = "";
+        if (lastMsg) {
+          const prefix = isShopLast ? "Shop: " : "Bạn: ";
+          snippetText = `${prefix}${escapeHtml(lastMsg.message || "")}`;
+          lastMsgTime = formatRelativeTime(lastMsg.createdAt);
+        }
+
         const messagesHtml = orderMessages.length > 0
           ? orderMessages.map(renderCustomerChatBubble).join("")
           : '<p class="customer-chat-empty">Chưa có tin nhắn nào. Nếu bạn có thắc mắc hoặc cần hỗ trợ về đơn hàng này, hãy nhắn tin ngay cho shop tại đây nhé!</p>';
 
         const chatBox = `
-          <div class="customer-order-chat" data-order-id="${escapeHtml(order.id)}">
-            <div class="customer-chat-header">
-              <span class="customer-chat-title">💬 Trao đổi với Shop về đơn này</span>
-              <span class="customer-chat-badge">${orderMessages.length > 0 ? `${orderMessages.length} phản hồi` : "Hỗ trợ trực tiếp"}</span>
+          <!-- Khối Messenger / Zalo thu nhỏ riêng biệt cho Khách hàng -->
+          <div class="chat-messenger-card ${isDrawerOpen ? "is-active" : ""}" data-customer-chat-toggle="${escapeHtml(order.id)}">
+            <div class="chat-messenger-avatar-wrap">
+              <div class="chat-messenger-avatar" style="background: linear-gradient(135deg, #7170ff, #9333ea);">
+                VNL
+              </div>
+              ${isShopLast ? '<span class="chat-messenger-unread-dot" title="Shop vừa gửi phản hồi mới"></span>' : ""}
+            </div>
+            <div class="chat-messenger-info">
+              <div class="chat-messenger-top-row">
+                <span class="chat-messenger-name">Shop VietNam Legacy</span>
+                <span class="chat-messenger-time">${escapeHtml(lastMsgTime)}</span>
+              </div>
+              <div class="chat-messenger-bottom-row">
+                <span class="chat-messenger-snippet ${isShopLast ? "is-unread" : ""}">
+                  ${snippetText}
+                </span>
+                <span class="chat-messenger-badge ${orderMessages.length > 0 ? "has-count" : ""}">
+                  ${orderMessages.length > 0 ? `${orderMessages.length} phản hồi` : "Hỗ trợ"}
+                </span>
+              </div>
+            </div>
+            <button type="button" class="chat-messenger-action-btn" aria-label="Mở hoặc thu gọn hội thoại">
+              <span class="toggle-label">${isDrawerOpen ? "Thu gọn ▲" : "Nhắn tin 💬"}</span>
+            </button>
+          </div>
+
+          <!-- Khung chat chi tiết mở rộng -->
+          <div class="chat-messenger-drawer customer-order-chat" data-order-id="${escapeHtml(order.id)}" id="customer-chat-drawer-${escapeHtml(order.id)}" style="${isDrawerOpen ? "display:block;" : "display:none;"}">
+            <div class="chat-drawer-header">
+              <span class="chat-drawer-title">💬 Trao đổi với Shop về đơn hàng (${escapeHtml(order.id)})</span>
+              <button type="button" class="chat-drawer-close-btn" data-customer-chat-close="${escapeHtml(order.id)}">✕ Thu gọn</button>
             </div>
             <div class="customer-chat-feed" id="customer-chat-feed-${escapeHtml(order.id)}">
               ${messagesHtml}
@@ -1131,6 +1171,57 @@ document.addEventListener("vnl:logout", () => {
   notify("Đã đăng xuất tài khoản thành công.");
 });
 
+const openCustomerChatDrawers = new Set();
+
+function formatRelativeTime(ts) {
+  if (!ts) return "";
+  const now = Date.now();
+  const diffSec = Math.floor((now - ts) / 1000);
+  if (diffSec < 60) return "Vừa xong";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} phút`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour} giờ`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 7) return `${diffDay} ngày`;
+  const diffWeek = Math.floor(diffDay / 7);
+  return `${diffWeek} tuần`;
+}
+
+function updateCustomerChatCard(orderId, lastMsg, totalCount) {
+  const card = document.querySelector(`[data-customer-chat-toggle="${orderId}"]`);
+  if (!card) return;
+  const isShop = lastMsg && (lastMsg.senderRole === "admin" || lastMsg.senderRole === "partner");
+  const snippetEl = card.querySelector(".chat-messenger-snippet");
+  if (snippetEl) {
+    if (lastMsg) {
+      const prefix = isShop ? "Shop: " : "Bạn: ";
+      snippetEl.textContent = `${prefix}${lastMsg.message || ""}`;
+    }
+    snippetEl.classList.toggle("is-unread", Boolean(isShop));
+  }
+  const timeEl = card.querySelector(".chat-messenger-time");
+  if (timeEl && lastMsg) {
+    timeEl.textContent = formatRelativeTime(lastMsg.createdAt);
+  }
+  const badgeEl = card.querySelector(".chat-messenger-badge");
+  if (badgeEl) {
+    badgeEl.textContent = totalCount > 0 ? `${totalCount} phản hồi` : "Hỗ trợ";
+    badgeEl.classList.toggle("has-count", totalCount > 0);
+  }
+  const avatarWrap = card.querySelector(".chat-messenger-avatar-wrap");
+  if (avatarWrap) {
+    let dot = avatarWrap.querySelector(".chat-messenger-unread-dot");
+    if (isShop) {
+      if (!dot) {
+        avatarWrap.insertAdjacentHTML("beforeend", '<span class="chat-messenger-unread-dot" title="Shop vừa gửi phản hồi mới"></span>');
+      }
+    } else {
+      if (dot) dot.remove();
+    }
+  }
+}
+
 function formatChatTime(ts) {
   try {
     return new Date(ts).toLocaleTimeString("vi-VN", {
@@ -1170,11 +1261,59 @@ function renderCustomerChatFeed(feed, messages) {
   feed.scrollTop = feed.scrollHeight;
 }
 
-// Click chip để điền tin nhắn nhanh
+// Click handler: đóng mở drawer chat Messenger/Zalo và điền tin nhắn nhanh
 document.addEventListener("click", (e) => {
+  // 1. Đóng drawer chat
+  const closeBtn = e.target.closest("[data-customer-chat-close]");
+  if (closeBtn) {
+    const orderId = closeBtn.getAttribute("data-customer-chat-close");
+    const drawer = document.getElementById(`customer-chat-drawer-${orderId}`);
+    const card = document.querySelector(`[data-customer-chat-toggle="${orderId}"]`);
+    if (drawer) drawer.style.display = "none";
+    if (card) {
+      card.classList.remove("is-active");
+      const label = card.querySelector(".toggle-label");
+      if (label) label.textContent = "Nhắn tin 💬";
+    }
+    openCustomerChatDrawers.delete(orderId);
+    return;
+  }
+
+  // 2. Mở hoặc thu gọn drawer chat khi bấm vào thẻ Messenger
+  const toggleCard = e.target.closest("[data-customer-chat-toggle]");
+  if (toggleCard) {
+    const orderId = toggleCard.getAttribute("data-customer-chat-toggle");
+    const drawer = document.getElementById(`customer-chat-drawer-${orderId}`);
+    if (drawer) {
+      const isOpen = openCustomerChatDrawers.has(orderId);
+      if (isOpen) {
+        openCustomerChatDrawers.delete(orderId);
+        drawer.style.display = "none";
+        toggleCard.classList.remove("is-active");
+        const label = toggleCard.querySelector(".toggle-label");
+        if (label) label.textContent = "Nhắn tin 💬";
+      } else {
+        openCustomerChatDrawers.add(orderId);
+        drawer.style.display = "block";
+        toggleCard.classList.add("is-active");
+        const label = toggleCard.querySelector(".toggle-label");
+        if (label) label.textContent = "Thu gọn ▲";
+        const feed = document.getElementById(`customer-chat-feed-${orderId}`);
+        if (feed) feed.scrollTop = feed.scrollHeight;
+        const input = drawer.querySelector(".customer-chat-input");
+        if (input) input.focus();
+        // Xóa chấm xanh báo tin mới khi khách hàng đã mở xem
+        const dot = toggleCard.querySelector(".chat-messenger-unread-dot");
+        if (dot) dot.remove();
+      }
+    }
+    return;
+  }
+
+  // 3. Click chip để điền tin nhắn nhanh
   const chip = e.target.closest(".chat-quick-chip");
   if (!chip) return;
-  const chatContainer = chip.closest(".customer-order-chat");
+  const chatContainer = chip.closest(".customer-order-chat") || chip.closest(".chat-messenger-drawer");
   if (!chatContainer) return;
   const input = chatContainer.querySelector(".customer-chat-input");
   if (input) {
@@ -1221,18 +1360,20 @@ document.addEventListener("submit", async (e) => {
     }
     if (input) input.value = "";
     const feed = document.getElementById(`customer-chat-feed-${orderId}`);
+    let totalBubbles = 1;
     if (feed && data.message) {
       const emptyEl = feed.querySelector(".customer-chat-empty");
       if (emptyEl) emptyEl.remove();
       feed.insertAdjacentHTML("beforeend", renderCustomerChatBubble(data.message));
       feed.scrollTop = feed.scrollHeight;
+      totalBubbles = feed.querySelectorAll(".customer-chat-bubble").length;
       const chatBox = feed.closest(".customer-order-chat");
       const badge = chatBox?.querySelector(".customer-chat-badge");
       if (badge) {
-        const totalBubbles = feed.querySelectorAll(".customer-chat-bubble").length;
         badge.textContent = `${totalBubbles} phản hồi`;
       }
     }
+    updateCustomerChatCard(orderId, data.message, totalBubbles);
     notify("Đã gửi tin nhắn đến shop thành công!");
     // Kích hoạt đồng bộ phản hồi từ shop ngay
     setTimeout(refreshActiveCustomerChats, 1200);
@@ -1275,6 +1416,8 @@ async function refreshActiveCustomerChats() {
         if (badge) {
           badge.textContent = `${data.messages.length} phản hồi`;
         }
+        const lastM = data.messages[data.messages.length - 1];
+        updateCustomerChatCard(orderId, lastM, data.messages.length);
       }
     }
   } catch {

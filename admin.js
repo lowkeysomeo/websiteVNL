@@ -6,6 +6,46 @@
   let currentFilter = "all";
   let searchQuery = "";
   let lastAdminChatSync = 0;
+  const openAdminChatDrawers = new Set();
+
+  function getInitials(name) {
+    if (!name || typeof name !== "string") return "KH";
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "KH";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  function getAvatarGradient(name) {
+    const gradients = [
+      "linear-gradient(135deg, #f97316, #ea580c)", // Cam ấm
+      "linear-gradient(135deg, #06b6d4, #0284c7)", // Xanh ngọc
+      "linear-gradient(135deg, #8b5cf6, #6d28d9)", // Tím
+      "linear-gradient(135deg, #ec4899, #be185d)", // Hồng
+      "linear-gradient(135deg, #10b981, #047857)", // Xanh lá
+      "linear-gradient(135deg, #eab308, #ca8a04)", // Vàng hổ phách
+      "linear-gradient(135deg, #6366f1, #4338ca)", // Chàm
+    ];
+    let hash = 0;
+    const str = String(name || "Khach");
+    for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) % gradients.length;
+    return gradients[Math.abs(hash)];
+  }
+
+  function formatRelativeTime(ts) {
+    if (!ts) return "";
+    const now = Date.now();
+    const diffSec = Math.floor((now - ts) / 1000);
+    if (diffSec < 60) return "Vừa xong";
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} phút`;
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour} giờ`;
+    const diffDay = Math.floor(diffHour / 24);
+    if (diffDay < 7) return `${diffDay} ngày`;
+    const diffWeek = Math.floor(diffDay / 7);
+    return `${diffWeek} tuần`;
+  }
 
   const loginScreen = document.querySelector("#admin-login-screen");
   const loginForm = document.querySelector("#admin-login-form");
@@ -406,6 +446,8 @@
         if (order.status !== "completed" && order.status !== "cancelled") return false;
       } else if (currentFilter === "cancelled") {
         if (order.status !== "cancelled") return false;
+      } else if (currentFilter === "messages") {
+        if (!Array.isArray(order.messages) || order.messages.length === 0) return false;
       }
 
       // Keyword search
@@ -485,18 +527,55 @@
           .join("");
 
         const orderMessages = Array.isArray(order.messages) ? order.messages : [];
+        const lastMsg = orderMessages.length > 0 ? orderMessages[orderMessages.length - 1] : null;
+        const isLastCustomer = lastMsg && lastMsg.senderRole === "customer";
+        const isDrawerOpen = openAdminChatDrawers.has(order.id);
+
+        let snippetText = "Chưa có trao đổi nào. Bấm để nhắn với khách...";
+        let lastMsgTime = "";
+        if (lastMsg) {
+          const prefix = isLastCustomer ? `${escapeHtml(order.customerName || "Khách")}: ` : "Shop: ";
+          snippetText = `${prefix}${escapeHtml(lastMsg.message || "")}`;
+          lastMsgTime = formatRelativeTime(lastMsg.createdAt);
+        }
+
         const messagesHtml = orderMessages.length > 0
           ? orderMessages.map(renderAdminChatBubble).join("")
           : '<p class="admin-chat-empty">Chưa có trao đổi nào trên đơn hàng này. Gửi phản hồi bên dưới để nhắn với khách hàng.</p>';
 
         const adminChatBox = `
-          <div class="admin-order-chat" data-admin-order-id="${escapeHtml(order.id)}">
-            <div class="admin-chat-header">
-              <div class="admin-chat-title-group">
-                <span class="admin-chat-title">💬 Trao đổi & Phản hồi cho khách hàng</span>
-                <span class="admin-chat-count ${orderMessages.length > 0 ? "has-count" : ""}">${orderMessages.length > 0 ? `${orderMessages.length} tin nhắn` : "0 tin nhắn"}</span>
+          <!-- Khối Messenger / Zalo thu nhỏ riêng biệt -->
+          <div class="chat-messenger-card ${isDrawerOpen ? "is-active" : ""}" data-admin-chat-toggle="${escapeHtml(order.id)}">
+            <div class="chat-messenger-avatar-wrap">
+              <div class="chat-messenger-avatar" style="background: ${getAvatarGradient(order.customerName)};">
+                ${escapeHtml(getInitials(order.customerName))}
               </div>
-              <small class="admin-chat-hint">Tin nhắn sẽ hiện ngay trong mục Đơn hàng của tôi của khách</small>
+              ${isLastCustomer ? '<span class="chat-messenger-unread-dot" title="Có tin nhắn mới từ khách"></span>' : ""}
+            </div>
+            <div class="chat-messenger-info">
+              <div class="chat-messenger-top-row">
+                <span class="chat-messenger-name">${escapeHtml(order.customerName || "Khách hàng")}</span>
+                <span class="chat-messenger-time">${escapeHtml(lastMsgTime)}</span>
+              </div>
+              <div class="chat-messenger-bottom-row">
+                <span class="chat-messenger-snippet ${isLastCustomer ? "is-unread" : ""}">
+                  ${snippetText}
+                </span>
+                <span class="chat-messenger-badge ${orderMessages.length > 0 ? "has-count" : ""}">
+                  ${orderMessages.length > 0 ? `${orderMessages.length} tin` : "Chat"}
+                </span>
+              </div>
+            </div>
+            <button type="button" class="chat-messenger-action-btn" aria-label="Mở hoặc thu gọn hội thoại">
+              <span class="toggle-label">${isDrawerOpen ? "Thu gọn ▲" : "Phản hồi 💬"}</span>
+            </button>
+          </div>
+
+          <!-- Khung chat chi tiết mở rộng -->
+          <div class="chat-messenger-drawer" id="admin-chat-drawer-${escapeHtml(order.id)}" style="${isDrawerOpen ? "display:block;" : "display:none;"}">
+            <div class="chat-drawer-header">
+              <span class="chat-drawer-title">💬 Trao đổi với khách (${escapeHtml(order.customerName || "Khách hàng")} · Đơn ${escapeHtml(order.id)})</span>
+              <button type="button" class="chat-drawer-close-btn" data-admin-chat-close="${escapeHtml(order.id)}">✕ Thu gọn</button>
             </div>
             <div class="admin-chat-feed" id="admin-chat-feed-${escapeHtml(order.id)}">
               ${messagesHtml}
@@ -710,12 +789,48 @@
       .join("");
   }
 
+  // Helper function to update the Messenger card on new messages or admin sends
+  function updateAdminChatCard(orderId, lastMsg, totalCount) {
+    const card = document.querySelector(`[data-admin-chat-toggle="${orderId}"]`);
+    if (!card) return;
+    const isCustomer = lastMsg && lastMsg.senderRole === "customer";
+    const snippetEl = card.querySelector(".chat-messenger-snippet");
+    if (snippetEl) {
+      if (lastMsg) {
+        const order = allOrders.find((o) => o.id === orderId);
+        const prefix = isCustomer ? `${order?.customerName || "Khách"}: ` : "Shop: ";
+        snippetEl.textContent = `${prefix}${lastMsg.message || ""}`;
+      }
+      snippetEl.classList.toggle("is-unread", Boolean(isCustomer));
+    }
+    const timeEl = card.querySelector(".chat-messenger-time");
+    if (timeEl && lastMsg) {
+      timeEl.textContent = formatRelativeTime(lastMsg.createdAt);
+    }
+    const badgeEl = card.querySelector(".chat-messenger-badge");
+    if (badgeEl) {
+      badgeEl.textContent = totalCount > 0 ? `${totalCount} tin` : "Chat";
+      badgeEl.classList.toggle("has-count", totalCount > 0);
+    }
+    const avatarWrap = card.querySelector(".chat-messenger-avatar-wrap");
+    if (avatarWrap) {
+      let dot = avatarWrap.querySelector(".chat-messenger-unread-dot");
+      if (isCustomer) {
+        if (!dot) {
+          avatarWrap.insertAdjacentHTML("beforeend", '<span class="chat-messenger-unread-dot" title="Có tin nhắn mới từ khách"></span>');
+        }
+      } else {
+        if (dot) dot.remove();
+      }
+    }
+  }
+
   // Global click handler for order actions
   document.addEventListener("click", async (e) => {
-// Quick reply chips click
+    // Quick reply chips click
     const quickChip = e.target.closest(".admin-quick-chip");
     if (quickChip) {
-      const chatContainer = quickChip.closest(".admin-order-chat");
+      const chatContainer = quickChip.closest(".chat-messenger-drawer") || quickChip.closest(".admin-order-chat");
       if (chatContainer) {
         const input = chatContainer.querySelector(".admin-chat-input");
         if (input) {
@@ -725,6 +840,53 @@
       }
       return;
     }
+
+    // Toggle Admin Chat Drawer (Messenger / Zalo style)
+    const chatCloseBtn = e.target.closest("[data-admin-chat-close]");
+    if (chatCloseBtn) {
+      const orderId = chatCloseBtn.getAttribute("data-admin-chat-close");
+      const drawer = document.getElementById(`admin-chat-drawer-${orderId}`);
+      const card = document.querySelector(`[data-admin-chat-toggle="${orderId}"]`);
+      if (drawer) drawer.style.display = "none";
+      if (card) {
+        card.classList.remove("is-active");
+        const label = card.querySelector(".toggle-label");
+        if (label) label.textContent = "Phản hồi 💬";
+      }
+      openAdminChatDrawers.delete(orderId);
+      return;
+    }
+
+    const chatToggleCard = e.target.closest("[data-admin-chat-toggle]");
+    if (chatToggleCard) {
+      const orderId = chatToggleCard.getAttribute("data-admin-chat-toggle");
+      const drawer = document.getElementById(`admin-chat-drawer-${orderId}`);
+      if (drawer) {
+        const isOpen = openAdminChatDrawers.has(orderId);
+        if (isOpen) {
+          openAdminChatDrawers.delete(orderId);
+          drawer.style.display = "none";
+          chatToggleCard.classList.remove("is-active");
+          const label = chatToggleCard.querySelector(".toggle-label");
+          if (label) label.textContent = "Phản hồi 💬";
+        } else {
+          openAdminChatDrawers.add(orderId);
+          drawer.style.display = "block";
+          chatToggleCard.classList.add("is-active");
+          const label = chatToggleCard.querySelector(".toggle-label");
+          if (label) label.textContent = "Thu gọn ▲";
+          const feed = document.getElementById(`admin-chat-feed-${orderId}`);
+          if (feed) feed.scrollTop = feed.scrollHeight;
+          const input = drawer.querySelector(".admin-chat-input");
+          if (input) input.focus();
+          // Remove unread dot when admin opens drawer
+          const dot = chatToggleCard.querySelector(".chat-messenger-unread-dot");
+          if (dot) dot.remove();
+        }
+      }
+      return;
+    }
+
     // 1. Copy text buttons
     const copyBtn = e.target.closest("[data-copy-text]");
     if (copyBtn) {
@@ -1112,6 +1274,8 @@
           targetOrder.messages.push(res.message);
         }
       }
+      const totalCount = targetOrder?.messages?.length || (feed ? feed.querySelectorAll(".admin-chat-bubble").length : 1);
+      updateAdminChatCard(orderId, res.message, totalCount);
       notify("Đã gửi phản hồi đến khách hàng thành công!");
     } catch (err) {
       alert(err.message || "Gửi phản hồi cho khách thất bại.");
@@ -1167,6 +1331,9 @@
             const preview = m.message.length > 35 ? m.message.slice(0, 33) + "..." : m.message;
             notify(`💬 Khách (${m.senderName || "Khách"}) nhắn đơn ${m.orderId}: "${preview}"`);
           }
+
+          const totalCount = targetOrder?.messages?.length || (feed ? feed.querySelectorAll(".admin-chat-bubble").length : 1);
+          updateAdminChatCard(m.orderId, m, totalCount);
         }
       }
     } catch {
