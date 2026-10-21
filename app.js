@@ -2331,6 +2331,15 @@ document
         throw new Error(resData.error || "Không thể tạo đơn hàng.");
       }
 
+      // Thông báo realtime đến trang Admin qua BroadcastChannel (nếu mở cùng trình duyệt)
+      try {
+        if (typeof BroadcastChannel === "function") {
+          const syncChan = new BroadcastChannel("vnl-live-sync");
+          syncChan.postMessage({ type: "order_created", order: resData.order });
+          syncChan.close();
+        }
+      } catch {}
+
       // 3. Clear cart if not direct buy
       if (!currentDirectItem) {
         state.cart = [];

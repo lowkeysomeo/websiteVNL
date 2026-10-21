@@ -736,7 +736,7 @@
         }
 
         return `
-          <article class="admin-order-card status-${order.status}" data-order-id="${order.id}">
+          <article class="admin-order-card status-${order.status} ${order._isNew ? "order-just-arrived" : ""}" data-order-id="${order.id}">
             <div class="admin-order-header">
               <div class="admin-order-title-group">
                 <strong>${escapeHtml(order.id)}</strong>
@@ -1352,6 +1352,140 @@
   });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) void syncAdminChatMessages();
+  });
+
+  // Web Audio Chime for Admin Notifications
+  function playAdminChime(type = "order") {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (ctx.state === "suspended") void ctx.resume();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      if (type === "order") {
+        // Bright upbeat double chime for new order
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(587.33, now); // D5
+        osc.frequency.setValueAtTime(880, now + 0.12); // A5
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        osc.start(now);
+        osc.stop(now + 0.6);
+      } else {
+        // Soft chime for new deposit QR
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(523.25, now); // C5
+        osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        osc.start(now);
+        osc.stop(now + 0.5);
+      }
+    } catch {}
+  }
+  window.playAdminChime = playAdminChime;
+
+  // Real-time Orders Sync (Tự động cập nhật đơn hàng mới không cần load lại web)
+  let isSyncingAdminOrders = false;
+  async function syncAdminOrders(force = false) {
+    if (isSyncingAdminOrders || !adminKey || adminApp.hidden) return;
+    if (!force && document.hidden) return;
+    isSyncingAdminOrders = true;
+    try {
+      const res = await api("/api/admin/orders?limit=100");
+      if (res && Array.isArray(res.orders)) {
+        const incomingOrders = res.orders;
+        const currentIds = new Set(allOrders.map((o) => o.id));
+        const newOrders = incomingOrders.filter((o) => !currentIds.has(o.id));
+
+        let hasChanges = newOrders.length > 0 || incomingOrders.length !== allOrders.length;
+        if (!hasChanges) {
+          for (let i = 0; i < incomingOrders.length; i++) {
+            if (incomingOrders[i].id !== allOrders[i].id || incomingOrders[i].status !== allOrders[i].status) {
+              hasChanges = true;
+              break;
+            }
+          }
+        }
+
+        if (hasChanges) {
+          if (newOrders.length > 0) {
+            for (const newO of newOrders) {
+              newO._isNew = true;
+              notify(`🛒 CÓ ĐƠN HÀNG MỚI: Đơn ${newO.id} · ${newO.customerName || "Khách"} (${money(newO.total)})!`);
+              playAdminChime("order");
+              setTimeout(() => {
+                newO._isNew = false;
+                const el = document.querySelector(`article[data-order-id="${newO.id}"]`);
+                if (el) el.classList.remove("order-just-arrived");
+              }, 6000);
+            }
+          }
+
+          // Preserve messages
+          const orderMap = new Map(allOrders.map((o) => [o.id, o]));
+          for (const inc of incomingOrders) {
+            const existing = orderMap.get(inc.id);
+            if (existing && Array.isArray(existing.messages) && (!inc.messages || inc.messages.length < existing.messages.length)) {
+              inc.messages = existing.messages;
+            }
+          }
+
+          allOrders = incomingOrders;
+
+          const activeEl = document.activeElement;
+          const isTyping = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA");
+          if (!isTyping) {
+            renderOrders();
+          }
+          void loadStats();
+        }
+      }
+    } catch {
+      // background retry
+    } finally {
+      isSyncingAdminOrders = false;
+    }
+  }
+
+  // Cross-tab Real-time Sync via BroadcastChannel
+  try {
+    if (typeof BroadcastChannel === "function") {
+      const liveSyncChannel = new BroadcastChannel("vnl-live-sync");
+      liveSyncChannel.onmessage = (event) => {
+        const data = event.data;
+        if (!data) return;
+        if (data.type === "order_created") {
+          void syncAdminOrders(true);
+          void loadStats();
+        } else if (data.type === "deposit_created") {
+          void loadStats();
+          if (data.deposit) {
+            notify(`💳 Khách vừa tạo yêu cầu nạp ${money(data.deposit.amount || 0)} (Mã ${data.deposit.code || ""})!`);
+            playAdminChime("deposit");
+          }
+          if (typeof window.refreshAdminDeposits === "function") {
+            window.refreshAdminDeposits();
+          }
+        }
+      };
+    }
+  } catch {}
+
+  setInterval(() => {
+    void syncAdminOrders();
+  }, 3500);
+
+  window.addEventListener("focus", () => {
+    void syncAdminOrders();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void syncAdminOrders();
   });
 
   // Init

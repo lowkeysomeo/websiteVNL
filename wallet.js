@@ -190,6 +190,13 @@
               amount: Number(new FormData(form).get("amount")),
             }),
           });
+          try {
+            if (typeof BroadcastChannel === "function") {
+              const syncChan = new BroadcastChannel("vnl-live-sync");
+              syncChan.postMessage({ type: "deposit_created", deposit: result.deposit });
+              syncChan.close();
+            }
+          } catch {}
           transferView(result);
         } catch (error) {
           say(error.message);
@@ -401,6 +408,13 @@
             method: "POST",
             body: JSON.stringify({ amount }),
           });
+          try {
+            if (typeof BroadcastChannel === "function") {
+              const syncChan = new BroadcastChannel("vnl-live-sync");
+              syncChan.postMessage({ type: "deposit_created", deposit: result.deposit });
+              syncChan.close();
+            }
+          } catch {}
           transferView(result);
           say("Đã tạo mã QR mới thành công (hiệu lực 10 phút).");
         } catch (error) {

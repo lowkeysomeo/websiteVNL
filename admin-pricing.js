@@ -231,6 +231,86 @@ window.initAdminPricing = (() => {
     finally { partnersRefreshing = false; }
   }
 
+  let depositsRefreshing = false;
+  async function refreshDeposits(isSilent = false, force = false) {
+    const canRefresh = () => !$("#admin-app")?.hidden && (force || !document.hidden);
+    if (depositsRefreshing || !loaded || !canRefresh()) return;
+    depositsRefreshing = true;
+    const requestApi = api;
+    try {
+      const result = await requestApi("/api/admin/deposits?limit=100");
+      if (api !== requestApi || !result || !Array.isArray(result.deposits)) return;
+      const incomingDeposits = result.deposits;
+      const currentIds = new Set(depositsList.map(d => d.id || d.code));
+      const newDeposits = incomingDeposits.filter(d => !currentIds.has(d.id || d.code));
+
+      let hasChanges = newDeposits.length > 0 || incomingDeposits.length !== depositsList.length;
+      if (!hasChanges) {
+        for (let i = 0; i < incomingDeposits.length; i++) {
+          if (incomingDeposits[i].code !== depositsList[i].code || incomingDeposits[i].status !== depositsList[i].status) {
+            hasChanges = true;
+            break;
+          }
+        }
+      }
+
+      if (hasChanges) {
+        if (newDeposits.length > 0) {
+          for (const newD of newDeposits) {
+            newD._isNew = true;
+            if (!isSilent) {
+              if (typeof notify === "function") {
+                notify(`💳 YÊU CẦU NẠP MỚI: ${esc(newD.code)} · ${money(newD.amount)} (${esc(newD.userEmail || "Khách")})!`);
+              }
+              if (typeof window.playAdminChime === "function") {
+                window.playAdminChime("deposit");
+              }
+            }
+            setTimeout(() => {
+              newD._isNew = false;
+              const el = document.querySelector(`.deposit-item-card[data-deposit-code="${newD.code}"]`);
+              if (el) el.classList.remove("deposit-just-arrived");
+            }, 6000);
+          }
+        }
+
+        depositsList = incomingDeposits;
+
+        if (currentView === "deposits") {
+          const container = $("#deposit-cards-container");
+          if (container) {
+            const bank = bankSettings.bank || {};
+            const filtered = depositsList.filter(d => {
+              if (depositFilter !== "all" && d.status !== depositFilter) return false;
+              if (depositSearch) {
+                const matchCode = d.code.toLowerCase().includes(depositSearch);
+                const matchEmail = (d.userEmail || "").toLowerCase().includes(depositSearch);
+                if (!matchCode && !matchEmail) return false;
+              }
+              return true;
+            });
+            container.innerHTML = renderDepositCardsHtml(filtered, bank);
+            const tabs = document.querySelector(".deposit-filter-tabs");
+            if (tabs) {
+              tabs.innerHTML = `
+                <button class="admin-tab ${depositFilter === 'all' ? 'active' : ''}" data-deposit-filter="all">Tất cả (${depositsList.length})</button>
+                <button class="admin-tab ${depositFilter === 'pending' ? 'active' : ''}" data-deposit-filter="pending">Chờ chuyển (${depositsList.filter(d => d.status === 'pending').length})</button>
+                <button class="admin-tab ${depositFilter === 'credited' ? 'active' : ''}" data-deposit-filter="credited">Đã cộng tiền (${depositsList.filter(d => d.status === 'credited').length})</button>
+                <button class="admin-tab ${depositFilter === 'review' ? 'active' : ''}" data-deposit-filter="review">Cần đối soát (${depositsList.filter(d => d.status === 'review').length})</button>
+                <button class="admin-tab ${depositFilter === 'expired' ? 'active' : ''}" data-deposit-filter="expired">Hết hạn / Hủy (${depositsList.filter(d => d.status === 'expired').length})</button>
+              `;
+            }
+          }
+        }
+      }
+    } catch {
+      // background retry
+    } finally {
+      depositsRefreshing = false;
+    }
+  }
+  window.refreshAdminDeposits = refreshDeposits;
+
   function switchView(view) {
     currentView = view;
     $("#admin-orders-view").hidden = view !== "orders";
@@ -241,6 +321,7 @@ window.initAdminPricing = (() => {
     });
     if (view !== "orders") render();
     if (view === "partners") void refreshPartners();
+    if (view === "deposits") void refreshDeposits(true, true);
   }
 
   function slugify(text) {
@@ -1842,7 +1923,7 @@ window.initAdminPricing = (() => {
             ? `https://img.vietqr.io/image/${encodeURIComponent(bank.code)}-${encodeURIComponent(bank.accountNumber)}-compact2.png?amount=${d.amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bank.accountName || "")}`
             : "";
           return `
-            <div class="deposit-item-card status-${esc(d.status)}">
+            <div class="deposit-item-card status-${esc(d.status)} ${d._isNew ? "deposit-just-arrived" : ""}" data-deposit-code="${esc(d.code)}">
               <div class="deposit-item-main">
                 <div class="deposit-item-header">
                   <span class="deposit-code"><code>${esc(d.code)}</code></span>
@@ -2506,8 +2587,14 @@ window.initAdminPricing = (() => {
     if (!initialized) {
       initialized = true;
       setInterval(() => { void refreshPartners(); }, 15000);
-      window.addEventListener("focus", () => { void refreshPartners(); });
-      document.addEventListener("visibilitychange", () => { void refreshPartners(); });
+      setInterval(() => { void refreshDeposits(); }, 3500);
+      window.addEventListener("focus", () => { void refreshPartners(); void refreshDeposits(); });
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+          void refreshPartners();
+          void refreshDeposits();
+        }
+      });
       document.addEventListener("submit", submit);
       document.addEventListener("change", event => {
         if (event.target.matches('#promotion-form [name="type"]')) $("#promotion-form [name=value]").max = event.target.value === "percent" ? "100" : "1000000000";
