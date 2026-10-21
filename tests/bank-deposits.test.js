@@ -791,3 +791,76 @@ test("Webhook không tự sinh ID khi thiếu hoặc sai ID giao dịch SePay", 
     assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM bank_events").get()).n, 0);
   } finally { await close(); }
 });
+
+test("Mã QR nạp tiền có thời hạn đúng 10 phút, quá 10 phút tự động hết hạn và không tự cộng", async () => {
+  const fixture = await createServerFixture();
+  const { db, base, close } = fixture;
+  try {
+    await saveBankSettings(db, {
+      bankCode: "MB",
+      bankGateway: "MBBank",
+      accountNumber: "0123456789",
+      accountName: "SHOP VNL",
+      isActive: true,
+      autoCredit: true,
+      webhookSecret: "secret-10min-test-12345678901234",
+    });
+
+    const regRes = await fetch(base + "/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: origin },
+      body: JSON.stringify({ email: "user-10m@test.com", password: "Password123!" }),
+    });
+    assert.equal(regRes.status, 201);
+    const reg = await regRes.json();
+    const cookie = regRes.headers.get("set-cookie").split(";")[0];
+
+    // 1. Tạo yêu cầu nạp tiền
+    const createRes = await fetch(base + "/api/deposits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: origin, "X-CSRF-Token": reg.csrfToken, Cookie: cookie },
+      body: JSON.stringify({ amount: 50000 }),
+    });
+    assert.equal(createRes.status, 201);
+    const createJson = await createRes.json();
+    const dep = createJson.deposit;
+
+    // Thời hạn phải đúng 10 phút (600.000 ms)
+    assert.equal(dep.expiresAt - dep.createdAt, 600000);
+    assert.equal(dep.status, "pending");
+
+    // 2. Giả lập hết hạn quá 10 phút
+    await db.prepare("UPDATE deposits SET expires_at = ? WHERE id = ?").run(Date.now() - 5000, dep.id);
+
+    // 3. Khách kiểm tra đơn -> status chuyển thành expired
+    const checkRes = await (await fetch(base + `/api/deposits/${dep.id}`, { headers: { Cookie: cookie } })).json();
+    assert.equal(checkRes.deposit.status, "expired");
+
+    // 4. Nếu có giao dịch chuyển vào mã đã hết hạn -> đưa vào review chứ không tự động cộng ví
+    const webhookRes = await fetch(base + "/api/payments/webhook", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Apikey secret-10min-test-12345678901234",
+      },
+      body: JSON.stringify({
+        id: 99887766,
+        transferAmount: 50000,
+        gateway: "MBBank",
+        accountNumber: "0123456789",
+        transferType: "in",
+        content: dep.code,
+      }),
+    });
+    assert.equal(webhookRes.status, 200);
+    const webhookJson = await webhookRes.json();
+    assert.equal(webhookJson.outcome, "review");
+
+    // Số dư ví vẫn bằng 0 (chưa cộng) và đơn chuyển sang review để admin đối soát
+    const walletRes = await (await fetch(base + "/api/wallet", { headers: { Cookie: cookie } })).json();
+    assert.equal(walletRes.balance, 0);
+    assert.equal(walletRes.deposits[0].status, "review");
+  } finally {
+    await close();
+  }
+});

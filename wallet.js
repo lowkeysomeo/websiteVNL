@@ -14,6 +14,7 @@
   };
   window.vnlWallet = wallet;
   let timer;
+  let countdownTimer = null;
   let currentDeposit = null;
   let busy = false;
   const statusLabels = {
@@ -166,9 +167,12 @@
       </section>
       <button type="button" class="button secondary full-width" data-wallet="purchase-history">Xem lịch sử mua hàng →</button>
       ${wallet.paymentsEnabled ? '<p class="wallet-muted">Tạo yêu cầu nạp rồi chuyển khoản đúng số tiền và nội dung. Số dư tự cập nhật khi ngân hàng xác nhận.</p>' : '<div class="wallet-notice">Shop chưa mở nạp tiền. Đừng chuyển khoản trước khi yêu cầu nạp và mã QR được cấp tại đây.</div>'}
+      <div class="wallet-expiry-hint">
+        ⏱️ <strong>Lưu ý:</strong> Mỗi mã QR nạp tiền chỉ có hiệu lực trong <strong>10 phút</strong>. Quá 10 phút mã sẽ tự động hết hạn, bạn có thể tạo lại mã mới bất cứ lúc nào.
+      </div>
       <form id="wallet-deposit-form"><label>Số tiền nạp (VND)<input name="amount" type="number" min="10000" max="10000000" step="1" required value="50000" ${wallet.paymentsEnabled ? "" : "disabled"}></label>
       <div class="wallet-presets">${[50000, 100000, 200000, 500000].map((amount) => `<button type="button" data-amount="${amount}" ${wallet.paymentsEnabled ? "" : "disabled"}>${money(amount)}</button>`).join("")}</div>
-      <button type="submit" class="button wallet-blue full-width" ${wallet.paymentsEnabled ? "" : "disabled"}>Tạo yêu cầu nạp</button></form>
+      <button type="submit" class="button wallet-blue full-width" ${wallet.paymentsEnabled ? "" : "disabled"}>Tạo yêu cầu nạp (10 phút)</button></form>
       <section class="wallet-history"><h3>Lịch sử nạp tiền</h3>${result.deposits.length ? `<ul>${result.deposits.map((deposit) => `<li><div><strong>${money(deposit.amount)}</strong><small>${date(deposit.createdAt)} · ${safe(deposit.code)}</small></div><button class="${safe(deposit.status)}" data-deposit="${safe(deposit.id)}">${statusLabels[deposit.status] || "Đang xử lý"}</button></li>`).join("")}</ul>` : '<p class="wallet-muted">Bạn chưa có giao dịch nạp tiền.</p>'}</section>`;
     content
       .querySelector("#wallet-deposit-form")
@@ -202,21 +206,111 @@
     currentDeposit = result.deposit.id;
     const { deposit, bank, qrUrl } = result;
     const transferContent = result.transferContent || deposit.code;
-    const pending = deposit.status === "pending" && wallet.paymentsEnabled;
+    const now = Date.now();
+    const isExpired = deposit.status === "expired" || (deposit.expiresAt && deposit.expiresAt <= now);
+    if (isExpired && deposit.status === "pending") {
+      deposit.status = "expired";
+    }
+    const pending = deposit.status === "pending" && wallet.paymentsEnabled && !isExpired;
+
+    const expiryTimeStr = deposit.expiresAt
+      ? new Date(deposit.expiresAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+      : "";
+
     content.innerHTML = `<button class="button secondary" data-wallet="back">← Quay lại ví</button>
       ${
         pending
-          ? `<div class="wallet-transfer"><div class="wallet-qr-wrapper"><img class="wallet-qr" id="wallet-qr-image" src="${safe(qrUrl)}" alt="Mã QR chuyển khoản cho yêu cầu ${safe(deposit.code)}" width="190" height="240"><button type="button" class="wallet-qr-toggle-btn" data-wallet="toggle-qr" title="Bấm để che hoặc hiện mã QR">🙈 Che mã QR</button></div><dl class="wallet-bank">
-      <dt>Ngân hàng</dt><dd>${safe(bank.gateway)}</dd><dt>Tài khoản nhận</dt><dd>${safe(bank.accountNumber)} <button data-copy="${safe(bank.accountNumber)}">Sao chép</button></dd><dt>Chủ tài khoản</dt><dd>${safe(bank.accountName)}</dd>
-      <dt>Số tiền</dt><dd>${money(deposit.amount)}</dd><dt>Nội dung chuyển khoản</dt><dd class="transfer-code">${safe(transferContent)} <button data-copy="${safe(transferContent)}">Sao chép</button></dd></dl></div>
-      <div class="wallet-notice">Chuyển đúng số tiền và giữ nguyên nội dung. Chỉ chuyển một lần cho mỗi yêu cầu. Yêu cầu có hiệu lực đến ${date(deposit.expiresAt)}.</div>`
-          : `<div class="wallet-summary"><span>YÊU CẦU ${safe(deposit.code)}</span><strong>${money(deposit.amount)}</strong></div>`
+          ? `<div class="wallet-transfer">
+              <div class="wallet-qr-wrapper">
+                <div class="wallet-countdown-pill" id="wallet-countdown-pill">
+                  <span class="countdown-icon">⏱️</span>
+                  <span class="countdown-label">Hết hạn sau:</span>
+                  <strong class="countdown-time" id="wallet-countdown-time">10:00</strong>
+                </div>
+                <div class="wallet-qr-container" id="wallet-qr-container">
+                  <img class="wallet-qr" id="wallet-qr-image" src="${safe(qrUrl)}" alt="Mã QR chuyển khoản cho yêu cầu ${safe(deposit.code)}" width="190" height="240">
+                </div>
+                <button type="button" class="wallet-qr-toggle-btn" data-wallet="toggle-qr" title="Bấm để che hoặc hiện mã QR">🙈 Che mã QR</button>
+              </div>
+              <dl class="wallet-bank">
+                <dt>Ngân hàng</dt><dd>${safe(bank.gateway)}</dd>
+                <dt>Tài khoản nhận</dt><dd>${safe(bank.accountNumber)} <button data-copy="${safe(bank.accountNumber)}">Sao chép</button></dd>
+                <dt>Chủ tài khoản</dt><dd>${safe(bank.accountName)}</dd>
+                <dt>Số tiền</dt><dd>${money(deposit.amount)}</dd>
+                <dt>Nội dung chuyển khoản</dt><dd class="transfer-code">${safe(transferContent)} <button data-copy="${safe(transferContent)}">Sao chép</button></dd>
+              </dl>
+            </div>
+            <div class="wallet-notice wallet-countdown-notice">
+              ⏱️ <strong>Lưu ý:</strong> Mã QR này có hiệu lực trong <strong>10 phút</strong> (đến ${safe(expiryTimeStr)}). Chuyển đúng số tiền và giữ nguyên nội dung. Quá 10 phút mã sẽ tự động hết hạn và không thể chuyển khoản.
+            </div>`
+          : (isExpired
+              ? `<div class="wallet-notice is-expired-notice" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); color:#fca5a5; margin:16px 0;">
+                  ❌ <strong>Yêu cầu nạp này đã hết hạn sau 10 phút.</strong><br>
+                  Mã QR và thông tin chuyển khoản cũ không còn hiệu lực. Vui lòng bấm <strong>"Tạo lại mã QR mới"</strong> bên dưới để lấy mã mới.
+                </div>
+                <div class="wallet-summary"><span>YÊU CẦU ${safe(deposit.code)}</span><strong>${money(deposit.amount)}</strong></div>`
+              : `<div class="wallet-summary"><span>YÊU CẦU ${safe(deposit.code)}</span><strong>${money(deposit.amount)}</strong></div>`
+            )
       }
       <p class="wallet-status" id="wallet-transfer-status">${statusText(deposit)}</p>
-      <button class="button wallet-blue full-width" data-wallet="refresh">Kiểm tra giao dịch</button>
+      ${
+        isExpired
+          ? `<button class="button wallet-blue full-width btn-recreate" data-wallet="recreate" data-amount="${deposit.amount}">🔄 Tạo lại mã QR mới (10 phút)</button>`
+          : `<button class="button wallet-blue full-width" data-wallet="refresh">Kiểm tra giao dịch</button>`
+      }
       <p class="wallet-muted">Nếu số tiền hoặc nội dung không khớp, vui lòng liên hệ shop để đối soát.</p>
       <a class="button secondary" href="https://discord.gg/F3J7hWNRc4" target="_blank" rel="noopener noreferrer">Hỗ trợ trên Discord ↗</a>`;
-    if (pending) timer = setInterval(checkDeposit, 4000);
+
+    if (pending) {
+      function updateCountdown() {
+        const remainingMs = Math.max(0, (deposit.expiresAt || 0) - Date.now());
+        const totalSec = Math.floor(remainingMs / 1000);
+        const mins = Math.floor(totalSec / 60);
+        const secs = totalSec % 60;
+        const timeStr = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+
+        const timeEl = content.querySelector("#wallet-countdown-time");
+        const pillEl = content.querySelector("#wallet-countdown-pill");
+        if (timeEl) timeEl.textContent = timeStr;
+        if (pillEl) {
+          pillEl.classList.toggle("is-urgent", totalSec <= 120);
+        }
+
+        if (totalSec <= 0) {
+          stopPolling();
+          deposit.status = "expired";
+          const qrContainer = content.querySelector("#wallet-qr-container");
+          if (qrContainer) {
+            qrContainer.classList.add("is-expired");
+            if (!qrContainer.querySelector(".wallet-qr-expired-overlay")) {
+              qrContainer.insertAdjacentHTML(
+                "beforeend",
+                `<div class="wallet-qr-expired-overlay">
+                  <span class="expired-title">⚠️ ĐÃ HẾT HẠN</span>
+                  <span class="expired-sub">Đã quá 10 phút</span>
+                </div>`
+              );
+            }
+          }
+          if (pillEl) {
+            pillEl.className = "wallet-countdown-pill is-expired";
+            pillEl.innerHTML = '<span class="countdown-icon">❌</span> <strong class="countdown-time">HẾT HẠN</strong>';
+          }
+          const statusEl = content.querySelector("#wallet-transfer-status");
+          if (statusEl) {
+            statusEl.textContent = statusText(deposit);
+          }
+          const refreshBtn = content.querySelector('[data-wallet="refresh"]');
+          if (refreshBtn) {
+            refreshBtn.outerHTML = `<button class="button wallet-blue full-width btn-recreate" data-wallet="recreate" data-amount="${deposit.amount}">🔄 Tạo lại mã QR mới (10 phút)</button>`;
+          }
+        }
+      }
+
+      updateCountdown();
+      countdownTimer = setInterval(updateCountdown, 1000);
+      timer = setInterval(checkDeposit, 4000);
+    }
   }
   function statusText(deposit) {
     return (
@@ -226,7 +320,7 @@
         credited: "🎉 Nạp tiền thành công! Đã tự động cộng tiền vào ví.",
         review: "Giao dịch cần shop đối soát. Số dư chưa được cộng.",
         expired:
-          "Yêu cầu đã hết hạn. Nếu đã chuyển khoản, liên hệ shop để đối soát.",
+          "❌ Yêu cầu nạp đã hết hạn sau 10 phút. Quý khách vui lòng tạo lại mã mới để nạp tiền.",
       }[deposit.status] || "Đang xử lý."
     );
   }
@@ -257,6 +351,8 @@
   function stopPolling() {
     clearInterval(timer);
     timer = null;
+    clearInterval(countdownTimer);
+    countdownTimer = null;
   }
   document.addEventListener("click", async (event) => {
     const button = event.target.closest("button");
@@ -296,6 +392,23 @@
       }
       if (button.dataset.wallet === "back") await showWallet();
       if (button.dataset.wallet === "refresh") await checkDeposit();
+      if (button.dataset.wallet === "recreate") {
+        const amount = Number(button.dataset.amount) || 50000;
+        busy = true;
+        say();
+        try {
+          const result = await api("/api/deposits", {
+            method: "POST",
+            body: JSON.stringify({ amount }),
+          });
+          transferView(result);
+          say("Đã tạo mã QR mới thành công (hiệu lực 10 phút).");
+        } catch (error) {
+          say(error.message);
+        } finally {
+          busy = false;
+        }
+      }
       if (button.dataset.wallet === "toggle-qr") {
         const qrImg = dialog.querySelector("#wallet-qr-image");
         if (qrImg) {

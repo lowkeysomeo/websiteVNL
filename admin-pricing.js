@@ -1865,8 +1865,9 @@ window.initAdminPricing = (() => {
                     </div>
                   ` : `
                     <div class="deposit-expires">
-                      <small>Hết hạn lúc:</small>
-                      <span>${new Date(d.expiresAt).toLocaleString("vi-VN")}</span>
+                      <small>${(d.status === "expired" || d.expiresAt < Date.now()) ? "Đã hết hạn lúc:" : "Hết hạn lúc (10p):"}</small>
+                      <span class="${(d.status === "expired" || d.expiresAt < Date.now()) ? "text-danger" : ""}">${new Date(d.expiresAt).toLocaleString("vi-VN")}</span>
+                      ${(d.status === "pending" && d.expiresAt >= Date.now()) ? `<small style="color:#f59e0b; margin-left:4px; font-weight:600;">(còn ${Math.ceil((d.expiresAt - Date.now()) / 60000)}p)</small>` : ""}
                     </div>
                   `}
                 </div>
@@ -1889,7 +1890,7 @@ window.initAdminPricing = (() => {
                   </button>
                 ` : ""}
                 ${qrUrl ? `
-                  <button type="button" class="button secondary btn-small" data-deposit-qr="${esc(d.id)}" data-qr-url="${esc(qrUrl)}" data-qr-code="${esc(transferContent)}" data-qr-amount="${d.amount}">
+                  <button type="button" class="button secondary btn-small" data-deposit-qr="${esc(d.id)}" data-qr-url="${esc(qrUrl)}" data-qr-code="${esc(transferContent)}" data-qr-amount="${d.amount}" data-qr-expires="${d.expiresAt || 0}" data-qr-status="${esc(d.status)}">
                     Xem QR ↗
                   </button>
                 ` : ""}
@@ -1901,9 +1902,11 @@ window.initAdminPricing = (() => {
     `;
   }
 
-  function openQrModal(qrUrl, code, amount) {
+  function openQrModal(qrUrl, code, amount, expiresAt, status) {
     const editor = $("#catalog-editor");
     if (!editor) return;
+    const isExpired = status === "expired" || (expiresAt && expiresAt < Date.now());
+    const expiryStr = expiresAt ? new Date(expiresAt).toLocaleTimeString("vi-VN") : "";
     editor.innerHTML = `
       <div class="admin-modal-overlay">
         <div class="admin-modal-box">
@@ -1912,8 +1915,18 @@ window.initAdminPricing = (() => {
             <button type="button" class="button secondary btn-small" data-modal-close>Đóng ✕</button>
           </div>
           <div class="admin-modal-body">
-            <div class="preview-qr-wrap" style="display:block; margin: 0 auto; text-align: center;">
-              <img src="${esc(qrUrl)}" alt="VietQR" width="220" height="280" style="margin: 0 auto; display: block;" />
+            ${isExpired ? `
+              <div style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); border-radius:8px; padding:10px; margin-bottom:12px; text-align:center; color:#fca5a5; font-size:12.5px; font-weight:600;">
+                ⚠️ Mã QR này đã quá 10 phút và hết hạn. Khách hàng cần tạo mã QR mới.
+              </div>
+            ` : `
+              <div style="background:rgba(234,179,8,0.12); border:1px solid rgba(234,179,8,0.35); border-radius:8px; padding:8px; margin-bottom:12px; text-align:center; color:#fde047; font-size:12px;">
+                ⏱️ Mã QR chỉ có hiệu lực trong 10 phút${expiryStr ? ` (Hết hạn lúc: ${expiryStr})` : ""}.
+              </div>
+            `}
+            <div class="preview-qr-wrap" style="position:relative; display:block; margin: 0 auto; text-align: center;">
+              <img src="${esc(qrUrl)}" alt="VietQR" width="220" height="280" style="margin: 0 auto; display: block; ${isExpired ? 'filter:grayscale(1) blur(3px); opacity:0.5;' : ''}" />
+              ${isExpired ? '<div style="position:absolute; top:45%; left:50%; transform:translate(-50%, -50%); background:rgba(239,68,68,0.92); color:#fff; font-weight:700; padding:6px 14px; border-radius:6px; font-size:13px; white-space:nowrap; box-shadow:0 4px 12px rgba(0,0,0,0.5);">⚠️ ĐÃ HẾT HẠN (QUÁ 10P)</div>' : ''}
             </div>
             <p style="text-align: center; margin-top: 14px; font-size: 13px; color: var(--text);">
               Số tiền: <strong style="color: var(--accent); font-size: 16px;">${money(amount)}</strong><br>
@@ -3135,7 +3148,13 @@ window.initAdminPricing = (() => {
           }
         }
         if (button.dataset.depositQr) {
-          openQrModal(button.dataset.qrUrl, button.dataset.qrCode, Number(button.dataset.qrAmount));
+          openQrModal(
+            button.dataset.qrUrl,
+            button.dataset.qrCode,
+            Number(button.dataset.qrAmount),
+            Number(button.dataset.qrExpires),
+            button.dataset.qrStatus
+          );
         }
         if (button.dataset.productUp) {
           moveProduct(button.dataset.productUp, -1);

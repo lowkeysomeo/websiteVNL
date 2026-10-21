@@ -306,6 +306,119 @@
     height: 10px;
   }
 }
+/* Expiry & Countdown Timer for Deposit QR */
+.wallet-expiry-hint {
+  font-size: 11.5px;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px dashed rgba(245, 158, 11, 0.35);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 12px 0 6px;
+  line-height: 1.5;
+}
+
+.wallet-countdown-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 20px;
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  align-self: center;
+}
+
+.wallet-countdown-pill .countdown-time {
+  font-family: monospace;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #60a5fa;
+  letter-spacing: 0.5px;
+}
+
+.wallet-countdown-pill.is-urgent {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+  animation: pulseUrgent 1.2s infinite;
+}
+
+.wallet-countdown-pill.is-urgent .countdown-time {
+  color: #f87171;
+}
+
+.wallet-countdown-pill.is-expired {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+@keyframes pulseUrgent {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.wallet-qr-container {
+  position: relative;
+  display: inline-block;
+  margin: 0 auto;
+}
+
+.wallet-qr-container.is-expired .wallet-qr {
+  filter: grayscale(1) blur(4px);
+  opacity: 0.45;
+}
+
+.wallet-qr-expired-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(185, 28, 28, 0.94);
+  border: 2px solid #ef4444;
+  color: #ffffff;
+  padding: 10px 14px;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 82%;
+  box-sizing: border-box;
+}
+
+.wallet-qr-expired-overlay .expired-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.wallet-qr-expired-overlay .expired-sub {
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.btn-recreate {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  border-color: #3b82f6 !important;
+  font-weight: 700 !important;
+  padding: 10px 14px !important;
+  margin-top: 8px !important;
+  cursor: pointer;
+}
+.btn-recreate:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
+}
+
 @media (max-width: 500px) {
   .wallet-transfer {
     grid-template-columns: 1fr;

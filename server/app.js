@@ -114,6 +114,8 @@ function parse(raw) {
     throw fail(400, "Dữ liệu JSON không hợp lệ.");
   }
 }
+export const DEPOSIT_EXPIRY_MS = 10 * 60 * 1000; // 10 phút hiệu lực cho mã QR nạp tiền
+
 function depositView(row) {
   return {
     id: row.id,
@@ -418,6 +420,12 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
         }
         if (req.method === "GET" && route === "/api/wallet") {
           const current = await requireSession(req);
+          const now = Date.now();
+          await db
+            .prepare(
+              "UPDATE deposits SET status = 'expired' WHERE user_id = ? AND status = 'pending' AND expires_at < ?",
+            )
+            .run(current.user_id, now);
           const deposits = (
             await db
               .prepare(
@@ -470,7 +478,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             amount,
             status: "pending",
             created_at: now,
-            expires_at: now + 86400000,
+            expires_at: now + DEPOSIT_EXPIRY_MS,
             credited_at: null,
           };
           await db
@@ -494,6 +502,12 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             .prepare("SELECT * FROM deposits WHERE id = ? AND user_id = ?")
             .get(match[1], current.user_id);
           if (!row) throw fail(404, "Không tìm thấy yêu cầu nạp.");
+          if (row.status === "pending" && row.expires_at < Date.now()) {
+            await db
+              .prepare("UPDATE deposits SET status = 'expired' WHERE id = ?")
+              .run(row.id);
+            row.status = "expired";
+          }
           const bankSettings = await getBankSettings(db, config);
           return json(200, {
             ...paymentDetails(row, bankSettings.bank),
