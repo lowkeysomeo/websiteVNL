@@ -754,7 +754,14 @@
                   ${order.customerNote ? `<br>Ghi chú khách: <em>${escapeHtml(order.customerNote)}</em>` : ""}
                 </div>
               </div>
-              <span class="order-status-badge status-${order.status}">${statusText}</span>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+                <span class="order-status-badge status-${order.status}">${statusText}</span>
+                ${
+                  order.status === "completed"
+                    ? `<span class="legit-badge" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:3px 8px; border-radius:6px; background:rgba(34, 197, 94, 0.15); border:1px solid rgba(34, 197, 94, 0.35); color:#86efac; font-weight:600;">🛡️ Kênh Legit: 1562154223783907560</span>`
+                    : ""
+                }
+              </div>
             </div>
 
             <div class="admin-order-items">
@@ -774,6 +781,11 @@
                 ${order.pricing && (order.pricing.saleDiscount || order.pricing.couponDiscount) ? `<small class="order-discount-note">Giá gốc: ${money(order.pricing.subtotal)} · Ưu đãi: −${money(order.pricing.saleDiscount + order.pricing.couponDiscount)}${order.pricing.coupon ? ' · Mã ' + escapeHtml(order.pricing.coupon.code) : ''}</small>` : ''}
               </div>
               <div class="admin-action-buttons">
+                ${
+                  order.status === "completed"
+                    ? `<button class="admin-status-btn btn-legit" data-action="send-legit" data-order-id="${order.id}" title="Gửi feedback Check Legit về kênh Discord 1562154223783907560" style="background:rgba(34, 197, 94, 0.15); border:1px solid rgba(34, 197, 94, 0.4); color:#86efac; font-weight:600;">🛡️ Gửi Check Legit (1562154223783907560)</button>`
+                    : ""
+                }
                 ${
                   order.status !== "completed" && order.status !== "cancelled"
                     ? `<button class="admin-status-btn btn-complete" data-action="set-status" data-status="completed" data-order-id="${order.id}">✅ Hoàn tất</button>`
@@ -951,7 +963,7 @@
         const idx = allOrders.findIndex((o) => o.id === orderId);
         if (idx !== -1) allOrders[idx] = res.order;
         renderOrders();
-        notify(`Đã lưu Link Claim và hoàn tất đơn ${orderId}!`);
+        notify(`Đã lưu Link Claim & hoàn tất đơn ${orderId} (đã gửi Check Legit về kênh 1562154223783907560)! 🛡️`);
       } catch (err) {
         alert(err.message);
       }
@@ -979,9 +991,33 @@
         const idx = allOrders.findIndex((o) => o.id === orderId);
         if (idx !== -1) allOrders[idx] = res.order;
         renderOrders();
-        notify(`Đã cập nhật trạng thái đơn ${orderId} thành "${nextStatus}".`);
+        if (nextStatus === "completed") {
+          notify(`Đã hoàn tất đơn ${orderId} & gửi feedback Check Legit về kênh Discord 1562154223783907560! 🛡️`);
+        } else {
+          notify(`Đã cập nhật trạng thái đơn ${orderId} thành "${nextStatus}".`);
+        }
       } catch (err) {
         alert(err.message);
+      }
+      return;
+    }
+
+    // 5. Send Discord Legit Feedback manually
+    const sendLegitBtn = e.target.closest('[data-action="send-legit"]');
+    if (sendLegitBtn) {
+      const orderId = sendLegitBtn.dataset.orderId;
+      sendLegitBtn.disabled = true;
+      sendLegitBtn.textContent = "Đang gửi...";
+      try {
+        const res = await api(`/api/admin/orders/${encodeURIComponent(orderId)}/send-legit`, {
+          method: "POST",
+        });
+        notify(`✅ ${res.message || `Đã gửi feedback Check Legit cho đơn ${orderId} về kênh 1562154223783907560!`}`);
+      } catch (err) {
+        alert("Lỗi gửi Check Legit: " + err.message);
+      } finally {
+        sendLegitBtn.disabled = false;
+        sendLegitBtn.textContent = "🛡️ Gửi Check Legit (1562154223783907560)";
       }
       return;
     }

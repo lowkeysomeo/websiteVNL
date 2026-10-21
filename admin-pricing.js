@@ -313,13 +313,32 @@ window.initAdminPricing = (() => {
 
   function switchView(view) {
     currentView = view;
-    $("#admin-orders-view").hidden = view !== "orders";
-    $("#admin-pricing-view").hidden = view === "orders";
+    $("#admin-orders-view").hidden = view !== "orders" && view !== "discord";
+    $("#admin-pricing-view").hidden = view === "orders" || view === "discord";
     document.querySelectorAll("[data-admin-view]").forEach(button => {
       button.classList.toggle("active", button.dataset.adminView === view);
       button.setAttribute("aria-pressed", String(button.dataset.adminView === view));
     });
-    if (view !== "orders") render();
+
+    const annCard = $("#admin-announcement-card");
+    const discordCard = $("#admin-discord-card");
+    const controls = document.querySelector(".admin-controls");
+    const ordersContainer = document.querySelector(".admin-orders-container");
+
+    if (view === "discord") {
+      if (annCard) annCard.hidden = true;
+      if (discordCard) discordCard.hidden = false;
+      if (controls) controls.hidden = true;
+      if (ordersContainer) ordersContainer.hidden = true;
+    } else if (view === "orders") {
+      const isPartner = sessionStorage.getItem("vnl_admin_role") === "partner";
+      if (annCard) annCard.hidden = isPartner;
+      if (discordCard) discordCard.hidden = false;
+      if (controls) controls.hidden = false;
+      if (ordersContainer) ordersContainer.hidden = false;
+    }
+
+    if (view !== "orders" && view !== "discord") render();
     if (view === "partners") void refreshPartners();
     if (view === "deposits") void refreshDeposits(true, true);
   }

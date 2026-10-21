@@ -406,3 +406,54 @@ test("HTTP POST /api/admin/discord/test: hỗ trợ gửi tin thử nghiệm che
     server.close();
   }
 });
+
+test("HTTP POST /api/admin/orders/:id/send-legit: nút gửi feedback Check Legit thủ công trên đơn hàng", async () => {
+  const sentWebhooks = [];
+  const mockFetch = async (url, opts) => {
+    sentWebhooks.push({ url, body: JSON.parse(opts.body) });
+    return { ok: true, status: 204, text: async () => "" };
+  };
+
+  const { db, server, request, adminHeaders } = await setupTestApp({}, mockFetch);
+
+  try {
+    await saveDiscordSettings(db, {
+      enabled: true,
+      feedbackEnabled: true,
+      feedbackWebhookUrl: "https://discord.com/api/webhooks/legit/channel-1562154223783907560",
+      legitChannelId: "1562154223783907560",
+    });
+
+    const userId = randomUUID();
+    await db
+      .prepare(
+        "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+      )
+      .run(userId, "manualtest@gmail.com", "hash", Date.now());
+    await creditWallet(db, userId, 200000);
+
+    const order = await createOrder(db, {
+      userId,
+      customerName: "Nguyễn Thị Mai",
+      customerEmail: "manualtest@gmail.com",
+      items: [{ productId: "discord-nitro-boost", quantity: 1 }],
+      total: 125000,
+      paymentMethod: "wallet",
+    });
+
+    const res = await request(
+      "POST",
+      `/api/admin/orders/${order.id}/send-legit`,
+      {},
+      adminHeaders,
+    );
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.success, true);
+    assert.equal(sentWebhooks.length, 1);
+    assert.ok(sentWebhooks[0].url.includes("1562154223783907560"));
+    assert.ok(sentWebhooks[0].body.embeds[0].title.includes("VIETNAM LEGACY LEGIT CHECK"));
+  } finally {
+    server.close();
+  }
+});

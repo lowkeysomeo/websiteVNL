@@ -988,6 +988,44 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
 
           return json(200, { success: true, order: updated });
         }
+        const adminOrderLegitMatch = route.match(
+          /^\/api\/admin\/orders\/([A-Za-z0-9_-]+)\/send-legit$/,
+        );
+        if (req.method === "POST" && adminOrderLegitMatch) {
+          const caller = await requireAdminOrPartner(req);
+          sameOrigin(req);
+          const orderId = adminOrderLegitMatch[1];
+          const order = await db
+            .prepare("SELECT * FROM orders WHERE id = ?")
+            .get(orderId);
+          if (!order) throw fail(404, "Không tìm thấy đơn hàng.");
+
+          let items = [];
+          try { items = JSON.parse(order.items_json); } catch {}
+          const formattedOrder = {
+            ...order,
+            items,
+            customerName: order.customer_name,
+            customerEmail: order.customer_email,
+            completedAt: order.completed_at || Date.now(),
+          };
+
+          const result = await sendDiscordLegitFeedbackNotification(
+            db,
+            formattedOrder,
+            config.origin,
+            fetchFn,
+          );
+
+          if (!result.sent) {
+            throw fail(502, result.error || "Không thể gửi tin tới Webhook Discord Check Legit. Vui lòng kiểm tra cấu hình Webhook.");
+          }
+
+          return json(200, {
+            success: true,
+            message: "Đã gửi feedback Check Legit về kênh Discord 1562154223783907560 thành công!",
+          });
+        }
         const adminOrderMessagesMatch = route.match(
           /^\/api\/admin\/orders\/([A-Za-z0-9_-]+)\/messages$/,
         );
