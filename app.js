@@ -1053,27 +1053,7 @@ async function showOrders(offset = 0) {
           .join("");
         const orderMessages = Array.isArray(order.messages) ? order.messages : [];
         const messagesHtml = orderMessages.length > 0
-          ? orderMessages
-              .map((m) => {
-                const isShop = m.senderRole === "admin" || m.senderRole === "partner";
-                const roleBadge = isShop ? "👑 Shop (Quản trị viên)" : "👤 Bạn";
-                const timeStr = new Date(m.createdAt).toLocaleTimeString("vi-VN", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  day: "2-digit",
-                  month: "2-digit",
-                });
-                return `
-                  <div class="customer-chat-bubble ${isShop ? "bubble-shop" : "bubble-user"}">
-                    <div class="chat-bubble-header">
-                      <span class="chat-bubble-sender">${escapeHtml(roleBadge)}</span>
-                      <span class="chat-bubble-time">${escapeHtml(timeStr)}</span>
-                    </div>
-                    <div class="chat-bubble-text">${escapeHtml(m.message)}</div>
-                  </div>
-                `;
-              })
-              .join("")
+          ? orderMessages.map(renderCustomerChatBubble).join("")
           : '<p class="customer-chat-empty">Chưa có tin nhắn nào. Nếu bạn có thắc mắc hoặc cần hỗ trợ về đơn hàng này, hãy nhắn tin ngay cho shop tại đây nhé!</p>';
 
         const chatBox = `
@@ -1164,28 +1144,29 @@ function formatChatTime(ts) {
   }
 }
 
+function renderCustomerChatBubble(m) {
+  const isShop = m.senderRole === "admin" || m.senderRole === "partner";
+  const roleBadge = isShop ? "👑 Shop (Quản trị viên)" : "👤 Bạn";
+  const timeStr = formatChatTime(m.createdAt);
+  const safeText = escapeHtml(String(m.message ?? "")).trim();
+  return `
+    <div class="customer-chat-bubble ${isShop ? "bubble-shop" : "bubble-user"}" data-msg-id="${escapeHtml(m.id || "")}">
+      <div class="chat-bubble-header">
+        <span class="chat-bubble-sender">${escapeHtml(roleBadge)}</span>
+        <span class="chat-bubble-time">${escapeHtml(timeStr)}</span>
+      </div>
+      <div class="chat-bubble-text">${safeText || "(Nội dung trống)"}</div>
+    </div>
+  `;
+}
+
 function renderCustomerChatFeed(feed, messages) {
   if (!feed) return;
   if (!messages || messages.length === 0) {
     feed.innerHTML = '<p class="customer-chat-empty">Chưa có tin nhắn nào. Nếu bạn có thắc mắc hoặc cần hỗ trợ về đơn hàng này, hãy nhắn tin ngay cho shop tại đây nhé!</p>';
     return;
   }
-  feed.innerHTML = messages
-    .map((m) => {
-      const isShop = m.senderRole === "admin" || m.senderRole === "partner";
-      const roleBadge = isShop ? "👑 Shop (Quản trị viên)" : "👤 Bạn";
-      const timeStr = formatChatTime(m.createdAt);
-      return `
-        <div class="customer-chat-bubble ${isShop ? "bubble-shop" : "bubble-user"}">
-          <div class="chat-bubble-header">
-            <span class="chat-bubble-sender">${escapeHtml(roleBadge)}</span>
-            <span class="chat-bubble-time">${escapeHtml(timeStr)}</span>
-          </div>
-          <div class="chat-bubble-text">${escapeHtml(m.message)}</div>
-        </div>
-      `;
-    })
-    .join("");
+  feed.innerHTML = messages.map(renderCustomerChatBubble).join("");
   feed.scrollTop = feed.scrollHeight;
 }
 
@@ -1232,21 +1213,10 @@ document.addEventListener("submit", async (e) => {
     }
     if (input) input.value = "";
     const feed = document.getElementById(`customer-chat-feed-${orderId}`);
-    if (feed) {
+    if (feed && data.message) {
       const emptyEl = feed.querySelector(".customer-chat-empty");
       if (emptyEl) emptyEl.remove();
-      const m = data.message;
-      const timeStr = formatChatTime(m.createdAt);
-      const bubble = document.createElement("div");
-      bubble.className = "customer-chat-bubble bubble-user";
-      bubble.innerHTML = `
-        <div class="chat-bubble-header">
-          <span class="chat-bubble-sender">👤 Bạn</span>
-          <span class="chat-bubble-time">${escapeHtml(timeStr)}</span>
-        </div>
-        <div class="chat-bubble-text">${escapeHtml(m.message)}</div>
-      `;
-      feed.appendChild(bubble);
+      feed.insertAdjacentHTML("beforeend", renderCustomerChatBubble(data.message));
       feed.scrollTop = feed.scrollHeight;
       const chatBox = feed.closest(".customer-order-chat");
       const badge = chatBox?.querySelector(".customer-chat-badge");
@@ -1256,6 +1226,9 @@ document.addEventListener("submit", async (e) => {
       }
     }
     notify("Đã gửi tin nhắn đến shop thành công!");
+    // Kích hoạt đồng bộ phản hồi từ shop ngay
+    setTimeout(refreshActiveCustomerChats, 1200);
+    setTimeout(refreshActiveCustomerChats, 3000);
   } catch (err) {
     alert(err.message || "Gửi phản hồi thất bại.");
   } finally {
@@ -1266,18 +1239,20 @@ document.addEventListener("submit", async (e) => {
   }
 });
 
-// Định kỳ cập nhật tin nhắn đơn hàng đang mở
+// Định kỳ cập nhật tin nhắn thời gian thực cho đơn hàng đang mở
+let isRefreshingCustomerChats = false;
 async function refreshActiveCustomerChats() {
-  if (document.hidden || !infoDialog || !infoDialog.open) return;
+  if (isRefreshingCustomerChats || document.hidden) return;
   const chatContainers = document.querySelectorAll(".customer-order-chat[data-order-id]");
   if (chatContainers.length === 0) return;
-  for (const container of chatContainers) {
-    const orderId = container.getAttribute("data-order-id");
-    if (!orderId) continue;
-    try {
+  isRefreshingCustomerChats = true;
+  try {
+    for (const container of chatContainers) {
+      const orderId = container.getAttribute("data-order-id");
+      if (!orderId) continue;
       const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/messages`, {
         credentials: "same-origin",
-        signal: AbortSignal.timeout(6000),
+        signal: AbortSignal.timeout(5000),
       });
       if (!res.ok) continue;
       const data = await res.json();
@@ -1292,10 +1267,17 @@ async function refreshActiveCustomerChats() {
           badge.textContent = `${data.messages.length} phản hồi`;
         }
       }
-    } catch {}
+    }
+  } catch {
+  } finally {
+    isRefreshingCustomerChats = false;
   }
 }
-setInterval(refreshActiveCustomerChats, 12000);
+setInterval(refreshActiveCustomerChats, 2500);
+window.addEventListener("focus", () => { void refreshActiveCustomerChats(); });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) void refreshActiveCustomerChats();
+});
 
 
 let cachedGuide = null;

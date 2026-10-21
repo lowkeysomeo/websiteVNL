@@ -12,16 +12,18 @@ import {
 import { readConfig } from "../server/config.js";
 import { createApp } from "../server/app.js";
 import { passwordHash, digest } from "../server/security.js";
+import { saveDiscordSettings, DEFAULT_ADMIN_ID } from "../server/discord.js";
 
-async function setupServer() {
+async function setupServer(options = {}) {
   const db = await openStore(":memory:");
   const config = readConfig({
     HOST: "127.0.0.1",
     PORT: "3000",
     PUBLIC_ORIGIN: "http://localhost:3000",
     ADMIN_PASSWORD: "testadminsecret",
+    ...options.config,
   });
-  const server = createApp(db, config);
+  const server = createApp(db, config, { fetchFn: options.fetchFn || globalThis.fetch });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   const origin = `http://127.0.0.1:${address.port}`;
@@ -299,3 +301,179 @@ test("Order messages HTTP API: Admin and Partner permissions and replies", async
     await ctx.close();
   }
 });
+
+test("Customer order message triggers Discord webhook notification pinging admin ID 604729446649298963", async () => {
+  const webhookCalls = [];
+  const mockFetch = async (url, options) => {
+    webhookCalls.push({
+      url,
+      method: options.method,
+      headers: options.headers,
+      body: JSON.parse(options.body),
+    });
+    return {
+      ok: true,
+      status: 204,
+      text: async () => "",
+    };
+  };
+
+  const ctx = await setupServer({ fetchFn: mockFetch });
+  try {
+    const userId = randomUUID();
+    const orderId = "VNL-DISCORD-MSG-TEST";
+    const now = Date.now();
+
+    await ctx.db.prepare("INSERT INTO users VALUES (?, ?, 'pw', ?)").run(userId, "customer@example.com", now);
+    await ctx.db.prepare(`
+      INSERT INTO orders (id, user_id, customer_name, customer_email, items_json, total, status, created_at)
+      VALUES (?, ?, 'Tran Van B', 'customer@example.com', '[]', 99000, 'processing', ?)
+    `).run(orderId, userId, now);
+
+    // Cấu hình Discord settings với ID admin 604729446649298963
+    await saveDiscordSettings(ctx.db, {
+      enabled: true,
+      webhookUrl: "https://discord.com/api/webhooks/123456/testtoken",
+      adminId: "604729446649298963",
+    });
+
+    const token = "c".repeat(64);
+    await ctx.db.prepare("INSERT INTO sessions VALUES (?, ?, 'csrf-test', ?)").run(
+      digest(token),
+      userId,
+      now + 86400000,
+    );
+
+    // Customer gửi tin nhắn phản hồi trên đơn
+    const res = await ctx.request(
+      "POST",
+      `/api/orders/${orderId}/messages`,
+      { message: "Shop ơi kiểm tra lại mã 2FA giúp em với!" },
+      { cookie: `vnl_session=${token}` },
+    );
+    assert.equal(res.status, 201);
+    assert.equal(res.data.success, true);
+
+    // Kiểm tra Discord webhook đã được gọi
+    assert.equal(webhookCalls.length, 1);
+    const call = webhookCalls[0];
+    assert.equal(call.url, "https://discord.com/api/webhooks/123456/testtoken");
+    // Kiểm tra nội dung ping đúng ID 604729446649298963
+    assert.match(call.body.content, /<@604729446649298963>/);
+    assert.match(call.body.content, new RegExp(orderId));
+
+    // Kiểm tra embed thông tin tin nhắn
+    assert.ok(Array.isArray(call.body.embeds));
+    assert.equal(call.body.embeds.length, 1);
+    const embed = call.body.embeds[0];
+    assert.match(embed.title, new RegExp(orderId));
+    assert.match(embed.description, /Tran Van B/);
+
+    const msgField = embed.fields.find((f) => f.name.includes("Nội dung tin nhắn"));
+    assert.ok(msgField);
+    assert.equal(msgField.value, "Shop ơi kiểm tra lại mã 2FA giúp em với!");
+
+    const userField = embed.fields.find((f) => f.name.includes("Khách hàng"));
+    assert.ok(userField);
+    assert.match(userField.value, /customer@example\.com/);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("Real-time Chat Sync API (/api/admin/orders-chat-sync) returns new messages by since timestamp and enforces role permissions", async () => {
+  const ctx = await setupServer();
+  try {
+    const userId = randomUUID();
+    const partnerUserId = randomUUID();
+    const partnerEmail = "partner2@example.com";
+    const t0 = 10000;
+
+    await ctx.db.prepare("INSERT INTO users VALUES (?, ?, 'pw', ?)").run(userId, "buyer@example.com", t0);
+    await ctx.db.prepare("INSERT INTO users VALUES (?, ?, ?, ?)").run(
+      partnerUserId,
+      partnerEmail,
+      await passwordHash("pass123"),
+      t0,
+    );
+    await ctx.db.prepare(`
+      INSERT INTO partners (id, user_id, email, name, is_active, created_at, updated_at)
+      VALUES ('p2', ?, ?, 'Partner 2', 1, ?, ?)
+    `).run(partnerUserId, partnerEmail, t0, t0);
+    await ctx.db.prepare(`
+      INSERT INTO custom_products (id, name, category, partner_email, created_at, updated_at)
+      VALUES ('p2-prod', 'Dịch vụ P2', 'service', ?, ?, ?)
+    `).run(partnerEmail, t0, t0);
+
+    const orderShop = "ORD-SYNC-SHOP";
+    const orderPartner = "ORD-SYNC-PARTNER";
+
+    await ctx.db.prepare(`
+      INSERT INTO orders (id, user_id, customer_name, customer_email, items_json, total, status, created_at)
+      VALUES (?, ?, 'Buyer Shop', 'buyer@example.com', '[]', 50000, 'processing', ?)
+    `).run(orderShop, userId, t0);
+
+    await ctx.db.prepare(`
+      INSERT INTO orders (id, user_id, customer_name, customer_email, items_json, total, status, created_at)
+      VALUES (?, ?, 'Buyer Partner', 'buyer@example.com', ?, 50000, 'processing', ?)
+    `).run(orderPartner, userId, JSON.stringify([{ productId: "p2-prod", variantId: "", quantity: 1, price: 50000 }]), t0);
+
+    // Add initial message on orderShop at t0 + 100
+    await addOrderMessage(ctx.db, {
+      orderId: orderShop,
+      senderRole: "customer",
+      senderId: userId,
+      senderName: "Buyer Shop",
+      message: "Tin nhắn 1",
+      now: t0 + 100,
+    });
+
+    // Add initial message on orderPartner at t0 + 200
+    await addOrderMessage(ctx.db, {
+      orderId: orderPartner,
+      senderRole: "customer",
+      senderId: userId,
+      senderName: "Buyer Partner",
+      message: "Tin nhắn 2 cho partner",
+      now: t0 + 200,
+    });
+
+    // 1. Admin sync with since=0 gets all 2 messages
+    const adminSyncAll = await ctx.request("GET", "/api/admin/orders-chat-sync?since=0", null, {
+      "x-admin-key": "testadminsecret",
+    });
+    assert.equal(adminSyncAll.status, 200);
+    assert.equal(adminSyncAll.data.success, true);
+    assert.equal(adminSyncAll.data.messages.length, 2);
+
+    // 2. Admin sync with since = t0 + 150 gets only messages after t0 + 150 (i.e. message 2)
+    const adminSyncSince = await ctx.request("GET", `/api/admin/orders-chat-sync?since=${t0 + 150}`, null, {
+      "x-admin-key": "testadminsecret",
+    });
+    assert.equal(adminSyncSince.status, 200);
+    assert.equal(adminSyncSince.data.messages.length, 1);
+    assert.equal(adminSyncSince.data.messages[0].orderId, orderPartner);
+
+    // 3. Partner login and sync
+    const partnerLoginRes = await ctx.request("POST", "/api/admin/auth", {
+      email: partnerEmail,
+      password: "pass123",
+    });
+    const partnerKey = partnerLoginRes.data.token || partnerLoginRes.data.adminKey;
+
+    // Partner sync with since=0 gets ONLY message belonging to orderPartner
+    const partnerSync = await ctx.request("GET", "/api/admin/orders-chat-sync?since=0", null, {
+      "x-admin-key": partnerKey,
+    });
+    assert.equal(partnerSync.status, 200);
+    assert.equal(partnerSync.data.messages.length, 1);
+    assert.equal(partnerSync.data.messages[0].orderId, orderPartner);
+
+    // 4. Unauthorized caller
+    const unauthSync = await ctx.request("GET", "/api/admin/orders-chat-sync?since=0", null, {});
+    assert.equal(unauthSync.status, 401);
+  } finally {
+    await ctx.close();
+  }
+});
+

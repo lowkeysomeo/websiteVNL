@@ -722,6 +722,7 @@ export async function updateAdminOrder(db, orderId, { status, claimLink }, partn
     status: nextStatus,
     createdAt: order.created_at,
     completedAt,
+    messages: await getOrderMessages(db, order.id),
   };
 }
 

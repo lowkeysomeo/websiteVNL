@@ -778,3 +778,213 @@ export async function sendDiscordTestNotification(
     message: "Gửi thông báo thử nghiệm thành công! Hãy kiểm tra kênh Discord.",
   };
 }
+
+export function buildOrderMessageEmbed(order, message, settings = {}, origin = "") {
+  const adminId = String(settings.adminId || DEFAULT_ADMIN_ID).trim();
+  const ping = adminId ? `<@${adminId}>` : "";
+  const content = `💬 ${ping} **Tin nhắn mới từ khách hàng trên đơn \`${order.id || "N/A"}\`!**`.trim();
+
+  const customerName = order.customer_name || order.customerName || message.senderName || "Khách hàng";
+  const customerEmail = order.customer_email || order.customerEmail || "N/A";
+  const msgText = String(message.message || "").trim();
+
+  const embed = {
+    title: `💬 Khách phản hồi đơn: ${order.id || "N/A"}`,
+    url: origin ? `${origin}/admin.html` : undefined,
+    color: 0x3b82f6, // Blue for customer message
+    description: `Khách hàng **${customerName}** vừa gửi một tin nhắn trao đổi trên đơn hàng **\`${order.id || "N/A"}\`**!`,
+    fields: [
+      {
+        name: "👤 Khách hàng",
+        value: `**${customerName}**\nEmail: \`${customerEmail}\``,
+        inline: true,
+      },
+      {
+        name: "🛒 Mã đơn hàng",
+        value: `\`${order.id || "N/A"}\``,
+        inline: true,
+      },
+      {
+        name: "💬 Nội dung tin nhắn",
+        value: msgText ? (msgText.length > 1024 ? msgText.slice(0, 1020) + "..." : msgText) : "*(Không có nội dung)*",
+        inline: false,
+      },
+    ],
+    timestamp: new Date(message.createdAt || Date.now()).toISOString(),
+    footer: {
+      text: "VietNam Legacy Store • Tin nhắn trao đổi đơn hàng",
+    },
+  };
+
+  return {
+    content,
+    embeds: [embed],
+  };
+}
+
+export function buildPartnerOrderMessageEmbed(order, message, partnerEmail, settings = {}, origin = "") {
+  const discordId = String(settings.discordId || settings.adminId || "").trim();
+  const ping = discordId ? `<@${discordId}>` : "";
+  const content = `💬 ${ping} **Khách hàng vừa nhắn tin trên đơn dịch vụ của bạn \`${order.id || "N/A"}\`!**`.trim();
+
+  const customerName = order.customer_name || order.customerName || message.senderName || "Khách hàng";
+  const customerEmail = order.customer_email || order.customerEmail || "N/A";
+  const msgText = String(message.message || "").trim();
+
+  const embed = {
+    title: `💬 Khách phản hồi đơn dịch vụ: ${order.id || "N/A"}`,
+    url: origin ? `${origin}/admin.html` : undefined,
+    color: 0x06b6d4, // Cyan for partner
+    description: `Khách hàng **${customerName}** vừa gửi một tin nhắn trao đổi trên đơn hàng dịch vụ **\`${order.id || "N/A"}\`** do bạn phụ trách!`,
+    fields: [
+      {
+        name: "👤 Khách hàng",
+        value: `**${customerName}**\nEmail: \`${customerEmail}\``,
+        inline: true,
+      },
+      {
+        name: "🛒 Mã đơn hàng",
+        value: `\`${order.id || "N/A"}\``,
+        inline: true,
+      },
+      {
+        name: "💬 Nội dung tin nhắn",
+        value: msgText ? (msgText.length > 1024 ? msgText.slice(0, 1020) + "..." : msgText) : "*(Không có nội dung)*",
+        inline: false,
+      },
+    ],
+    timestamp: new Date(message.createdAt || Date.now()).toISOString(),
+    footer: {
+      text: `VietNam Legacy Store • Kênh tin nhắn Đối tác (${partnerEmail})`,
+    },
+  };
+
+  return {
+    content,
+    embeds: [embed],
+  };
+}
+
+export async function sendDiscordOrderMessageNotification(
+  db,
+  order,
+  message,
+  origin = "",
+  fetchFn = globalThis.fetch,
+) {
+  const result = { sent: false, partnerResults: [] };
+
+  // 1. Gửi thông báo tới Discord Admin của Shop (ping 604729446649298963)
+  try {
+    const settings = await getDiscordSettings(db);
+    if (settings.enabled && settings.webhookUrl) {
+      const payload = buildOrderMessageEmbed(order, message, settings, origin);
+      const res = await fetchFn(settings.webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        console.error(
+          `[Discord Message Webhook Warning] Status ${res.status}: ${errText}`,
+        );
+        result.adminError = errText;
+      } else {
+        result.sent = true;
+      }
+    } else {
+      result.reason = "disabled_or_not_configured";
+    }
+  } catch (err) {
+    console.error("[Discord Message Webhook Error]", err.message);
+    result.error = err.message;
+  }
+
+  // 2. Gửi thông báo tới Discord của các Đối tác nếu đơn có mặt hàng của đối tác
+  try {
+    let items = [];
+    if (Array.isArray(order.items)) {
+      items = order.items;
+    } else if (order.items_json) {
+      try {
+        items = JSON.parse(order.items_json);
+      } catch {}
+    }
+
+    let customProds = [];
+    try {
+      customProds = await db
+        .prepare(
+          "SELECT id, partner_email FROM custom_products WHERE partner_email IS NOT NULL AND partner_email != ''",
+        )
+        .all();
+    } catch {}
+
+    const productPartnerMap = new Map(
+      (customProds || []).map((p) => [
+        p.id,
+        String(p.partner_email).trim().toLowerCase(),
+      ]),
+    );
+
+    const partnerEmails = new Set();
+    for (const item of items) {
+      const pEmail =
+        (item.partnerEmail ? String(item.partnerEmail).trim().toLowerCase() : null) ||
+        productPartnerMap.get(item.productId);
+      if (pEmail) {
+        partnerEmails.add(pEmail);
+      }
+    }
+
+    for (const pEmail of partnerEmails) {
+      try {
+        const pSettings = await getPartnerDiscordSettings(db, pEmail);
+        if (pSettings.enabled && pSettings.webhookUrl) {
+          const pPayload = buildPartnerOrderMessageEmbed(
+            order,
+            message,
+            pEmail,
+            pSettings,
+            origin,
+          );
+          const pRes = await fetchFn(pSettings.webhookUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(pPayload),
+            signal: AbortSignal.timeout(8000),
+          });
+          if (pRes.ok) {
+            result.partnerResults.push({ partnerEmail: pEmail, sent: true });
+          } else {
+            const errText = await pRes.text().catch(() => "");
+            result.partnerResults.push({
+              partnerEmail: pEmail,
+              sent: false,
+              status: pRes.status,
+              error: errText,
+            });
+          }
+        }
+      } catch (pErr) {
+        result.partnerResults.push({
+          partnerEmail: pEmail,
+          sent: false,
+          error: pErr.message,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[Partner Discord Message Webhook Error]", err.message);
+  }
+
+  return result;
+}
+

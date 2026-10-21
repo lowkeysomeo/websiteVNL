@@ -5,6 +5,7 @@
   let statsRequest = 0;
   let currentFilter = "all";
   let searchQuery = "";
+  let lastAdminChatSync = 0;
 
   const loginScreen = document.querySelector("#admin-login-screen");
   const loginForm = document.querySelector("#admin-login-form");
@@ -45,14 +46,39 @@
         })[c],
     );
 
+  function renderAdminChatBubble(m) {
+    const isShop = m.senderRole === "admin" || m.senderRole === "partner";
+    const roleBadge = isShop
+      ? `👑 ${escapeHtml(m.senderName || "Shop (Quản trị)")}`
+      : `👤 ${escapeHtml(m.senderName || "Khách hàng")}`;
+    const timeStr = m.createdAt
+      ? new Date(m.createdAt).toLocaleString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          day: "2-digit",
+          month: "2-digit",
+        })
+      : "";
+    const safeText = escapeHtml(String(m.message ?? "")).trim();
+    return `
+      <div class="admin-chat-bubble ${isShop ? "bubble-admin" : "bubble-customer"}" data-msg-id="${escapeHtml(m.id || "")}">
+        <div class="admin-bubble-header">
+          <span class="admin-bubble-sender">${roleBadge}</span>
+          <span class="admin-bubble-time">${timeStr}</span>
+        </div>
+        <div class="admin-bubble-text">${safeText || "(Nội dung trống)"}</div>
+      </div>
+    `;
+  }
+
   async function api(path, options = {}) {
     let body = options.body;
     if (body && typeof body === "object" && !(typeof FormData !== "undefined" && body instanceof FormData)) {
       body = JSON.stringify(body);
     }
     const res = await fetch(path, {
-      body,
       ...options,
+      body,
       headers: {
         "Content-Type": "application/json",
         "X-Admin-Key": adminKey,
@@ -327,6 +353,11 @@
     try {
       const [res] = await Promise.all([api("/api/admin/orders?limit=100"), loadStats()]);
       allOrders = res.orders || [];
+      for (const o of allOrders) {
+        for (const m of (o.messages || [])) {
+          if (m.createdAt > lastAdminChatSync) lastAdminChatSync = m.createdAt;
+        }
+      }
       renderOrders();
     } catch (err) {
       ordersContainer.innerHTML = `<p class="admin-error-msg">${escapeHtml(err.message)}</p>`;
@@ -455,29 +486,7 @@
 
         const orderMessages = Array.isArray(order.messages) ? order.messages : [];
         const messagesHtml = orderMessages.length > 0
-          ? orderMessages
-              .map((m) => {
-                const isShop = m.senderRole === "admin" || m.senderRole === "partner";
-                const roleBadge = isShop
-                  ? `👑 ${escapeHtml(m.senderName || "Shop")}`
-                  : `👤 ${escapeHtml(m.senderName || "Khách hàng")}`;
-                const timeStr = new Date(m.createdAt).toLocaleString("vi-VN", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  day: "2-digit",
-                  month: "2-digit",
-                });
-                return `
-                  <div class="admin-chat-bubble ${isShop ? "bubble-admin" : "bubble-customer"}">
-                    <div class="admin-bubble-header">
-                      <span class="admin-bubble-sender">${roleBadge}</span>
-                      <span class="admin-bubble-time">${timeStr}</span>
-                    </div>
-                    <div class="admin-bubble-text">${escapeHtml(m.message)}</div>
-                  </div>
-                `;
-              })
-              .join("")
+          ? orderMessages.map(renderAdminChatBubble).join("")
           : '<p class="admin-chat-empty">Chưa có trao đổi nào trên đơn hàng này. Gửi phản hồi bên dưới để nhắn với khách hàng.</p>';
 
         const adminChatBox = `
@@ -1069,30 +1078,16 @@
     try {
       const res = await api(`/api/admin/orders/${encodeURIComponent(orderId)}/messages`, {
         method: "POST",
-        body: JSON.stringify({ message: text }),
+        body: { message: text },
       });
       if (input) input.value = "";
       const feed = document.getElementById(`admin-chat-feed-${orderId}`);
-      if (feed) {
+      if (feed && res.message) {
+        const m = res.message;
+        lastAdminChatSync = Math.max(lastAdminChatSync, m.createdAt || Date.now());
         const emptyEl = feed.querySelector(".admin-chat-empty");
         if (emptyEl) emptyEl.remove();
-        const m = res.message;
-        const timeStr = new Date(m.createdAt).toLocaleString("vi-VN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          day: "2-digit",
-          month: "2-digit",
-        });
-        const bubble = document.createElement("div");
-        bubble.className = "admin-chat-bubble bubble-admin";
-        bubble.innerHTML = `
-          <div class="admin-bubble-header">
-            <span class="admin-bubble-sender">👑 ${escapeHtml(m.senderName || "Shop (Quản trị)")}</span>
-            <span class="admin-bubble-time">${timeStr}</span>
-          </div>
-          <div class="admin-bubble-text">${escapeHtml(m.message)}</div>
-        `;
-        feed.appendChild(bubble);
+        feed.insertAdjacentHTML("beforeend", renderAdminChatBubble(m));
         feed.scrollTop = feed.scrollHeight;
         const chatBox = feed.closest(".admin-order-chat");
         const countBadge = chatBox?.querySelector(".admin-chat-count");
@@ -1103,9 +1098,11 @@
         }
       }
       const targetOrder = allOrders.find((o) => o.id === orderId);
-      if (targetOrder) {
+      if (targetOrder && res.message) {
         targetOrder.messages = targetOrder.messages || [];
-        targetOrder.messages.push(res.message);
+        if (!targetOrder.messages.some((x) => x.id === res.message.id)) {
+          targetOrder.messages.push(res.message);
+        }
       }
       notify("Đã gửi phản hồi đến khách hàng thành công!");
     } catch (err) {
@@ -1116,6 +1113,69 @@
         sendBtn.textContent = "Gửi khách ✉️";
       }
     }
+  });
+
+  // Real-time Chat Sync for Admin / Partner
+  let isSyncingAdminChat = false;
+  async function syncAdminChatMessages() {
+    if (isSyncingAdminChat || !adminKey || adminApp.hidden || document.hidden) return;
+    isSyncingAdminChat = true;
+    try {
+      const res = await api(`/api/admin/orders-chat-sync?since=${lastAdminChatSync}`);
+      if (res?.success && Array.isArray(res.messages) && res.messages.length > 0) {
+        for (const m of res.messages) {
+          lastAdminChatSync = Math.max(lastAdminChatSync, m.createdAt || 0);
+
+          // Update in-memory allOrders
+          const targetOrder = allOrders.find((o) => o.id === m.orderId);
+          if (targetOrder) {
+            targetOrder.messages = targetOrder.messages || [];
+            if (!targetOrder.messages.some((x) => x.id === m.id)) {
+              targetOrder.messages.push(m);
+            }
+          }
+
+          // Update live DOM feed if visible
+          const feed = document.getElementById(`admin-chat-feed-${m.orderId}`);
+          if (feed) {
+            const alreadyRendered = feed.querySelector(`[data-msg-id="${m.id}"]`);
+            if (!alreadyRendered) {
+              const emptyEl = feed.querySelector(".admin-chat-empty");
+              if (emptyEl) emptyEl.remove();
+              feed.insertAdjacentHTML("beforeend", renderAdminChatBubble(m));
+              feed.scrollTop = feed.scrollHeight;
+              const chatBox = feed.closest(".admin-order-chat");
+              const countBadge = chatBox?.querySelector(".admin-chat-count");
+              if (countBadge) {
+                const totalBubbles = feed.querySelectorAll(".admin-chat-bubble").length;
+                countBadge.textContent = `${totalBubbles} tin nhắn`;
+                countBadge.classList.add("has-count");
+              }
+            }
+          }
+
+          if (m.senderRole === "customer") {
+            const preview = m.message.length > 35 ? m.message.slice(0, 33) + "..." : m.message;
+            notify(`💬 Khách (${m.senderName || "Khách"}) nhắn đơn ${m.orderId}: "${preview}"`);
+          }
+        }
+      }
+    } catch {
+      // Background retry silently
+    } finally {
+      isSyncingAdminChat = false;
+    }
+  }
+
+  setInterval(() => {
+    void syncAdminChatMessages();
+  }, 2500);
+
+  window.addEventListener("focus", () => {
+    void syncAdminChatMessages();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void syncAdminChatMessages();
   });
 
   // Init

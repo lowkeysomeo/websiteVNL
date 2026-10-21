@@ -71,6 +71,7 @@ import {
   getPartnerDiscordSettings,
   savePartnerDiscordSettings,
   sendDiscordOrderNotification,
+  sendDiscordOrderMessageNotification,
   sendDiscordTestNotification,
   sendPartnerDiscordTestNotification,
 } from "./discord.js";
@@ -836,7 +837,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           }
           const orderId = customerOrderMessagesMatch[1];
           const order = await db
-            .prepare("SELECT id, user_id, customer_name, customer_email FROM orders WHERE id = ?")
+            .prepare("SELECT * FROM orders WHERE id = ?")
             .get(orderId);
           if (!order || order.user_id !== current.user_id) {
             throw fail(404, "Không tìm thấy đơn hàng.");
@@ -849,6 +850,20 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             senderName: order.customer_name || current.email || "Khách hàng",
             message: body.message,
           });
+
+          // Tự động thông báo tới Discord Admin (ping ID 604729446649298963)
+          try {
+            await sendDiscordOrderMessageNotification(
+              db,
+              order,
+              message,
+              config.origin,
+              fetchFn,
+            );
+          } catch (discordErr) {
+            console.error("[Discord Order Message Notification Error]", discordErr);
+          }
+
           return json(201, { success: true, message });
         }
         if (req.method === "POST" && route === "/api/admin/auth") {
@@ -1000,6 +1015,61 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             message: body.message,
           });
           return json(201, { success: true, message });
+        }
+        if (req.method === "GET" && route === "/api/admin/orders-chat-sync") {
+          const caller = await requireAdminOrPartner(req);
+          const since = Number(url.searchParams.get("since") || 0);
+          const safeSince = Number.isSafeInteger(since) && since >= 0 ? since : 0;
+
+          let messages = [];
+          if (caller.role === "admin") {
+            messages = await db
+              .prepare(
+                "SELECT id, order_id, sender_role, sender_id, sender_name, message, created_at FROM order_messages WHERE created_at > ? ORDER BY created_at ASC LIMIT 100",
+              )
+              .all(safeSince);
+          } else if (caller.role === "partner") {
+            let partnerProductIds = new Set();
+            try {
+              const products = await db
+                .prepare("SELECT id FROM custom_products WHERE LOWER(partner_email) = ?")
+                .all(caller.email.toLowerCase());
+              partnerProductIds = new Set((products || []).map((p) => p.id));
+            } catch {}
+
+            const orders = await db.prepare("SELECT id, items_json FROM orders").all();
+            const allowedOrderIds = new Set();
+            for (const o of orders) {
+              try {
+                const items = JSON.parse(o.items_json);
+                if (items.some((it) => partnerProductIds.has(it.productId))) {
+                  allowedOrderIds.add(o.id);
+                }
+              } catch {}
+            }
+
+            if (allowedOrderIds.size > 0) {
+              const placeholders = Array.from(allowedOrderIds).map(() => "?").join(",");
+              messages = await db
+                .prepare(
+                  `SELECT id, order_id, sender_role, sender_id, sender_name, message, created_at FROM order_messages WHERE created_at > ? AND order_id IN (${placeholders}) ORDER BY created_at ASC LIMIT 100`,
+                )
+                .all(safeSince, ...allowedOrderIds);
+            }
+          }
+
+          return json(200, {
+            success: true,
+            messages: (messages || []).map((r) => ({
+              id: r.id,
+              orderId: r.order_id,
+              senderRole: r.sender_role,
+              senderId: r.sender_id,
+              senderName: r.sender_name,
+              message: r.message,
+              createdAt: r.created_at,
+            })),
+          });
         }
         if (req.method === "GET" && route === "/api/admin/partners") {
           await requireAdmin(req);
