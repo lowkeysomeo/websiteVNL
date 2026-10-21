@@ -537,6 +537,30 @@ export async function getUserPurchaseStats(db, userId) {
   return Object.fromEntries(Object.entries(row).map(([key,value]) => [key,Number(value)]));
 }
 
+export async function getPartnerProductIds(db, partnerEmail) {
+  if (!partnerEmail) return new Set();
+  const lower = String(partnerEmail).trim().toLowerCase();
+  const pids = new Set();
+  try {
+    const customProducts = await db.prepare("SELECT id FROM custom_products WHERE LOWER(partner_email) = ?").all(lower);
+    for (const p of (customProducts || [])) pids.add(p.id);
+  } catch {}
+  try {
+    const overrideRows = await db.prepare("SELECT item_key, data_json FROM catalog_item_overrides WHERE item_key LIKE 'product:%'").all();
+    for (const row of (overrideRows || [])) {
+      if (row.data_json) {
+        try {
+          const parsed = JSON.parse(row.data_json);
+          if (parsed.partnerEmail && String(parsed.partnerEmail).trim().toLowerCase() === lower) {
+            pids.add(row.item_key.slice("product:".length));
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+  return pids;
+}
+
 // Admin order view: Full credentials only visible to admin or item partner
 export async function getAdminOrders(
   db,
@@ -544,12 +568,7 @@ export async function getAdminOrders(
 ) {
   let partnerProductIds = null;
   if (partnerEmail) {
-    try {
-      const products = await db.prepare("SELECT id FROM custom_products WHERE LOWER(partner_email) = ?").all(partnerEmail.toLowerCase());
-      partnerProductIds = new Set((products || []).map(p => p.id));
-    } catch {
-      partnerProductIds = new Set();
-    }
+    partnerProductIds = await getPartnerProductIds(db, partnerEmail);
   }
 
   let query =
@@ -610,13 +629,31 @@ export async function getAdminOrders(
 
 // Thống kê toàn bộ dữ liệu, không phụ thuộc số đơn đang tải ở danh sách.
 export async function getAdminStats(db, { partnerEmail, now = Date.now() } = {}) {
+  let partnerProductIds = null;
+  if (partnerEmail) {
+    partnerProductIds = await getPartnerProductIds(db, partnerEmail);
+    if (!partnerProductIds.size) {
+      return {
+        totalOrders: 0,
+        processingOrders: 0,
+        completedOrders: 0,
+        revenue: 0,
+        pendingDeposits: 0,
+        needsAction: 0,
+        updatedAt: now,
+      };
+    }
+  }
   const params = [];
-  const scope = partnerEmail ? `WHERE EXISTS (
-    SELECT 1 FROM json_each(o.items_json) item
-    JOIN custom_products product ON product.id = json_extract(item.value, '$.productId')
-    WHERE LOWER(product.partner_email) = ?
-  )` : "";
-  if (partnerEmail) params.push(partnerEmail.toLowerCase());
+  let scope = "";
+  if (partnerProductIds) {
+    const placeholders = Array.from(partnerProductIds).map(() => "?").join(",");
+    scope = `WHERE EXISTS (
+      SELECT 1 FROM json_each(o.items_json) item
+      WHERE json_extract(item.value, '$.productId') IN (${placeholders})
+    )`;
+    params.push(...Array.from(partnerProductIds));
+  }
   const row = await db.prepare(`SELECT
     COUNT(*) AS totalOrders,
     COALESCE(SUM(CASE WHEN o.status IN ('pending', 'processing') THEN 1 ELSE 0 END), 0) AS processingOrders,
@@ -648,11 +685,7 @@ export async function updateAdminOrder(db, orderId, { status, claimLink }, partn
   }
 
   if (partnerEmail) {
-    let partnerProductIds = new Set();
-    try {
-      const products = await db.prepare("SELECT id FROM custom_products WHERE LOWER(partner_email) = ?").all(partnerEmail.toLowerCase());
-      partnerProductIds = new Set((products || []).map(p => p.id));
-    } catch {}
+    const partnerProductIds = await getPartnerProductIds(db, partnerEmail);
     let items = [];
     try { items = JSON.parse(order.items_json); } catch {}
     if (!items.some(it => partnerProductIds.has(it.productId))) {

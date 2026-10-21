@@ -301,6 +301,7 @@ export async function getCatalog(db, now = Date.now(), includeInactive = false) 
       return {
         ...mergedP,
         requiresToken: Boolean(mergedP.requiresToken),
+        partnerEmail: mergedP.partnerEmail || null,
         isCustom: false,
         isActive: isProductActive,
         stock: pInvFallback.stock,
@@ -526,10 +527,24 @@ export async function saveCatalogOrder(db, productIds, now = Date.now()) {
 
 async function assertProductOwner(db, productId, caller) {
   if (!caller || caller.role !== "partner") return;
+  const callerEmail = String(caller.email || "").trim().toLowerCase();
   const custom = await db.prepare("SELECT partner_email FROM custom_products WHERE id = ?").get(productId);
-  if (!custom || String(custom.partner_email || "").toLowerCase() !== caller.email.toLowerCase()) {
-    throw fail("Bạn chỉ có quyền quản lý dịch vụ / mặt hàng của chính mình.", 403);
+  if (custom) {
+    if (String(custom.partner_email || "").toLowerCase() !== callerEmail) {
+      throw fail("Bạn chỉ có quyền quản lý dịch vụ / mặt hàng của chính mình.", 403);
+    }
+    return;
   }
+  const overrideRow = await db.prepare("SELECT data_json FROM catalog_item_overrides WHERE item_key = ?").get("product:" + productId);
+  if (overrideRow?.data_json) {
+    try {
+      const data = JSON.parse(overrideRow.data_json);
+      if (data.partnerEmail && String(data.partnerEmail).trim().toLowerCase() === callerEmail) {
+        return;
+      }
+    } catch {}
+  }
+  throw fail("Bạn chỉ có quyền quản lý dịch vụ / mặt hàng của chính mình.", 403);
 }
 
 function parseCheckoutNotice(bodyNotice) {
@@ -659,7 +674,6 @@ export async function toggleProductStatus(db, productId, isActive, now = Date.no
   if (custom) {
     await db.prepare("UPDATE custom_products SET is_active = ?, updated_at = ? WHERE id = ?").run(isActive ? 1 : 0, effectiveNow, productId);
   } else {
-    if (effectiveCaller && effectiveCaller.role === "partner") throw fail("Bạn chỉ có quyền quản lý mặt hàng của chính mình.", 403);
     const isDefault = products.some(p => p.id === productId);
     if (!isDefault) throw fail("Không tìm thấy mặt hàng.", 404);
     await db.prepare(`INSERT INTO catalog_item_status (item_key, is_active, updated_at) VALUES (?, ?, ?)
@@ -699,7 +713,6 @@ export async function updateProduct(db, productId, body, now = Date.now(), calle
     await db.prepare(`UPDATE custom_products SET name = ?, category = ?, badge = ?, description = ?, image = ?, detail = ?, features_json = ?, requires_token = ?, partner_email = ?, updated_at = ? WHERE id = ?`)
       .run(name, category, badge, description, image, detail, nextFeaturesJson, nextRequiresToken, nextPartnerEmail, effectiveNow, productId);
   } else {
-    if (effectiveCaller && effectiveCaller.role === "partner") throw fail("Bạn chỉ có quyền quản lý mặt hàng của chính mình.", 403);
     const isDefault = products.some(p => p.id === productId);
     if (!isDefault) throw fail("Không tìm thấy mặt hàng.", 404);
     const existingRow = await db.prepare("SELECT data_json FROM catalog_item_overrides WHERE item_key = ?").get("product:" + productId);
@@ -710,6 +723,9 @@ export async function updateProduct(db, productId, body, now = Date.now(), calle
     }
     if (features !== undefined) {
       overrideData.features = features;
+    }
+    if (effectiveCaller && effectiveCaller.role === "admin" && body.partnerEmail !== undefined) {
+      overrideData.partnerEmail = body.partnerEmail ? String(body.partnerEmail).trim().toLowerCase() : null;
     }
     await db.prepare(`INSERT INTO catalog_item_overrides (item_key, data_json, updated_at) VALUES (?, ?, ?)
       ON CONFLICT(item_key) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`)
@@ -774,7 +790,6 @@ export async function toggleVariantStatus(db, productId, variantId, isActive, no
     await db.prepare("UPDATE custom_variants SET is_active = ?, updated_at = ? WHERE product_id = ? AND id = ?")
       .run(isActive ? 1 : 0, effectiveNow, productId, variantId);
   } else {
-    if (effectiveCaller && effectiveCaller.role === "partner") throw fail("Bạn chỉ có quyền quản lý mặt hàng của chính mình.", 403);
     const defaultProduct = products.find(p => p.id === productId);
     const defaultVariant = defaultProduct?.variants?.some(v => v.id === variantId);
     if (!defaultVariant) throw fail("Không tìm thấy gói sản phẩm.", 404);
@@ -816,7 +831,6 @@ export async function updateVariant(db, productId, variantId, body, now = Date.n
       }
     });
   } else {
-    if (effectiveCaller && effectiveCaller.role === "partner") throw fail("Bạn chỉ có quyền quản lý mặt hàng của chính mình.", 403);
     const defaultProduct = products.find(p => p.id === productId);
     const defaultVariant = defaultProduct?.variants?.some(v => v.id === variantId);
     if (!defaultVariant) throw fail("Không tìm thấy gói sản phẩm.", 404);

@@ -397,6 +397,126 @@ test("Role đối tác (Partner): Cấp quyền, đăng nhập đối tác, phâ
 
 
     // -------------------------------------------------------------
+    // 6.1. Admin chuyển giao mặt hàng mặc định (Default Product) và Danh mục cho đối tác
+    // -------------------------------------------------------------
+    // A. Admin chuyển quyền sở hữu mặt hàng mặc định "nitro" cho đối tác "doitac@gmail.com"
+    const transferNitroRes = await fetch(origin + "/api/admin/products/nitro", {
+      method: "PUT",
+      headers: adminHeaders,
+      body: JSON.stringify({
+        name: "Discord Nitro Boost Partner",
+        partnerEmail: "doitac@gmail.com",
+        category: "services",
+        description: "Gói Nitro Boost chuyển giao cho đối tác quản lý.",
+      }),
+    });
+    assert.equal(transferNitroRes.status, 200);
+    const transferredNitro = (await transferNitroRes.json()).product;
+    assert.equal(transferredNitro.partnerEmail, "doitac@gmail.com", "Mặt hàng mặc định nitro đã được chuyển cho đối tác");
+
+    // B. Đối tác xem danh sách mặt hàng thấy nitro đã thuộc quyền sở hữu của mình
+    const partnerCatalogRes = await fetch(origin + "/api/admin/pricing", { headers: partnerHeaders });
+    assert.equal(partnerCatalogRes.status, 200);
+    const partnerCatalog = await partnerCatalogRes.json();
+    const nitroInPartner = partnerCatalog.products.find(p => p.id === "nitro");
+    assert(nitroInPartner, "nitro phải có trong catalog");
+    assert.equal(nitroInPartner.partnerEmail, "doitac@gmail.com");
+
+    // C. Đối tác có quyền cập nhật thông tin mặt hàng nitro được giao
+    const partnerUpdateNitroRes = await fetch(origin + "/api/admin/products/nitro", {
+      method: "PUT",
+      headers: partnerHeaders,
+      body: JSON.stringify({
+        name: "Discord Nitro Boost Partner VIP",
+        description: "Mô tả do đối tác cập nhật.",
+      }),
+    });
+    assert.equal(partnerUpdateNitroRes.status, 200, "Đối tác được phép cập nhật mặt hàng thuộc sở hữu của mình");
+
+    // D. Đối tác có quyền bật/tắt trạng thái và cập nhật giá gói của nitro
+    const toggleNitroRes = await fetch(origin + "/api/admin/products/nitro/toggle", {
+      method: "PATCH",
+      headers: partnerHeaders,
+      body: JSON.stringify({ isActive: true }),
+    });
+    assert.equal(toggleNitroRes.status, 200, "Đối tác toggle mặt hàng được giao thành công");
+
+    const updateVariantRes = await fetch(origin + "/api/admin/products/nitro/variants/boost_gift_1m", {
+      method: "PUT",
+      headers: partnerHeaders,
+      body: JSON.stringify({
+        name: "1 Tháng Boost (Đối tác)",
+        price: 52000,
+        deliveryType: "gift",
+        note: "Giao ngay",
+      }),
+    });
+    assert.equal(updateVariantRes.status, 200, "Đối tác cập nhật gói của mặt hàng được giao thành công");
+
+    // E. Đối tác xem danh sách đơn hàng giờ đây thấy cả đơn chứa nitro (order1)
+    const partnerOrdersWithNitroRes = await fetch(origin + "/api/admin/orders", { headers: partnerHeaders });
+    assert.equal(partnerOrdersWithNitroRes.status, 200);
+    const partnerOrdersWithNitro = await partnerOrdersWithNitroRes.json();
+    assert(partnerOrdersWithNitro.orders.some(o => o.id === order1.id), "Đối tác thấy đơn hàng của sản phẩm mặc định đã chuyển giao");
+
+    // Đối tác có quyền cập nhật / xử lý đơn nitro đó
+    const fulfillNitroOrderRes = await fetch(origin + `/api/admin/orders/${order1.id}`, {
+      method: "PATCH",
+      headers: partnerHeaders,
+      body: JSON.stringify({
+        status: "completed",
+        claimLink: "https://discord.gift/nitro-partner-valid",
+      }),
+    });
+    assert.equal(fulfillNitroOrderRes.status, 200, "Đối tác hoàn thành đơn hàng cho sản phẩm nitro được giao");
+
+    // F. Admin chuyển giao hạng mục cho đối tác
+    const transferCatRes = await fetch(origin + "/api/admin/categories", {
+      method: "PUT",
+      headers: adminHeaders,
+      body: JSON.stringify({
+        categories: [
+          { id: "services", name: "Dịch vụ Discord Đối Tác", icon: "discord", partnerEmail: "doitac@gmail.com" },
+          { id: "entertainment", name: "Giải trí", icon: "entertainment" },
+          { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
+        ],
+      }),
+    });
+    assert.equal(transferCatRes.status, 200);
+    const transferredCats = (await transferCatRes.json()).categories;
+    const catServices = transferredCats.find(c => c.id === "services");
+    assert.equal(catServices.partnerEmail, "doitac@gmail.com", "Hạng mục services đã được chuyển cho đối tác");
+
+    // Đối tác sửa tên hạng mục services do chính mình sở hữu -> thành công
+    const partnerEditCatRes = await fetch(origin + "/api/admin/categories", {
+      method: "PUT",
+      headers: partnerHeaders,
+      body: JSON.stringify({
+        categories: [
+          { id: "services", name: "Dịch vụ Discord Veigo", icon: "⚡" },
+          { id: "entertainment", name: "Giải trí", icon: "entertainment" },
+          { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
+        ],
+      }),
+    });
+    assert.equal(partnerEditCatRes.status, 200);
+    const pCats = (await partnerEditCatRes.json()).categories;
+    assert.equal(pCats.find(c => c.id === "services").name, "Dịch vụ Discord Veigo");
+
+    // G. Admin thu hồi sản phẩm về Cửa hàng chính (partnerEmail: null)
+    const revokeNitroRes = await fetch(origin + "/api/admin/products/nitro", {
+      method: "PUT",
+      headers: adminHeaders,
+      body: JSON.stringify({
+        name: "Discord Nitro Boost",
+        partnerEmail: "",
+      }),
+    });
+    assert.equal(revokeNitroRes.status, 200);
+    const revokedNitro = (await revokeNitroRes.json()).product;
+    assert.equal(revokedNitro.partnerEmail, null, "Đã thu hồi quyền sản phẩm về cửa hàng chính");
+
+    // -------------------------------------------------------------
     // 7. Khóa hoặc gỡ quyền đối tác (Lock / Revoke)
     // -------------------------------------------------------------
     // Master Admin khóa đối tác

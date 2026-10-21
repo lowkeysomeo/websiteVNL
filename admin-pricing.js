@@ -546,6 +546,15 @@ window.initAdminPricing = (() => {
                       <label style="font-size:10px; color:var(--accent); font-weight:600; display:block; margin-bottom:3px;">TÊN HẠNG MỤC *</label>
                       <input id="cat-edit-name-input" value="${esc(cat.name)}" required maxlength="50" style="width:100%; padding:6px 10px; font-size:13px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px;" />
                     </div>
+                    ${!isPartner ? `
+                    <div style="flex:1; min-width:180px;">
+                      <label style="font-size:10px; color:var(--accent); font-weight:600; display:block; margin-bottom:3px;">ĐỐI TÁC SỞ HỮU</label>
+                      <select id="cat-edit-partner-select" style="width:100%; padding:6px 10px; font-size:12px; background:var(--bg-card); color:var(--text); border:1px solid var(--line); border-radius:6px;">
+                        <option value="">-- Cửa hàng chính (VNL Admin) --</option>
+                        ${partnersList.map(pt => `<option value="${esc(pt.email)}" ${(cat.partnerEmail || "").toLowerCase() === pt.email.toLowerCase() ? "selected" : ""}>${esc(pt.name)} (${esc(pt.email)})</option>`).join("")}
+                      </select>
+                    </div>
+                    ` : ""}
                     <div style="flex:1; min-width:240px;">
                       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
                         <label style="font-size:10px; color:var(--accent); font-weight:600; margin:0;">BIỂU TƯỢNG (ICON)</label>
@@ -611,6 +620,14 @@ window.initAdminPricing = (() => {
           <div class="pricing-form-grid">
             <label>Tên hiển thị hạng mục *<input name="catName" required maxlength="50" placeholder="Ví dụ: Game Bản Quyền, AI & Đồ Họa, Thiết Kế..."></label>
             <label>Mã hạng mục (Tùy chọn)<input name="catId" maxlength="30" placeholder="Để trống sẽ tự tạo từ tên..."></label>
+            ${!isPartner ? `
+            <label>Đối tác sở hữu (Tùy chọn)
+              <select name="catPartnerEmail">
+                <option value="">-- Cửa hàng chính (VNL Admin) --</option>
+                ${partnersList.map(pt => `<option value="${esc(pt.email)}">${esc(pt.name)} (${esc(pt.email)})</option>`).join("")}
+              </select>
+            </label>
+            ` : ""}
             <label>
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                 <span>Biểu tượng (Icon)</span>
@@ -1544,7 +1561,7 @@ window.initAdminPricing = (() => {
               </button>
             </div>
             <select name="category" required id="product-category-select">
-              ${categoriesList.map(c => `<option value="${esc(c.id)}" ${p.category === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
+              ${categoriesList.map(c => `<option value="${esc(c.id)}" ${p.category === c.id ? "selected" : ""}>${esc(c.name)}${c.partnerEmail ? ` (Đối tác: ${esc(c.partnerEmail)})` : ""}</option>`).join("")}
               <option value="__custom__">✨ + Tự tạo thêm hạng mục mới...</option>
             </select>
           </label>
@@ -1698,7 +1715,7 @@ window.initAdminPricing = (() => {
             </button>
           </div>
           <select name="category" required id="product-category-select">
-            ${categoriesList.map(c => `<option value="${esc(c.id)}" ${c.id === "entertainment" ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
+            ${categoriesList.map(c => `<option value="${esc(c.id)}" ${c.id === "entertainment" ? "selected" : ""}>${esc(c.name)}${c.partnerEmail ? ` (Đối tác: ${esc(c.partnerEmail)})` : ""}</option>`).join("")}
             <option value="__custom__">✨ + Tự tạo thêm hạng mục mới...</option>
           </select>
         </label>
@@ -2416,6 +2433,9 @@ window.initAdminPricing = (() => {
         const newCat = { id: catId, name: catName, icon: catIcon };
         if (currentUser && currentUser.role === "partner") {
           newCat.partnerEmail = currentUser.email.toLowerCase();
+        } else {
+          const catPartnerEmail = (data.get("catPartnerEmail") || "").trim().toLowerCase();
+          if (catPartnerEmail) newCat.partnerEmail = catPartnerEmail;
         }
         categoriesList.push(newCat);
         const res = await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
@@ -2450,6 +2470,8 @@ window.initAdminPricing = (() => {
             const newCat = { id: newId, name: newName, icon: newIcon };
             if (currentUser && currentUser.role === "partner") {
               newCat.partnerEmail = currentUser.email.toLowerCase();
+            } else if (partnerEmail) {
+              newCat.partnerEmail = partnerEmail.toLowerCase();
             }
             categoriesList.push(newCat);
             const res = await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
@@ -2511,6 +2533,8 @@ window.initAdminPricing = (() => {
             const newCat = { id: newId, name: newName, icon: newIcon };
             if (currentUser && currentUser.role === "partner") {
               newCat.partnerEmail = currentUser.email.toLowerCase();
+            } else if (partnerEmail) {
+              newCat.partnerEmail = partnerEmail.toLowerCase();
             }
             categoriesList.push(newCat);
             const res = await api("/api/admin/categories", { method: "PUT", body: JSON.stringify({ categories: categoriesList }) });
@@ -3359,6 +3383,12 @@ window.initAdminPricing = (() => {
               if (!isOwned) {
                 notify("Bạn chỉ có quyền sửa hạng mục do chính mình tạo.");
                 return;
+              }
+            } else {
+              const partnerSelect = document.querySelector("#cat-edit-partner-select");
+              if (partnerSelect) {
+                const chosen = (partnerSelect.value || "").trim().toLowerCase();
+                cat.partnerEmail = chosen || null;
               }
             }
             cat.name = newName;
