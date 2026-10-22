@@ -2197,3 +2197,54 @@ body {
   animation: newItemGlow 2s ease-in-out 3;
   border-color: #a855f7 !important;
 }
+
+/* Legit Embed Customizer Collapsible Box */
+.admin-legit-customizer-box {
+  margin-top: 14px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  border-radius: 8px;
+  padding: 14px;
+  transition: padding 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.admin-legit-customizer-box.is-collapsed {
+  padding: 10px 14px;
+  border-color: rgba(74, 222, 128, 0.18);
+  background: rgba(0, 0, 0, 0.2);
+}
+.admin-legit-customizer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+.admin-legit-customizer-header:hover {
+  background: rgba(74, 222, 128, 0.06);
+}
+.admin-legit-customizer-box.is-collapsed .admin-legit-customizer-header {
+  margin-bottom: 0 !important;
+}
+.admin-legit-customizer-body {
+  transition: opacity 0.2s ease;
+}
+.admin-legit-customizer-box.is-collapsed .admin-legit-customizer-body {
+  display: none !important;
+}
+#legit-tpl-toggle-btn {
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.admin-legit-customizer-box.is-collapsed #legit-tpl-toggle-btn {
+  background: rgba(74, 222, 128, 0.12);
+  border-color: rgba(74, 222, 128, 0.4);
+  color: #86efac;
+}
+.admin-legit-customizer-box.is-collapsed #legit-tpl-toggle-btn:hover {
+  background: rgba(74, 222, 128, 0.22);
+}

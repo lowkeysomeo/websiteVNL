@@ -1304,6 +1304,13 @@
   const legitTplShowItems = document.querySelector("#legit-tpl-show-items");
   const legitTplShowTime = document.querySelector("#legit-tpl-show-time");
   const legitTplResetBtn = document.querySelector("#legit-tpl-reset-btn");
+  const legitCustomizerBox = document.querySelector("#admin-discord-legit-customizer");
+  const legitCustomizerHeader = document.querySelector("#admin-legit-customizer-header");
+  const legitCustomizerBody = document.querySelector("#admin-discord-legit-customizer-body");
+  const legitTplToggleBtn = document.querySelector("#legit-tpl-toggle-btn");
+  const legitTplToggleIcon = document.querySelector("#legit-tpl-toggle-icon");
+  const legitTplToggleText = document.querySelector("#legit-tpl-toggle-text");
+  const legitTplCollapseStatus = document.querySelector("#legit-tpl-collapse-status");
 
   const previewContainer = document.querySelector("#discord-preview-container");
   const previewContent = document.querySelector("#discord-preview-content");
@@ -1539,10 +1546,54 @@
   }
 
   if (legitTplResetBtn) {
-    legitTplResetBtn.addEventListener("click", () => {
+    legitTplResetBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
       populateLegitTemplate(DEFAULT_LEGIT_TEMPLATE);
       updateDiscordPreview();
       notify("Đã đặt lại mẫu Legit Check về mặc định.");
+    });
+  }
+
+  // Legit Check Embed Customizer Collapsible State
+  let isLegitCustomizerCollapsed = localStorage.getItem("vnl_admin_hide_legit_embed") !== "false";
+
+  function setLegitCustomizerCollapsed(collapsed, save = true) {
+    isLegitCustomizerCollapsed = Boolean(collapsed);
+    if (save) {
+      localStorage.setItem("vnl_admin_hide_legit_embed", isLegitCustomizerCollapsed ? "true" : "false");
+    }
+    if (legitCustomizerBox) {
+      legitCustomizerBox.classList.toggle("is-collapsed", isLegitCustomizerCollapsed);
+    }
+    if (legitCustomizerBody) {
+      legitCustomizerBody.style.display = isLegitCustomizerCollapsed ? "none" : "block";
+    }
+    if (legitTplCollapseStatus) {
+      legitTplCollapseStatus.style.display = isLegitCustomizerCollapsed ? "inline-block" : "none";
+    }
+    if (legitTplResetBtn) {
+      legitTplResetBtn.style.display = isLegitCustomizerCollapsed ? "none" : "inline-block";
+    }
+    if (legitTplToggleIcon) {
+      legitTplToggleIcon.textContent = isLegitCustomizerCollapsed ? "▼" : "▲";
+    }
+    if (legitTplToggleText) {
+      legitTplToggleText.textContent = isLegitCustomizerCollapsed ? "Mở rộng bảng tùy chỉnh" : "Thu gọn bảng";
+    }
+  }
+
+  setLegitCustomizerCollapsed(isLegitCustomizerCollapsed, false);
+
+  if (legitTplToggleBtn) {
+    legitTplToggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setLegitCustomizerCollapsed(!isLegitCustomizerCollapsed);
+    });
+  }
+
+  if (legitCustomizerHeader) {
+    legitCustomizerHeader.addEventListener("click", () => {
+      setLegitCustomizerCollapsed(!isLegitCustomizerCollapsed);
     });
   }
 

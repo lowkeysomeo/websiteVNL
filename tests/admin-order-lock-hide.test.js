@@ -84,4 +84,35 @@ test("Giao diện Admin: Khóa và ẩn đơn đã hoàn thành hoặc đã hủ
       "Phải có nút và sự kiện unlock-claim cho phép sửa link khi cần",
     );
   });
+
+  await t.test("Ẩn / thu gọn bảng tùy chỉnh Discord Embed Legit Check cho đỡ vướng", () => {
+    assert.ok(
+      htmlContent.includes('id="legit-tpl-toggle-btn"'),
+      "admin.html phải có nút #legit-tpl-toggle-btn để thu gọn / mở rộng",
+    );
+    assert.ok(
+      htmlContent.includes('id="admin-discord-legit-customizer-body"'),
+      "admin.html phải có wrapper #admin-discord-legit-customizer-body",
+    );
+    assert.ok(
+      htmlContent.includes('id="legit-tpl-collapse-status"'),
+      "admin.html phải có badge trạng thái #legit-tpl-collapse-status",
+    );
+    assert.ok(
+      cssContent.includes(".admin-legit-customizer-box.is-collapsed"),
+      "admin.css phải có class .admin-legit-customizer-box.is-collapsed",
+    );
+    assert.ok(
+      cssContent.includes(".admin-legit-customizer-header"),
+      "admin.css phải có class .admin-legit-customizer-header",
+    );
+    assert.ok(
+      jsContent.includes("setLegitCustomizerCollapsed"),
+      "admin.js phải có hàm điều khiển setLegitCustomizerCollapsed",
+    );
+    assert.ok(
+      jsContent.includes("vnl_admin_hide_legit_embed"),
+      "admin.js phải lưu trạng thái thu gọn vào localStorage vnl_admin_hide_legit_embed",
+    );
+  });
 });
