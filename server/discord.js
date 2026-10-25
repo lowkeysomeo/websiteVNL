@@ -1536,7 +1536,7 @@ export async function processDiscordReply({
   orderId,
   replyText,
 }) {
-  const cleanId = String(orderId || "").trim().toUpperCase();
+  let cleanId = String(orderId || "").trim().toUpperCase();
   const cleanText = String(replyText || "").trim();
 
   if (!cleanId) {
@@ -1560,6 +1560,10 @@ export async function processDiscordReply({
   let order = null;
   try {
     order = await db.prepare("SELECT * FROM orders WHERE id = ?").get(cleanId);
+    if (!order && !cleanId.startsWith("VNL-")) {
+      order = await db.prepare("SELECT * FROM orders WHERE id = ?").get("VNL-" + cleanId);
+      if (order) cleanId = order.id;
+    }
   } catch (err) {
     return {
       success: false,

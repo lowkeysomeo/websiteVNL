@@ -492,6 +492,47 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
 
           return json(200, { type: 4, data: { content: "Lệnh tương tác không hợp lệ.", flags: 64 } });
         }
+        // Direct Discord Bot Reply Endpoint (called by Lowkey-bot-Discord or external bot clients)
+        if (req.method === "POST" && cleanRoute === "/api/discord/reply") {
+          const body = parse(await readBody(req));
+          const discordSettings = await getDiscordSettings(db, process.env);
+          const validBotToken =
+            discordSettings.botToken ||
+            config.discordBotToken ||
+            process.env.DISCORD_BOT_TOKEN ||
+            "";
+
+          const authHeader = req.headers["authorization"] || "";
+          const tokenHeader = req.headers["x-bot-token"] || "";
+          const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : authHeader.trim();
+          const providedToken = tokenHeader || bearerToken;
+
+          if (validBotToken && providedToken !== validBotToken) {
+            let isAdmin = false;
+            try {
+              const caller = await requireAdminOrPartner(req);
+              if (caller?.role === "admin") isAdmin = true;
+            } catch {}
+            if (!isAdmin) {
+              return json(401, {
+                success: false,
+                error: "unauthorized",
+                message: "Mã xác thực bot không hợp lệ (X-Bot-Token / Bearer).",
+              });
+            }
+          }
+
+          const { authorId, authorName, orderId, replyText } = body || {};
+          const result = await processDiscordReply({
+            db,
+            authorId,
+            authorName,
+            orderId,
+            replyText,
+          });
+
+          return json(200, result);
+        }
         if (
           req.method === "POST" &&
           ["/api/auth/register", "/api/auth/login"].includes(route)

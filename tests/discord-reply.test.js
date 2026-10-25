@@ -448,3 +448,106 @@ test("POST /api/discord/interactions: Handles PING and Slash Command /rep", asyn
     server.close();
   }
 });
+
+test("POST /api/discord/reply: Bot can send order reply using X-Bot-Token", async () => {
+  const db = await openStore(":memory:");
+  const testBotToken = "test_bot_secret_token_123456";
+  const adminDiscordId = "604729446649298963";
+
+  await saveDiscordSettings(db, {
+    adminId: adminDiscordId,
+    botToken: testBotToken,
+    enabled: true,
+  });
+
+  const config = readConfig({
+    HOST: "127.0.0.1",
+    PORT: "3000",
+    PUBLIC_ORIGIN: "http://localhost:3000",
+    ADMIN_PASSWORD: "testadminsecret",
+    DISCORD_BOT_TOKEN: testBotToken,
+  });
+
+  const server = createApp(db, config);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const origin = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const order = await createOrder(db, {
+      customerEmail: "botreply@example.com",
+      customerName: "Bot Reply User",
+      paymentMethod: "bank",
+      items: [
+        {
+          productId: "nitro-boost-1m",
+          name: "Discord Nitro Boost",
+          price: 70000,
+          quantity: 1,
+        },
+      ],
+      total: 70000,
+      status: "processing",
+    });
+
+    // 1. Unauthorized request (wrong token)
+    const unauthRes = await fetch(`${origin}/api/discord/reply`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Bot-Token": "wrong_token",
+      },
+      body: JSON.stringify({
+        authorId: adminDiscordId,
+        orderId: order.id,
+        replyText: "Test reply",
+      }),
+    });
+    assert.equal(unauthRes.status, 401);
+
+    // 2. Authorized request with full order ID
+    const authRes = await fetch(`${origin}/api/discord/reply`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Bot-Token": testBotToken,
+      },
+      body: JSON.stringify({
+        authorId: adminDiscordId,
+        authorName: "Trần Hưng",
+        orderId: order.id,
+        replyText: "Shop đã xử lý xong dịch vụ!",
+      }),
+    });
+    assert.equal(authRes.status, 200);
+    const data = await authRes.json();
+    assert.equal(data.success, true);
+    assert.equal(data.order.id, order.id);
+
+    // 3. Authorized request without 'VNL-' prefix
+    const bareId = order.id.replace(/^VNL-/, "");
+    const bareRes = await fetch(`${origin}/api/discord/reply`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Bot-Token": testBotToken,
+      },
+      body: JSON.stringify({
+        authorId: adminDiscordId,
+        authorName: "Trần Hưng",
+        orderId: bareId,
+        replyText: "Tin nhắn thứ hai không cần tiền tố VNL-",
+      }),
+    });
+    assert.equal(bareRes.status, 200);
+    const bareData = await bareRes.json();
+    assert.equal(bareData.success, true);
+
+    const messages = await getOrderMessages(db, order.id);
+    assert.equal(messages.length, 2);
+    assert.equal(messages[0].message, "Shop đã xử lý xong dịch vụ!");
+    assert.equal(messages[1].message, "Tin nhắn thứ hai không cần tiền tố VNL-");
+  } finally {
+    server.close();
+  }
+});
