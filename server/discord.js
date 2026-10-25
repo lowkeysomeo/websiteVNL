@@ -1,3 +1,6 @@
+import crypto from "node:crypto";
+import { addOrderMessage, getPartnerProductIds } from "./store.js";
+
 export const DEFAULT_ADMIN_ID = "604729446649298963";
 export const DEFAULT_LEGIT_CHANNEL_ID = "1562154223783907560";
 
@@ -140,6 +143,23 @@ export async function getDiscordSettings(db, env = process.env) {
       : env.DISCORD_REDIRECT_URI || "",
   ).trim();
 
+  const botToken = String(
+    saved?.botToken !== undefined
+      ? saved.botToken
+      : env.DISCORD_BOT_TOKEN || "",
+  ).trim();
+
+  const publicKey = String(
+    saved?.publicKey !== undefined
+      ? saved.publicKey
+      : env.DISCORD_PUBLIC_KEY || "",
+  ).trim();
+
+  const botEnabled =
+    saved?.botEnabled !== undefined
+      ? Boolean(saved.botEnabled)
+      : Boolean(botToken || publicKey);
+
   return {
     enabled,
     feedbackEnabled,
@@ -152,6 +172,9 @@ export async function getDiscordSettings(db, env = process.env) {
     clientId,
     clientSecret,
     redirectUri,
+    botEnabled,
+    botToken,
+    publicKey,
     updatedAt: row?.updated_at || null,
   };
 }
@@ -181,6 +204,22 @@ export async function saveDiscordSettings(
   const clientId = String(data.clientId ?? "").trim();
   const clientSecret = String(data.clientSecret ?? "").trim();
   const redirectUri = String(data.redirectUri ?? "").trim();
+
+  const botEnabled =
+    data.botEnabled !== undefined
+      ? Boolean(data.botEnabled)
+      : Boolean(data.botToken || data.publicKey);
+  const botToken = String(data.botToken ?? "").trim();
+  const publicKey = String(data.publicKey ?? "").trim();
+
+  if (publicKey && !/^[0-9a-fA-F]{64}$/.test(publicKey)) {
+    throw Object.assign(
+      new Error(
+        "Discord Public Key không hợp lệ (phải là chuỗi hex 64 ký tự lấy từ Discord Developer Portal).",
+      ),
+      { status: 400 },
+    );
+  }
 
   if (webhookUrl && !/^https?:\/\//i.test(webhookUrl)) {
     throw Object.assign(
@@ -230,6 +269,9 @@ export async function saveDiscordSettings(
     clientId,
     clientSecret,
     redirectUri,
+    botEnabled,
+    botToken,
+    publicKey,
   });
 
   await db
@@ -254,6 +296,9 @@ export async function saveDiscordSettings(
     clientId,
     clientSecret,
     redirectUri,
+    botEnabled,
+    botToken,
+    publicKey,
     updatedAt: now,
   };
 }
@@ -948,17 +993,18 @@ export async function sendDiscordTestNotification(
 export function buildOrderMessageEmbed(order, message, settings = {}, origin = "") {
   const adminId = String(settings.adminId || DEFAULT_ADMIN_ID).trim();
   const ping = adminId ? `<@${adminId}>` : "";
-  const content = `💬 ${ping} **Tin nhắn mới từ khách hàng trên đơn \`${order.id || "N/A"}\`!**`.trim();
+  const orderId = order.id || "N/A";
+  const content = `💬 ${ping} **Tin nhắn mới từ khách hàng trên đơn \`${orderId}\`!**\n> 💡 *Admin có thể Reply trực tiếp tin nhắn này trên Discord hoặc gõ \`!rep ${orderId}\` để trả lời khách!*`.trim();
 
   const customerName = order.customer_name || order.customerName || message.senderName || "Khách hàng";
   const customerEmail = order.customer_email || order.customerEmail || "N/A";
   const msgText = String(message.message || "").trim();
 
   const embed = {
-    title: `💬 Khách phản hồi đơn: ${order.id || "N/A"}`,
+    title: `💬 Khách phản hồi đơn: ${orderId}`,
     url: origin ? `${origin}/admin.html` : undefined,
     color: 0x3b82f6, // Blue for customer message
-    description: `Khách hàng **${customerName}** vừa gửi một tin nhắn trao đổi trên đơn hàng **\`${order.id || "N/A"}\`**!`,
+    description: `Khách hàng **${customerName}** vừa gửi một tin nhắn trao đổi trên đơn hàng **\`${orderId}\`**!`,
     fields: [
       {
         name: "👤 Khách hàng",
@@ -967,12 +1013,17 @@ export function buildOrderMessageEmbed(order, message, settings = {}, origin = "
       },
       {
         name: "🛒 Mã đơn hàng",
-        value: `\`${order.id || "N/A"}\``,
+        value: `\`${orderId}\``,
         inline: true,
       },
       {
         name: "💬 Nội dung tin nhắn",
         value: msgText ? (msgText.length > 1024 ? msgText.slice(0, 1020) + "..." : msgText) : "*(Không có nội dung)*",
+        inline: false,
+      },
+      {
+        name: "⚡ Cách trả lời khách từ Discord (Không cần mở web)",
+        value: `• **Cách 1 (Nhanh nhất):** Nhấn **Reply (Trả lời)** tin nhắn này trong Discord rồi gõ câu trả lời.\n• **Cách 2:** Gõ lệnh \`!rep ${orderId} <nội dung>\`\n• **Cách 3:** Dùng Slash Command \`/rep don_hang:${orderId} tin_nhan:<nội dung>\``,
         inline: false,
       },
     ],
@@ -991,17 +1042,18 @@ export function buildOrderMessageEmbed(order, message, settings = {}, origin = "
 export function buildPartnerOrderMessageEmbed(order, message, partnerEmail, settings = {}, origin = "") {
   const discordId = String(settings.discordId || settings.adminId || "").trim();
   const ping = discordId ? `<@${discordId}>` : "";
-  const content = `💬 ${ping} **Khách hàng vừa nhắn tin trên đơn dịch vụ của bạn \`${order.id || "N/A"}\`!**`.trim();
+  const orderId = order.id || "N/A";
+  const content = `💬 ${ping} **Khách hàng vừa nhắn tin trên đơn dịch vụ của bạn \`${orderId}\`!**\n> 💡 *Đối tác có thể Reply trực tiếp tin nhắn này trên Discord hoặc gõ \`!rep ${orderId}\` để trả lời khách!*`.trim();
 
   const customerName = order.customer_name || order.customerName || message.senderName || "Khách hàng";
   const customerEmail = order.customer_email || order.customerEmail || "N/A";
   const msgText = String(message.message || "").trim();
 
   const embed = {
-    title: `💬 Khách phản hồi đơn dịch vụ: ${order.id || "N/A"}`,
+    title: `💬 Khách phản hồi đơn dịch vụ: ${orderId}`,
     url: origin ? `${origin}/admin.html` : undefined,
     color: 0x06b6d4, // Cyan for partner
-    description: `Khách hàng **${customerName}** vừa gửi một tin nhắn trao đổi trên đơn hàng dịch vụ **\`${order.id || "N/A"}\`** do bạn phụ trách!`,
+    description: `Khách hàng **${customerName}** vừa gửi một tin nhắn trao đổi trên đơn hàng dịch vụ **\`${orderId}\`** do bạn phụ trách!`,
     fields: [
       {
         name: "👤 Khách hàng",
@@ -1010,12 +1062,17 @@ export function buildPartnerOrderMessageEmbed(order, message, partnerEmail, sett
       },
       {
         name: "🛒 Mã đơn hàng",
-        value: `\`${order.id || "N/A"}\``,
+        value: `\`${orderId}\``,
         inline: true,
       },
       {
         name: "💬 Nội dung tin nhắn",
         value: msgText ? (msgText.length > 1024 ? msgText.slice(0, 1020) + "..." : msgText) : "*(Không có nội dung)*",
+        inline: false,
+      },
+      {
+        name: "⚡ Cách trả lời khách từ Discord (Không cần mở web)",
+        value: `• **Cách 1 (Nhanh nhất):** Nhấn **Reply (Trả lời)** tin nhắn này trong Discord rồi gõ câu trả lời.\n• **Cách 2:** Gõ lệnh \`!rep ${orderId} <nội dung>\`\n• **Cách 3:** Dùng Slash Command \`/rep don_hang:${orderId} tin_nhan:<nội dung>\``,
         inline: false,
       },
     ],
@@ -1440,6 +1497,244 @@ export async function sendDiscordLegitFeedbackTestNotification(
   return {
     success: true,
     message: `Gửi tin thử nghiệm Check Legit thành công về kênh ${channelId}!`,
+  };
+}
+
+export function verifyDiscordInteractionSignature(headers = {}, rawBody = "", publicKeyHex = "") {
+  if (!publicKeyHex) return false;
+  const signature = headers["x-signature-ed25519"] || headers["X-Signature-Ed25519"];
+  const timestamp = headers["x-signature-timestamp"] || headers["X-Signature-Timestamp"];
+  if (!signature || !timestamp) return false;
+
+  try {
+    const rawBodyBuffer = Buffer.isBuffer(rawBody)
+      ? rawBody
+      : Buffer.from(String(rawBody || ""), "utf8");
+    const dataToVerify = Buffer.concat([
+      Buffer.from(String(timestamp), "utf8"),
+      rawBodyBuffer,
+    ]);
+    const keyObject = crypto.createPublicKey({
+      key: Buffer.concat([
+        Buffer.from("302a300506032b6570032100", "hex"),
+        Buffer.from(String(publicKeyHex).trim(), "hex"),
+      ]),
+      format: "der",
+      type: "spki",
+    });
+    return crypto.verify(null, dataToVerify, keyObject, Buffer.from(signature, "hex"));
+  } catch (err) {
+    console.error("[Discord Signature Verify Error]", err.message);
+    return false;
+  }
+}
+
+export async function processDiscordReply({
+  db,
+  authorId,
+  authorName = "",
+  orderId,
+  replyText,
+}) {
+  const cleanId = String(orderId || "").trim().toUpperCase();
+  const cleanText = String(replyText || "").trim();
+
+  if (!cleanId) {
+    return {
+      success: false,
+      error: "invalid_order_id",
+      reason: "invalid_input",
+      message: "Vui lòng cung cấp mã đơn hàng (ví dụ: VNL-XXXXXX).",
+    };
+  }
+  if (!cleanText) {
+    return {
+      success: false,
+      error: "empty_message",
+      reason: "invalid_input",
+      message: "Nội dung tin nhắn không được để trống.",
+    };
+  }
+
+  // Find order
+  let order = null;
+  try {
+    order = await db.prepare("SELECT * FROM orders WHERE id = ?").get(cleanId);
+  } catch (err) {
+    return {
+      success: false,
+      error: "db_error",
+      reason: "db_error",
+      message: "Lỗi cơ sở dữ liệu: " + err.message,
+    };
+  }
+
+  if (!order) {
+    return {
+      success: false,
+      error: "not_found",
+      reason: "not_found",
+      message: `Không tìm thấy đơn hàng "${cleanId}" trên hệ thống.`,
+    };
+  }
+
+  const cleanAuthorId = String(authorId || "").trim();
+  if (!cleanAuthorId) {
+    return {
+      success: false,
+      error: "missing_author",
+      reason: "unauthorized",
+      message: "Không xác định được ID người gửi trên Discord.",
+    };
+  }
+
+  // 1. Check if Admin
+  const settings = await getDiscordSettings(db);
+  const adminId = String(settings.adminId || DEFAULT_ADMIN_ID).trim();
+  let isAdmin = false;
+  if (cleanAuthorId === adminId) {
+    isAdmin = true;
+  } else {
+    try {
+      const u = await db
+        .prepare("SELECT role FROM users WHERE discord_id = ?")
+        .get(cleanAuthorId);
+      if (u?.role === "admin") {
+        isAdmin = true;
+      }
+    } catch {}
+  }
+
+  if (isAdmin) {
+    const senderName = authorName ? `${authorName} (Shop)` : "Shop (Admin)";
+    const newMsg = await addOrderMessage(db, {
+      orderId: cleanId,
+      senderRole: "admin",
+      senderId: cleanAuthorId,
+      senderName,
+      message: cleanText,
+    });
+    return {
+      success: true,
+      senderRole: "admin",
+      senderName,
+      orderId: cleanId,
+      order,
+      message: newMsg,
+    };
+  }
+
+  // 2. Check if Partner
+  let partnerEmail = null;
+  let partnerName = null;
+
+  try {
+    const pRows = await db
+      .prepare(
+        "SELECT item_key, data_json FROM catalog_item_overrides WHERE item_key LIKE 'partner:discord:%'",
+      )
+      .all();
+    for (const r of pRows || []) {
+      try {
+        const d = JSON.parse(r.data_json);
+        const pDiscordId = String(d.discordId || d.adminId || "").trim();
+        if (pDiscordId === cleanAuthorId) {
+          partnerEmail = (d.partnerEmail || r.item_key.replace("partner:discord:", "")).trim().toLowerCase();
+          break;
+        }
+      } catch {}
+    }
+  } catch {}
+
+  if (!partnerEmail) {
+    try {
+      const u = await db
+        .prepare("SELECT email, role, display_name FROM users WHERE discord_id = ?")
+        .get(cleanAuthorId);
+      if (u?.role === "partner") {
+        partnerEmail = String(u.email || "").trim().toLowerCase();
+        partnerName = u.display_name;
+      }
+    } catch {}
+  }
+
+  if (partnerEmail) {
+    // Check if order contains products belonging to this partner
+    let items = [];
+    if (Array.isArray(order.items)) {
+      items = order.items;
+    } else if (order.items_json) {
+      try {
+        items = JSON.parse(order.items_json);
+      } catch {}
+    }
+
+    let customProds = [];
+    try {
+      customProds = await db
+        .prepare(
+          "SELECT id, partner_email FROM custom_products WHERE partner_email IS NOT NULL AND partner_email != ''",
+        )
+        .all();
+    } catch {}
+
+    const productPartnerMap = new Map(
+      (customProds || []).map((p) => [
+        p.id,
+        String(p.partner_email).trim().toLowerCase(),
+      ]),
+    );
+
+    const partnerProductIds = await getPartnerProductIds(db, partnerEmail);
+
+    const isPartnerOrder = items.some((item) => {
+      const itemPEmail =
+        (item.partnerEmail ? String(item.partnerEmail).trim().toLowerCase() : null) ||
+        productPartnerMap.get(item.productId);
+      return (
+        itemPEmail === partnerEmail ||
+        partnerProductIds.has(item.productId) ||
+        partnerProductIds.has(item.itemId)
+      );
+    });
+
+    if (!isPartnerOrder) {
+      return {
+        success: false,
+        error: "forbidden",
+        reason: "forbidden",
+        message: `Đơn hàng "${cleanId}" không thuộc phạm vi dịch vụ bạn phụ trách.`,
+      };
+    }
+
+    const senderName = authorName
+      ? `${authorName} (Đối tác)`
+      : (partnerName || partnerEmail || "Đối tác");
+
+    const newMsg = await addOrderMessage(db, {
+      orderId: cleanId,
+      senderRole: "partner",
+      senderId: cleanAuthorId,
+      senderName,
+      message: cleanText,
+    });
+
+    return {
+      success: true,
+      senderRole: "partner",
+      senderName,
+      orderId: cleanId,
+      partnerEmail,
+      order,
+      message: newMsg,
+    };
+  }
+
+  return {
+    success: false,
+    error: "unauthorized",
+    reason: "unauthorized",
+    message: "Bạn không có quyền quản trị hoặc đối tác để phản hồi đơn hàng này.",
   };
 }
 

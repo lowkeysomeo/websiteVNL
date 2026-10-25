@@ -523,6 +523,81 @@
               </div>
             </div>
 
+            <!-- Cấu hình Trả lời tin nhắn khách trực tiếp từ Discord (Discord Bot & Interactions) -->
+            <div id="admin-discord-bot-section" style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 14px; margin-top: 14px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
+                <div>
+                  <h4 style="margin: 0; font-size: 13px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+                    <span>🤖</span> Trả lời tin nhắn khách trực tiếp từ Discord (Không cần mở web)
+                  </h4>
+                  <p style="margin: 3px 0 0 0; font-size: 11.5px; color: var(--muted, #94a3b8);">
+                    Cho phép Admin và Đối tác chỉ cần bấm <b>Reply (Trả lời)</b> trực tiếp tin nhắn trên Discord hoặc gõ lệnh <code>!rep</code> / Slash <code>/rep</code> là tin nhắn sẽ tự động gửi tới khách hàng trên web!
+                  </p>
+                </div>
+                <div class="announcement-toggle-group">
+                  <label class="switch-label" style="transform: scale(0.9); transform-origin: right center;">
+                    <input type="checkbox" id="admin-discord-bot-active" aria-label="Bật phản hồi tin nhắn từ Discord" checked />
+                    <span class="switch-slider"></span>
+                  </label>
+                  <span id="admin-discord-bot-status-text" class="status-active" style="font-size: 11.5px;">Bật Rep Discord</span>
+                </div>
+              </div>
+
+              <div class="admin-discord-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 10px;">
+                <div>
+                  <label for="admin-discord-bot-token" style="display: block; font-size: 12px; font-weight: 600; color: #7dd3fc; margin-bottom: 6px;">
+                    Discord Bot Token (Để nhận lệnh !rep &amp; Reply trực tiếp)
+                  </label>
+                  <input
+                    type="password"
+                    id="admin-discord-bot-token"
+                    placeholder="MTA1... (Token Discord Bot từ tab Bot)"
+                    autocomplete="new-password"
+                    style="width: 100%; box-sizing: border-box; padding: 8px 10px; background: #140b0e; border: 1px solid var(--line); border-radius: 6px; color: #fff; font-size: 12.5px;"
+                  />
+                  <small style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted, #94a3b8);">
+                    Lấy tại Discord Developer Portal → Ứng dụng của bạn → <b>Bot</b> → <b>Reset Token</b>. (Nhớ bật toggle <b>Message Content Intent</b>).
+                  </small>
+                </div>
+
+                <div>
+                  <label for="admin-discord-public-key" style="display: block; font-size: 12px; font-weight: 600; color: #7dd3fc; margin-bottom: 6px;">
+                    Discord Public Key (Để dùng Slash Command /rep &amp; Nút bấm)
+                  </label>
+                  <input
+                    type="text"
+                    id="admin-discord-public-key"
+                    placeholder="64 ký tự hex từ tab General Information"
+                    style="width: 100%; box-sizing: border-box; padding: 8px 10px; background: #140b0e; border: 1px solid var(--line); border-radius: 6px; color: #fff; font-size: 12.5px;"
+                  />
+                  <small style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted, #94a3b8);">
+                    Lấy tại General Information → <b>PUBLIC KEY</b>.
+                  </small>
+                </div>
+              </div>
+
+              <div style="margin-top: 12px; background: rgba(56, 189, 248, 0.08); border: 1px dashed rgba(56, 189, 248, 0.35); border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #bae6fd;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                  <div>
+                    <strong style="color: #7dd3fc;">📌 Interactions Endpoint URL (Dán vào mục General Information → INTERACTIONS ENDPOINT URL):</strong><br/>
+                    <code id="admin-discord-interactions-url" style="background: rgba(0,0,0,0.4); padding: 2px 8px; border-radius: 4px; color: #86efac; font-size: 12px; word-break: break-all; margin-top: 3px; display: inline-block;">
+                      https://vietnamlegacy.com/api/discord/interactions
+                    </code>
+                  </div>
+                  <button type="button" class="button secondary btn-small" id="admin-copy-interactions-btn" style="padding: 4px 10px; font-size: 11.5px; border-color: rgba(56, 189, 248, 0.4); color: #bae6fd;">
+                    📋 Sao chép URL
+                  </button>
+                </div>
+                <div style="margin-top: 8px; font-size: 11px; color: var(--muted, #94a3b8); line-height: 1.55;">
+                  ✨ <b>3 Cách cực kỳ tiện lợi để Admin &amp; Đối tác rep tin nhắn khách ngay trên Discord:</b><br/>
+                  • 💬 <b>Cách 1 (Nhanh nhất):</b> Khi có tin nhắn mới từ khách, admin/đối tác chỉ cần bấm <b>Reply (Trả lời)</b> trực tiếp tin nhắn thông báo đó trong Discord và gõ nội dung.<br/>
+                  • ⚡ <b>Cách 2:</b> Gõ lệnh <code>!rep &lt;mã_đơn&gt; &lt;nội dung&gt;</code> (ví dụ: <code>!rep VNL-4E1AC7B7 Shop đang nạp bạn nhé</code>).<br/>
+                  • ⌨️ <b>Cách 3:</b> Gõ Slash Command <code>/rep don_hang:VNL-4E1AC7B7 tin_nhan:Shop đang kiểm tra</code>.<br/>
+                  🔒 <i>Bảo mật tuyệt đối: Chỉ Admin (ID cấu hình bên trên) và Đối tác phụ trách đơn hàng mới được phép gửi tin nhắn, người ngoài không thể gửi.</i>
+                </div>
+              </div>
+            </div>
+
             <p id="admin-discord-feedback" class="announcement-feedback" role="status" aria-live="polite" style="margin: 0;"></p>
             <div class="admin-announcement-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 2px;">
               <button type="button" class="button secondary btn-small" id="admin-test-feedback-btn" style="border-color: rgba(74, 222, 128, 0.4); color: #86efac;">

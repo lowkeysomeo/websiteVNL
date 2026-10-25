@@ -82,6 +82,8 @@ export function readConfig(env = process.env) {
       env.DISCORD_FEEDBACK_WEBHOOK_URL || env.DISCORD_LEGIT_WEBHOOK_URL || "",
     discordLegitChannelId:
       env.DISCORD_LEGIT_CHANNEL_ID || "1562154223783907560",
+    discordBotToken: env.DISCORD_BOT_TOKEN || "",
+    discordPublicKey: env.DISCORD_PUBLIC_KEY || "",
   };
   if (!["disabled", "live"].includes(config.paymentsMode))
     throw new Error("PAYMENTS_MODE must be disabled or live.");

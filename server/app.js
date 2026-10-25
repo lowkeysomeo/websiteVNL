@@ -76,7 +76,10 @@ import {
   sendPartnerDiscordTestNotification,
   sendDiscordLegitFeedbackNotification,
   sendDiscordLegitFeedbackTestNotification,
+  verifyDiscordInteractionSignature,
+  processDiscordReply,
 } from "./discord.js";
+import { reloadDiscordBot } from "./discord-bot.js";
 import {
   getContactsSettings,
   saveContactsSettings,
@@ -349,6 +352,145 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             depositCode: result.depositCode,
             amount: result.amount,
           });
+        }
+        // Discord Interactions Endpoint (Slash commands /rep, Buttons, Modals)
+        if (req.method === "POST" && cleanRoute === "/api/discord/interactions") {
+          const raw = await readBody(req);
+          const discordSettings = await getDiscordSettings(db, process.env);
+          const publicKey = discordSettings.publicKey || config.discordPublicKey || process.env.DISCORD_PUBLIC_KEY || "";
+
+          if (publicKey) {
+            const isValid = verifyDiscordInteractionSignature(req.headers, raw, publicKey);
+            if (!isValid) {
+              return text(401, "Invalid request signature");
+            }
+          }
+
+          const interaction = parse(raw);
+
+          // Type 1: PING (Discord verification handshake)
+          if (interaction.type === 1) {
+            return json(200, { type: 1 });
+          }
+
+          // Type 2: APPLICATION_COMMAND (Slash command /rep)
+          if (interaction.type === 2) {
+            const cmdName = interaction.data?.name;
+            if (cmdName === "rep" || cmdName === "reply") {
+              const options = interaction.data.options || [];
+              const orderOption = options.find((o) => o.name === "don_hang" || o.name === "order" || o.name === "order_id");
+              const msgOption = options.find((o) => o.name === "tin_nhan" || o.name === "message");
+
+              const orderId = orderOption?.value;
+              const replyText = msgOption?.value;
+              const authorId = interaction.member?.user?.id || interaction.user?.id;
+              const authorName = interaction.member?.user?.global_name || interaction.member?.user?.username || interaction.user?.username;
+
+              const result = await processDiscordReply({
+                db,
+                authorId,
+                authorName,
+                orderId,
+                replyText,
+              });
+
+              if (result.success) {
+                return json(200, {
+                  type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
+                  data: {
+                    content: `✅ **[${result.senderName}]** Đã gửi phản hồi tới khách hàng trên đơn \`${result.order.id}\`:\n> ${replyText}`,
+                  },
+                });
+              } else {
+                return json(200, {
+                  type: 4,
+                  data: {
+                    flags: 64, // EPHEMERAL
+                    content: `⚠️ **Không thể gửi tin nhắn:** ${result.message}`,
+                  },
+                });
+              }
+            }
+          }
+
+          // Type 3: MESSAGE_COMPONENT (Button click)
+          if (interaction.type === 3) {
+            const customId = interaction.data?.custom_id || "";
+            if (customId.startsWith("reply_order:")) {
+              const targetOrderId = customId.replace("reply_order:", "");
+              return json(200, {
+                type: 9, // MODAL
+                data: {
+                  custom_id: `rep_modal:${targetOrderId}`,
+                  title: `Phản hồi đơn ${targetOrderId}`,
+                  components: [
+                    {
+                      type: 1, // ACTION_ROW
+                      components: [
+                        {
+                          type: 4, // TEXT_INPUT
+                          custom_id: "rep_message",
+                          label: "Nội dung phản hồi cho khách hàng",
+                          style: 2, // PARAGRAPH
+                          min_length: 1,
+                          max_length: 1000,
+                          placeholder: "Nhập tin nhắn trả lời...",
+                          required: true,
+                        },
+                      ],
+                    },
+                  ],
+                },
+              });
+            }
+          }
+
+          // Type 5: MODAL_SUBMIT
+          if (interaction.type === 5) {
+            const customId = interaction.data?.custom_id || "";
+            if (customId.startsWith("rep_modal:")) {
+              const targetOrderId = customId.replace("rep_modal:", "");
+              const rows = interaction.data?.components || [];
+              let replyText = "";
+              for (const row of rows) {
+                for (const comp of row.components || []) {
+                  if (comp.custom_id === "rep_message") {
+                    replyText = comp.value;
+                  }
+                }
+              }
+
+              const authorId = interaction.member?.user?.id || interaction.user?.id;
+              const authorName = interaction.member?.user?.global_name || interaction.member?.user?.username || interaction.user?.username;
+
+              const result = await processDiscordReply({
+                db,
+                authorId,
+                authorName,
+                orderId: targetOrderId,
+                replyText,
+              });
+
+              if (result.success) {
+                return json(200, {
+                  type: 4,
+                  data: {
+                    content: `✅ **[${result.senderName}]** Đã gửi phản hồi tới khách hàng trên đơn \`${result.order.id}\`:\n> ${replyText}`,
+                  },
+                });
+              } else {
+                return json(200, {
+                  type: 4,
+                  data: {
+                    flags: 64,
+                    content: `⚠️ **Không thể gửi tin nhắn:** ${result.message}`,
+                  },
+                });
+              }
+            }
+          }
+
+          return json(200, { type: 4, data: { content: "Lệnh tương tác không hợp lệ.", flags: 64 } });
         }
         if (
           req.method === "POST" &&
@@ -1396,6 +1538,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             return json(200, { success: true, settings, role: "partner" });
           }
           const settings = await saveDiscordSettings(db, body);
+          void reloadDiscordBot(db, config, { fetchFn });
           return json(200, { success: true, settings, role: "admin" });
         }
         if (

@@ -1,6 +1,7 @@
 import { readConfig } from "./config.js";
 import { openStore } from "./store.js";
 import { createApp } from "./app.js";
+import { startDiscordBot, stopDiscordBot } from "./discord-bot.js";
 
 const config = readConfig();
 const db = await openStore(config.databasePath, config.remoteDatabase);
@@ -12,7 +13,12 @@ server.listen(config.port, config.host, () =>
     `VietNam Legacy running on port ${config.port}; deposits: ${config.paymentsMode}`,
   ),
 );
+
+// Khởi chạy Discord Bot lắng nghe phản hồi tin nhắn từ Discord
+void startDiscordBot(db, config);
+
 function shutdown() {
+  void stopDiscordBot();
   server.close(() => {
     db.close();
     process.exit(0);

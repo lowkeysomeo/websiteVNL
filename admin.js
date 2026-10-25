@@ -243,9 +243,11 @@
         }
         const legitSection = document.querySelector("#admin-discord-legit-section");
         const oauthSection = document.querySelector("#admin-discord-oauth-section");
+        const botSection = document.querySelector("#admin-discord-bot-section");
         const testFeedbackBtn = document.querySelector("#admin-test-feedback-btn");
         if (legitSection) legitSection.hidden = true;
         if (oauthSection) oauthSection.hidden = true;
+        if (botSection) botSection.hidden = true;
         if (testFeedbackBtn) testFeedbackBtn.hidden = true;
       }
 
@@ -285,9 +287,11 @@
         }
         const legitSection = document.querySelector("#admin-discord-legit-section");
         const oauthSection = document.querySelector("#admin-discord-oauth-section");
+        const botSection = document.querySelector("#admin-discord-bot-section");
         const testFeedbackBtn = document.querySelector("#admin-test-feedback-btn");
         if (legitSection) legitSection.hidden = false;
         if (oauthSection) oauthSection.hidden = false;
+        if (botSection) botSection.hidden = false;
         if (testFeedbackBtn) testFeedbackBtn.hidden = false;
       }
 
@@ -1289,6 +1293,14 @@
   const discordRedirectUriEl = document.querySelector("#admin-discord-redirect-uri");
   const copyRedirectBtn = document.querySelector("#admin-copy-redirect-btn");
 
+  // Discord Bot & Direct Reply Settings Elements
+  const discordBotActive = document.querySelector("#admin-discord-bot-active");
+  const discordBotStatusText = document.querySelector("#admin-discord-bot-status-text");
+  const discordBotTokenInput = document.querySelector("#admin-discord-bot-token");
+  const discordPublicKeyInput = document.querySelector("#admin-discord-public-key");
+  const discordInteractionsUrlEl = document.querySelector("#admin-discord-interactions-url");
+  const copyInteractionsBtn = document.querySelector("#admin-copy-interactions-btn");
+
   // Legit Check Embed Customizer Elements
   const legitTplTitle = document.querySelector("#legit-tpl-title");
   const legitTplContent = document.querySelector("#legit-tpl-content");
@@ -1627,6 +1639,14 @@
     discordOAuthStatusText.classList.toggle("status-inactive", !isEnabled);
   }
 
+  function updateBotStatusLabel() {
+    if (!discordBotActive || !discordBotStatusText) return;
+    const isEnabled = discordBotActive.checked;
+    discordBotStatusText.textContent = isEnabled ? "Bật Rep Discord" : "Tắt Rep Discord";
+    discordBotStatusText.classList.toggle("status-active", isEnabled);
+    discordBotStatusText.classList.toggle("status-inactive", !isEnabled);
+  }
+
   if (discordActive) {
     discordActive.addEventListener("change", updateDiscordStatusLabel);
   }
@@ -1636,6 +1656,9 @@
   if (discordOAuthActive) {
     discordOAuthActive.addEventListener("change", updateOAuthStatusLabel);
   }
+  if (discordBotActive) {
+    discordBotActive.addEventListener("change", updateBotStatusLabel);
+  }
 
   if (copyRedirectBtn && discordRedirectUriEl) {
     copyRedirectBtn.addEventListener("click", async () => {
@@ -1644,6 +1667,20 @@
         copyRedirectBtn.textContent = "✓ Đã sao chép";
         setTimeout(() => {
           copyRedirectBtn.textContent = "📋 Sao chép URI";
+        }, 2000);
+      } catch {
+        notify("Không thể sao chép tự động, hãy bôi đen và sao chép thủ công.");
+      }
+    });
+  }
+
+  if (copyInteractionsBtn && discordInteractionsUrlEl) {
+    copyInteractionsBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(discordInteractionsUrlEl.textContent.trim());
+        copyInteractionsBtn.textContent = "✓ Đã sao chép";
+        setTimeout(() => {
+          copyInteractionsBtn.textContent = "📋 Sao chép Endpoint URL";
         }, 2000);
       } catch {
         notify("Không thể sao chép tự động, hãy bôi đen và sao chép thủ công.");
@@ -1682,6 +1719,18 @@
         if (discordRedirectUriEl) {
           discordRedirectUriEl.textContent = `${window.location.origin}/api/auth/discord/callback`;
         }
+        if (discordInteractionsUrlEl) {
+          discordInteractionsUrlEl.textContent = `${window.location.origin}/api/discord/interactions`;
+        }
+        if (discordBotActive) {
+          discordBotActive.checked = data.settings.botEnabled !== undefined ? Boolean(data.settings.botEnabled) : true;
+        }
+        if (discordBotTokenInput) {
+          discordBotTokenInput.value = data.settings.botToken || "";
+        }
+        if (discordPublicKeyInput) {
+          discordPublicKeyInput.value = data.settings.publicKey || "";
+        }
         if (discordOAuthActive) {
           discordOAuthActive.checked = data.settings.oauthEnabled !== undefined ? Boolean(data.settings.oauthEnabled) : true;
         }
@@ -1694,6 +1743,7 @@
         updateDiscordStatusLabel();
         updateFeedbackStatusLabel();
         updateOAuthStatusLabel();
+        updateBotStatusLabel();
         updateDiscordPreview();
       }
     } catch (err) {
@@ -1714,6 +1764,9 @@
       const oauthEnabled = discordOAuthActive ? discordOAuthActive.checked : true;
       const clientId = discordClientIdInput ? discordClientIdInput.value.trim() : "";
       const clientSecret = discordClientSecretInput ? discordClientSecretInput.value.trim() : "";
+      const botEnabled = discordBotActive ? discordBotActive.checked : true;
+      const botToken = discordBotTokenInput ? discordBotTokenInput.value.trim() : "";
+      const publicKey = discordPublicKeyInput ? discordPublicKeyInput.value.trim() : "";
 
       if (enabled && !webhookUrl && !feedbackWebhookUrl) {
         discordStatus("Vui lòng nhập ít nhất một Discord Webhook URL trước khi bật thông báo.", true);
@@ -1741,6 +1794,9 @@
             oauthEnabled,
             clientId,
             clientSecret,
+            botEnabled,
+            botToken,
+            publicKey,
           }),
         });
 
@@ -1753,12 +1809,16 @@
         if (discordOAuthActive) discordOAuthActive.checked = data.settings.oauthEnabled !== undefined ? Boolean(data.settings.oauthEnabled) : true;
         if (discordClientIdInput) discordClientIdInput.value = data.settings.clientId || "";
         if (discordClientSecretInput) discordClientSecretInput.value = data.settings.clientSecret || "";
+        if (discordBotActive) discordBotActive.checked = data.settings.botEnabled !== undefined ? Boolean(data.settings.botEnabled) : true;
+        if (discordBotTokenInput) discordBotTokenInput.value = data.settings.botToken || "";
+        if (discordPublicKeyInput) discordPublicKeyInput.value = data.settings.publicKey || "";
         if (data.settings.legitTemplate) {
           populateLegitTemplate(data.settings.legitTemplate);
         }
         updateDiscordStatusLabel();
         updateFeedbackStatusLabel();
         updateOAuthStatusLabel();
+        updateBotStatusLabel();
         updateDiscordPreview();
 
         const savedAt = new Date().toLocaleTimeString("vi-VN");
