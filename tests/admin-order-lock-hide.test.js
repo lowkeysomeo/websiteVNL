@@ -115,4 +115,60 @@ test("Giao diện Admin: Khóa và ẩn đơn đã hoàn thành hoặc đã hủ
       "admin.js phải lưu trạng thái thu gọn vào localStorage vnl_admin_hide_legit_embed",
     );
   });
+
+  await t.test("Ẩn / thu gọn các mục cài đặt Discord để dễ theo dõi tin nhắn đơn hàng", () => {
+    // 1. Kiểm tra HTML
+    assert.ok(
+      htmlContent.includes('id="admin-discord-toggle-all-btn"'),
+      "admin.html phải có nút #admin-discord-toggle-all-btn",
+    );
+    assert.ok(
+      htmlContent.includes('id="admin-discord-card-collapse-badge"'),
+      "admin.html phải có badge #admin-discord-card-collapse-badge",
+    );
+    assert.ok(
+      htmlContent.includes('id="admin-discord-card-form"'),
+      "admin.html phải có wrapper form #admin-discord-card-form",
+    );
+    assert.ok(
+      htmlContent.includes('id="admin-discord-legit-toggle-btn"'),
+      "admin.html phải có nút #admin-discord-legit-toggle-btn",
+    );
+    assert.ok(
+      htmlContent.includes('id="admin-discord-oauth-toggle-btn"'),
+      "admin.html phải có nút #admin-discord-oauth-toggle-btn",
+    );
+    assert.ok(
+      htmlContent.includes('id="admin-discord-bot-toggle-btn"'),
+      "admin.html phải có nút #admin-discord-bot-toggle-btn",
+    );
+    assert.ok(
+      htmlContent.includes('id="admin-quick-toggle-discord-btn"'),
+      "admin.html phải có nút #admin-quick-toggle-discord-btn trong thanh công cụ",
+    );
+
+    // 2. Kiểm tra CSS
+    assert.ok(
+      cssContent.includes(".admin-announcement-card.is-card-collapsed"),
+      "admin.css phải có class .admin-announcement-card.is-card-collapsed",
+    );
+    assert.ok(
+      cssContent.includes(".admin-discord-collapse-badge"),
+      "admin.css phải có class .admin-discord-collapse-badge",
+    );
+
+    // 3. Kiểm tra JS
+    assert.ok(
+      jsContent.includes("setDiscordAllCollapsed"),
+      "admin.js phải có hàm setDiscordAllCollapsed",
+    );
+    assert.ok(
+      jsContent.includes("setDiscordSectionCollapsed"),
+      "admin.js phải có hàm setDiscordSectionCollapsed",
+    );
+    assert.ok(
+      jsContent.includes("vnl_admin_hide_discord_all"),
+      "admin.js phải lưu trạng thái ẩn toàn bộ vào localStorage vnl_admin_hide_discord_all",
+    );
+  });
 });

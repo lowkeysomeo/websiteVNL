@@ -1715,6 +1715,162 @@
     });
   }
 
+  // Quản lý ẩn / mở rộng toàn bộ card Discord hoặc từng mục riêng biệt
+  let isDiscordAllCollapsed = localStorage.getItem("vnl_admin_hide_discord_all") === "true";
+  let isDiscordLegitCollapsed = localStorage.getItem("vnl_admin_hide_discord_legit") === "true";
+  let isDiscordOauthCollapsed = localStorage.getItem("vnl_admin_hide_discord_oauth") === "true";
+  let isDiscordBotCollapsed = localStorage.getItem("vnl_admin_hide_discord_bot") === "true";
+
+  const discordCardEl = document.querySelector("#admin-discord-card");
+  const discordFormEl = document.querySelector("#admin-discord-card-form");
+  const discordToggleAllBtn = document.querySelector("#admin-discord-toggle-all-btn");
+  const discordToggleAllText = document.querySelector("#admin-discord-toggle-all-text");
+  const discordToggleAllIcon = document.querySelector("#admin-discord-toggle-all-icon");
+  const discordCardBadge = document.querySelector("#admin-discord-card-collapse-badge");
+  const quickToggleDiscordBtn = document.querySelector("#admin-quick-toggle-discord-btn");
+  const quickToggleDiscordText = document.querySelector("#admin-quick-toggle-discord-text");
+  const quickToggleDiscordIcon = document.querySelector("#admin-quick-toggle-discord-icon");
+
+  function setDiscordAllCollapsed(collapsed, save = true) {
+    isDiscordAllCollapsed = Boolean(collapsed);
+    if (save) {
+      localStorage.setItem("vnl_admin_hide_discord_all", isDiscordAllCollapsed ? "true" : "false");
+    }
+    if (discordCardEl) {
+      discordCardEl.classList.toggle("is-card-collapsed", isDiscordAllCollapsed);
+    }
+    if (discordFormEl) {
+      discordFormEl.style.display = isDiscordAllCollapsed ? "none" : "flex";
+    }
+    if (discordCardBadge) {
+      discordCardBadge.style.display = isDiscordAllCollapsed ? "inline-block" : "none";
+    }
+    if (discordToggleAllText) {
+      discordToggleAllText.textContent = isDiscordAllCollapsed ? "Hiện các mục cài đặt Discord" : "Ẩn các mục này để dễ xem tin nhắn";
+    }
+    if (discordToggleAllIcon) {
+      discordToggleAllIcon.textContent = isDiscordAllCollapsed ? "▼" : "▲";
+    }
+    if (quickToggleDiscordText) {
+      quickToggleDiscordText.textContent = isDiscordAllCollapsed ? "Hiện cài đặt Discord" : "Ẩn cài đặt Discord";
+    }
+    if (quickToggleDiscordIcon) {
+      quickToggleDiscordIcon.textContent = isDiscordAllCollapsed ? "▼" : "▲";
+    }
+  }
+
+  function setDiscordSectionCollapsed(section, collapsed, save = true) {
+    if (section === "legit") {
+      isDiscordLegitCollapsed = Boolean(collapsed);
+      if (save) localStorage.setItem("vnl_admin_hide_discord_legit", isDiscordLegitCollapsed ? "true" : "false");
+      const body = document.querySelector("#admin-discord-legit-body");
+      const badge = document.querySelector("#admin-discord-legit-collapse-badge");
+      const text = document.querySelector("#admin-discord-legit-toggle-text");
+      const icon = document.querySelector("#admin-discord-legit-toggle-icon");
+      if (body) body.style.display = isDiscordLegitCollapsed ? "none" : "block";
+      if (badge) badge.style.display = isDiscordLegitCollapsed ? "inline-block" : "none";
+      if (text) text.textContent = isDiscordLegitCollapsed ? "Mở rộng" : "Thu gọn";
+      if (icon) icon.textContent = isDiscordLegitCollapsed ? "▼" : "▲";
+    } else if (section === "oauth") {
+      isDiscordOauthCollapsed = Boolean(collapsed);
+      if (save) localStorage.setItem("vnl_admin_hide_discord_oauth", isDiscordOauthCollapsed ? "true" : "false");
+      const body = document.querySelector("#admin-discord-oauth-body");
+      const badge = document.querySelector("#admin-discord-oauth-collapse-badge");
+      const text = document.querySelector("#admin-discord-oauth-toggle-text");
+      const icon = document.querySelector("#admin-discord-oauth-toggle-icon");
+      if (body) body.style.display = isDiscordOauthCollapsed ? "none" : "block";
+      if (badge) badge.style.display = isDiscordOauthCollapsed ? "inline-block" : "none";
+      if (text) text.textContent = isDiscordOauthCollapsed ? "Mở rộng" : "Thu gọn";
+      if (icon) icon.textContent = isDiscordOauthCollapsed ? "▼" : "▲";
+    } else if (section === "bot") {
+      isDiscordBotCollapsed = Boolean(collapsed);
+      if (save) localStorage.setItem("vnl_admin_hide_discord_bot", isDiscordBotCollapsed ? "true" : "false");
+      const body = document.querySelector("#admin-discord-bot-body");
+      const badge = document.querySelector("#admin-discord-bot-collapse-badge");
+      const text = document.querySelector("#admin-discord-bot-toggle-text");
+      const icon = document.querySelector("#admin-discord-bot-toggle-icon");
+      if (body) body.style.display = isDiscordBotCollapsed ? "none" : "block";
+      if (badge) badge.style.display = isDiscordBotCollapsed ? "inline-block" : "none";
+      if (text) text.textContent = isDiscordBotCollapsed ? "Mở rộng" : "Thu gọn";
+      if (icon) icon.textContent = isDiscordBotCollapsed ? "▼" : "▲";
+    }
+  }
+
+  // Khởi tạo trạng thái thu gọn ban đầu
+  setDiscordAllCollapsed(isDiscordAllCollapsed, false);
+  setDiscordSectionCollapsed("legit", isDiscordLegitCollapsed, false);
+  setDiscordSectionCollapsed("oauth", isDiscordOauthCollapsed, false);
+  setDiscordSectionCollapsed("bot", isDiscordBotCollapsed, false);
+
+  if (discordToggleAllBtn) {
+    discordToggleAllBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setDiscordAllCollapsed(!isDiscordAllCollapsed);
+    });
+  }
+
+  if (quickToggleDiscordBtn) {
+    quickToggleDiscordBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setDiscordAllCollapsed(!isDiscordAllCollapsed);
+    });
+  }
+
+  // Click vào header thẻ Discord chính để thu gọn/mở rộng
+  const discordMainHeader = document.querySelector("#admin-discord-main-header");
+  if (discordMainHeader) {
+    discordMainHeader.addEventListener("click", (e) => {
+      if (e.target.closest("button, input, label, a")) return;
+      setDiscordAllCollapsed(!isDiscordAllCollapsed);
+    });
+  }
+
+  // Click nút thu gọn từng mục
+  const legitToggleBtn = document.querySelector("#admin-discord-legit-toggle-btn");
+  if (legitToggleBtn) {
+    legitToggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setDiscordSectionCollapsed("legit", !isDiscordLegitCollapsed);
+    });
+  }
+  const legitHeader = document.querySelector("#admin-discord-legit-header");
+  if (legitHeader) {
+    legitHeader.addEventListener("click", (e) => {
+      if (e.target.closest("button, input, label, a")) return;
+      setDiscordSectionCollapsed("legit", !isDiscordLegitCollapsed);
+    });
+  }
+
+  const oauthToggleBtn = document.querySelector("#admin-discord-oauth-toggle-btn");
+  if (oauthToggleBtn) {
+    oauthToggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setDiscordSectionCollapsed("oauth", !isDiscordOauthCollapsed);
+    });
+  }
+  const oauthHeader = document.querySelector("#admin-discord-oauth-header");
+  if (oauthHeader) {
+    oauthHeader.addEventListener("click", (e) => {
+      if (e.target.closest("button, input, label, a")) return;
+      setDiscordSectionCollapsed("oauth", !isDiscordOauthCollapsed);
+    });
+  }
+
+  const botToggleBtn = document.querySelector("#admin-discord-bot-toggle-btn");
+  if (botToggleBtn) {
+    botToggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setDiscordSectionCollapsed("bot", !isDiscordBotCollapsed);
+    });
+  }
+  const botHeader = document.querySelector("#admin-discord-bot-header");
+  if (botHeader) {
+    botHeader.addEventListener("click", (e) => {
+      if (e.target.closest("button, input, label, a")) return;
+      setDiscordSectionCollapsed("bot", !isDiscordBotCollapsed);
+    });
+  }
+
   function discordStatus(message, error = false) {
     if (!discordFeedback) return;
     discordFeedback.textContent = message;

@@ -167,20 +167,31 @@
 
         <!-- Discord Admin Notification Control -->
         <section class="admin-announcement-card" id="admin-discord-card">
-          <div class="admin-card-header">
+          <div class="admin-card-header" id="admin-discord-main-header">
             <div>
-              <h3 id="admin-discord-title"><span style="font-size: 16px;">🔔</span> Thông báo đơn hàng qua Discord Admin</h3>
-              <p id="admin-discord-desc">Tự động gửi thông báo kèm ping Discord Admin khi có khách hàng đặt hàng mới trên website.</p>
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <h3 id="admin-discord-title" style="margin: 0;"><span style="font-size: 16px;">🔔</span> Thông báo đơn hàng qua Discord Admin</h3>
+                <span id="admin-discord-card-collapse-badge" class="admin-discord-collapse-badge" style="display: none;">
+                  Đang ẩn để dễ xem tin nhắn
+                </span>
+              </div>
+              <p id="admin-discord-desc" style="margin: 4px 0 0 0;">Tự động gửi thông báo kèm ping Discord Admin khi có khách hàng đặt hàng mới trên website.</p>
             </div>
-            <div class="announcement-toggle-group">
-              <label class="switch-label">
-                <input type="checkbox" id="admin-discord-active" aria-label="Bật thông báo đơn hàng qua Discord" checked />
-                <span class="switch-slider"></span>
-              </label>
-              <span id="admin-discord-status-text" class="status-active">Bật thông báo</span>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <button type="button" class="button secondary btn-small" id="admin-discord-toggle-all-btn" style="padding: 4px 10px; font-size: 11px; display: inline-flex; align-items: center; gap: 5px; border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe;" title="Ẩn hoặc hiện toàn bộ các mục cài đặt Discord để dễ theo dõi tin nhắn đơn hàng">
+                <span id="admin-discord-toggle-all-icon">▲</span>
+                <span id="admin-discord-toggle-all-text">Ẩn các mục này để dễ xem tin nhắn</span>
+              </button>
+              <div class="announcement-toggle-group">
+                <label class="switch-label">
+                  <input type="checkbox" id="admin-discord-active" aria-label="Bật thông báo đơn hàng qua Discord" checked />
+                  <span class="switch-slider"></span>
+                </label>
+                <span id="admin-discord-status-text" class="status-active">Bật thông báo</span>
+              </div>
             </div>
           </div>
-          <div class="admin-announcement-form" style="display: flex; flex-direction: column; gap: 14px;">
+          <div class="admin-announcement-form" id="admin-discord-card-form" style="display: flex; flex-direction: column; gap: 14px;">
             <div class="admin-discord-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
               <div>
                 <label for="admin-discord-webhook" style="display: block; font-size: 12px; font-weight: 600; color: #d8b4fe; margin-bottom: 6px;">
@@ -215,23 +226,35 @@
 
             <!-- Kênh Check Legit / Feedback (Channel ID: 1562154223783907560) -->
             <div id="admin-discord-legit-section" style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 14px; margin-top: 2px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
+              <div class="admin-discord-section-header" id="admin-discord-legit-header" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
                 <div>
-                  <h4 style="margin: 0; font-size: 13px; font-weight: 700; color: #4ade80; display: flex; align-items: center; gap: 6px;">
-                    <span>🛡️</span> Kênh Check Legit / Feedback
-                  </h4>
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <h4 style="margin: 0; font-size: 13px; font-weight: 700; color: #4ade80; display: flex; align-items: center; gap: 6px;">
+                      <span>🛡️</span> Kênh Check Legit / Feedback
+                    </h4>
+                    <span id="admin-discord-legit-collapse-badge" class="admin-discord-collapse-badge" style="display: none;">
+                      Đang ẩn
+                    </span>
+                  </div>
                   <p style="margin: 3px 0 0 0; font-size: 11.5px; color: var(--muted, #94a3b8);">
                     Tự động gửi hóa đơn xác thực uy tín (Legit Check - ẩn thông tin nhạy cảm) về kênh Discord này khi hoàn tất đơn hàng.
                   </p>
                 </div>
-                <div class="announcement-toggle-group">
-                  <label class="switch-label" style="transform: scale(0.9); transform-origin: right center;">
-                    <input type="checkbox" id="admin-discord-feedback-active" aria-label="Bật gửi feedback check legit" checked />
-                    <span class="switch-slider"></span>
-                  </label>
-                  <span id="admin-discord-feedback-status-text" class="status-active" style="font-size: 11.5px;">Bật Legit</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <button type="button" class="button secondary btn-small admin-discord-section-toggle-btn" id="admin-discord-legit-toggle-btn" style="padding: 3px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;" title="Ẩn hoặc mở rộng mục Check Legit">
+                    <span id="admin-discord-legit-toggle-icon">▲</span>
+                    <span id="admin-discord-legit-toggle-text">Thu gọn</span>
+                  </button>
+                  <div class="announcement-toggle-group">
+                    <label class="switch-label" style="transform: scale(0.9); transform-origin: right center;">
+                      <input type="checkbox" id="admin-discord-feedback-active" aria-label="Bật gửi feedback check legit" checked />
+                      <span class="switch-slider"></span>
+                    </label>
+                    <span id="admin-discord-feedback-status-text" class="status-active" style="font-size: 11.5px;">Bật Legit</span>
+                  </div>
                 </div>
               </div>
+              <div id="admin-discord-legit-body">
               <div class="admin-discord-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
                 <div>
                   <label for="admin-discord-feedback-webhook" style="display: block; font-size: 12px; font-weight: 600; color: #86efac; margin-bottom: 6px;">
@@ -447,27 +470,40 @@
                 </div>
                 </div>
               </div>
+              </div>
             </div>
 
             <!-- Cấu hình Đăng nhập / Đăng ký tài khoản qua Discord (Discord OAuth2) -->
             <div id="admin-discord-oauth-section" style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 14px; margin-top: 14px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
+              <div class="admin-discord-section-header" id="admin-discord-oauth-header" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
                 <div>
-                  <h4 style="margin: 0; font-size: 13px; font-weight: 700; color: #818cf8; display: flex; align-items: center; gap: 6px;">
-                    <span>🔑</span> Đăng nhập / Đăng ký qua Discord (Discord OAuth2 Login)
-                  </h4>
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <h4 style="margin: 0; font-size: 13px; font-weight: 700; color: #818cf8; display: flex; align-items: center; gap: 6px;">
+                      <span>🔑</span> Đăng nhập / Đăng ký qua Discord (Discord OAuth2 Login)
+                    </h4>
+                    <span id="admin-discord-oauth-collapse-badge" class="admin-discord-collapse-badge" style="display: none;">
+                      Đang ẩn
+                    </span>
+                  </div>
                   <p style="margin: 3px 0 0 0; font-size: 11.5px; color: var(--muted, #94a3b8);">
                     Cho phép khách hàng đăng nhập và đăng ký bằng tài khoản Discord để shop dễ dàng kiểm soát, xác thực và quản lý Buyer Discord.
                   </p>
                 </div>
-                <div class="announcement-toggle-group">
-                  <label class="switch-label" style="transform: scale(0.9); transform-origin: right center;">
-                    <input type="checkbox" id="admin-discord-oauth-active" aria-label="Bật đăng nhập Discord" checked />
-                    <span class="switch-slider"></span>
-                  </label>
-                  <span id="admin-discord-oauth-status-text" class="status-active" style="font-size: 11.5px;">Bật OAuth</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <button type="button" class="button secondary btn-small admin-discord-section-toggle-btn" id="admin-discord-oauth-toggle-btn" style="padding: 3px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;" title="Ẩn hoặc mở rộng mục Discord OAuth2 Login">
+                    <span id="admin-discord-oauth-toggle-icon">▲</span>
+                    <span id="admin-discord-oauth-toggle-text">Thu gọn</span>
+                  </button>
+                  <div class="announcement-toggle-group">
+                    <label class="switch-label" style="transform: scale(0.9); transform-origin: right center;">
+                      <input type="checkbox" id="admin-discord-oauth-active" aria-label="Bật đăng nhập Discord" checked />
+                      <span class="switch-slider"></span>
+                    </label>
+                    <span id="admin-discord-oauth-status-text" class="status-active" style="font-size: 11.5px;">Bật OAuth</span>
+                  </div>
                 </div>
               </div>
+              <div id="admin-discord-oauth-body">
 
               <div class="admin-discord-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 10px;">
                 <div>
@@ -521,27 +557,40 @@
                   3. Copy <b>Client ID</b> và <b>Client Secret</b> dán vào 2 ô bên trên và bấm nút <b>Lưu cấu hình Discord</b> bên dưới.
                 </div>
               </div>
+              </div>
             </div>
 
             <!-- Cấu hình Trả lời tin nhắn khách trực tiếp từ Discord (Discord Bot & Interactions) -->
             <div id="admin-discord-bot-section" style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 14px; margin-top: 14px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
+              <div class="admin-discord-section-header" id="admin-discord-bot-header" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
                 <div>
-                  <h4 style="margin: 0; font-size: 13px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
-                    <span>🤖</span> Trả lời tin nhắn khách trực tiếp từ Discord (Không cần mở web)
-                  </h4>
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <h4 style="margin: 0; font-size: 13px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+                      <span>🤖</span> Trả lời tin nhắn khách trực tiếp từ Discord (Không cần mở web)
+                    </h4>
+                    <span id="admin-discord-bot-collapse-badge" class="admin-discord-collapse-badge" style="display: none;">
+                      Đang ẩn
+                    </span>
+                  </div>
                   <p style="margin: 3px 0 0 0; font-size: 11.5px; color: var(--muted, #94a3b8);">
                     Cho phép Admin và Đối tác chỉ cần bấm <b>Reply (Trả lời)</b> trực tiếp tin nhắn trên Discord hoặc gõ lệnh <code>!rep</code> / Slash <code>/rep</code> là tin nhắn sẽ tự động gửi tới khách hàng trên web!
                   </p>
                 </div>
-                <div class="announcement-toggle-group">
-                  <label class="switch-label" style="transform: scale(0.9); transform-origin: right center;">
-                    <input type="checkbox" id="admin-discord-bot-active" aria-label="Bật phản hồi tin nhắn từ Discord" checked />
-                    <span class="switch-slider"></span>
-                  </label>
-                  <span id="admin-discord-bot-status-text" class="status-active" style="font-size: 11.5px;">Bật Rep Discord</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <button type="button" class="button secondary btn-small admin-discord-section-toggle-btn" id="admin-discord-bot-toggle-btn" style="padding: 3px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;" title="Ẩn hoặc mở rộng mục Rep tin nhắn từ Discord">
+                    <span id="admin-discord-bot-toggle-icon">▲</span>
+                    <span id="admin-discord-bot-toggle-text">Thu gọn</span>
+                  </button>
+                  <div class="announcement-toggle-group">
+                    <label class="switch-label" style="transform: scale(0.9); transform-origin: right center;">
+                      <input type="checkbox" id="admin-discord-bot-active" aria-label="Bật phản hồi tin nhắn từ Discord" checked />
+                      <span class="switch-slider"></span>
+                    </label>
+                    <span id="admin-discord-bot-status-text" class="status-active" style="font-size: 11.5px;">Bật Rep Discord</span>
+                  </div>
                 </div>
               </div>
+              <div id="admin-discord-bot-body">
 
               <div class="admin-discord-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 10px;">
                 <div>
@@ -596,6 +645,7 @@
                   🔒 <i>Bảo mật tuyệt đối: Chỉ Admin (ID cấu hình bên trên) và Đối tác phụ trách đơn hàng mới được phép gửi tin nhắn, người ngoài không thể gửi.</i>
                 </div>
               </div>
+              </div>
             </div>
 
             <p id="admin-discord-feedback" class="announcement-feedback" role="status" aria-live="polite" style="margin: 0;"></p>
@@ -623,6 +673,10 @@
             <button class="admin-tab" data-filter="messages">💬 Có tin nhắn</button>
           </div>
           <div class="admin-filter-tools">
+            <button type="button" class="button secondary btn-small" id="admin-quick-toggle-discord-btn" style="padding: 4px 10px; font-size: 11.5px; border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe;" title="Ẩn hoặc mở rộng khung cài đặt Discord phía trên để dễ xem tin nhắn và quản lý đơn hàng">
+              <span id="admin-quick-toggle-discord-icon">▲</span>
+              <span id="admin-quick-toggle-discord-text">Ẩn cài đặt Discord</span>
+            </button>
             <label class="admin-hide-done-toggle" title="Tự động ẩn các đơn đã hoàn tất hoặc đã hủy để tránh bấm nhầm và nhìn nhầm">
               <input type="checkbox" id="admin-hide-done-checkbox" />
               <span>🔒 Ẩn đơn đã xong & đã hủy</span>
