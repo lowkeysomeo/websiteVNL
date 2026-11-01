@@ -477,3 +477,126 @@ test("Real-time Chat Sync API (/api/admin/orders-chat-sync) returns new messages
   }
 });
 
+test("Order messages: Khách và Shop gửi hình ảnh trong chat đơn hàng", async () => {
+  const ctx = await setupServer();
+  try {
+    const userId = randomUUID();
+    const orderId = "VNL-IMG-TEST-01";
+    const userEmail = "buyer-image@example.com";
+    const sampleDataUrl = "data:image/webp;base64,UklGRkAAAABXRUJQVlA4IDQAAADwAQCdASoBAAEAAQAcJaACdLoAAP7/2QAA";
+    const sampleHttpUrl = "https://example.com/screenshot.png";
+
+    await ctx.db.prepare(
+      "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, 'pw', ?)",
+    ).run(userId, userEmail, Date.now());
+
+    await ctx.db.prepare(`
+      INSERT INTO orders (id, user_id, customer_name, customer_email, items_json, total, status, created_at)
+      VALUES (?, ?, 'Buyer Img', ?, '[]', 50000, 'processing', ?)
+    `).run(orderId, userId, userEmail, Date.now());
+
+    // 1. Direct Store API: Gửi tin nhắn kèm hình ảnh
+    const msgWithImage = await addOrderMessage(ctx.db, {
+      orderId,
+      senderRole: "customer",
+      senderId: userId,
+      senderName: "Buyer Img",
+      message: "Ảnh chuyển khoản của em",
+      imageUrl: sampleDataUrl,
+    });
+    assert.equal(msgWithImage.message, "Ảnh chuyển khoản của em");
+    assert.equal(msgWithImage.imageUrl, sampleDataUrl);
+
+    // 2. Direct Store API: Chỉ gửi ảnh không có nội dung text
+    const msgImageOnly = await addOrderMessage(ctx.db, {
+      orderId,
+      senderRole: "admin",
+      senderId: "admin",
+      senderName: "Quản trị viên",
+      message: "",
+      imageUrl: sampleHttpUrl,
+    });
+    assert.equal(msgImageOnly.message, "");
+    assert.equal(msgImageOnly.imageUrl, sampleHttpUrl);
+
+    // 3. Direct Store API: Lỗi khi cả text và ảnh đều rỗng
+    await assert.rejects(
+      () => addOrderMessage(ctx.db, {
+        orderId,
+        senderRole: "customer",
+        senderId: userId,
+        message: "",
+        imageUrl: "",
+      }),
+      (err) => err.status === 400,
+    );
+
+    // 4. Direct Store API: Lỗi khi định dạng ảnh không hợp lệ
+    await assert.rejects(
+      () => addOrderMessage(ctx.db, {
+        orderId,
+        senderRole: "customer",
+        senderId: userId,
+        message: "hello",
+        imageUrl: "javascript:alert(1)",
+      }),
+      (err) => err.status === 400,
+    );
+
+    // 5. HTTP API: Khách hàng đăng nhập gửi tin nhắn kèm ảnh
+    const sessionToken = "a".repeat(64);
+    const tokenHash = digest(sessionToken);
+    await ctx.db.prepare(
+      "INSERT INTO sessions (token_hash, user_id, csrf_token, expires_at) VALUES (?, ?, 'csrf_test', ?)",
+    ).run(tokenHash, userId, Date.now() + 86400000);
+
+    const clientMsgRes = await ctx.request(
+      "POST",
+      `/api/orders/${orderId}/messages`,
+      { message: "Em gửi thêm ảnh chụp lỗi màn hình", imageUrl: sampleDataUrl },
+      { Cookie: `vnl_session=${sessionToken}` },
+    );
+    assert.equal(clientMsgRes.status, 201);
+    assert.equal(clientMsgRes.data.success, true);
+    assert.equal(clientMsgRes.data.message.imageUrl, sampleDataUrl);
+
+    // 6. HTTP API: Admin gửi tin nhắn kèm ảnh qua HTTP
+    const adminMsgRes = await ctx.request(
+      "POST",
+      `/api/admin/orders/${orderId}/messages`,
+      { message: "Shop đã xử lý xong gói nạp, gửi bạn ảnh bill", imageUrl: sampleHttpUrl },
+      { "x-admin-key": "testadminsecret" },
+    );
+    assert.equal(adminMsgRes.status, 201);
+    assert.equal(adminMsgRes.data.success, true);
+    assert.equal(adminMsgRes.data.message.imageUrl, sampleHttpUrl);
+
+    // 7. HTTP API: Lấy danh sách tin nhắn bao gồm imageUrl
+    const getRes = await ctx.request(
+      "GET",
+      `/api/orders/${orderId}/messages`,
+      null,
+      { Cookie: `vnl_session=${sessionToken}` },
+    );
+    assert.equal(getRes.status, 200);
+    assert.equal(getRes.data.success, true);
+    const messages = getRes.data.messages;
+    assert.ok(messages.length >= 4);
+    assert.equal(messages[0].imageUrl, sampleDataUrl);
+    assert.equal(messages[1].imageUrl, sampleHttpUrl);
+
+    // 8. HTTP API: Sync chat cho Admin bao gồm imageUrl
+    const syncRes = await ctx.request(
+      "GET",
+      "/api/admin/orders-chat-sync?since=0",
+      null,
+      { "x-admin-key": "testadminsecret" },
+    );
+    assert.equal(syncRes.status, 200);
+    const syncItem = syncRes.data.messages.find((m) => m.imageUrl === sampleDataUrl);
+    assert.ok(syncItem, "orders-chat-sync phải chứa imageUrl của tin nhắn");
+  } finally {
+    await ctx.close();
+  }
+});
+

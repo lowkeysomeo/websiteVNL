@@ -543,10 +543,31 @@ test("POST /api/discord/reply: Bot can send order reply using X-Bot-Token", asyn
     const bareData = await bareRes.json();
     assert.equal(bareData.success, true);
 
+    // 4. Authorized request with image URL
+    const imgRes = await fetch(`${origin}/api/discord/reply`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Bot-Token": testBotToken,
+      },
+      body: JSON.stringify({
+        authorId: adminDiscordId,
+        authorName: "Trần Hưng",
+        orderId: order.id,
+        replyText: "Gửi bạn ảnh hóa đơn",
+        imageUrl: "https://cdn.discordapp.com/attachments/123/receipt.png",
+      }),
+    });
+    assert.equal(imgRes.status, 200);
+    const imgData = await imgRes.json();
+    assert.equal(imgData.success, true);
+    assert.equal(imgData.message.imageUrl, "https://cdn.discordapp.com/attachments/123/receipt.png");
+
     const messages = await getOrderMessages(db, order.id);
-    assert.equal(messages.length, 2);
+    assert.equal(messages.length, 3);
     assert.equal(messages[0].message, "Shop đã xử lý xong dịch vụ!");
     assert.equal(messages[1].message, "Tin nhắn thứ hai không cần tiền tố VNL-");
+    assert.equal(messages[2].imageUrl, "https://cdn.discordapp.com/attachments/123/receipt.png");
   } finally {
     server.close();
   }

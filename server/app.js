@@ -494,7 +494,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
         }
         // Direct Discord Bot Reply Endpoint (called by Lowkey-bot-Discord or external bot clients)
         if (req.method === "POST" && cleanRoute === "/api/discord/reply") {
-          const body = parse(await readBody(req));
+          const body = parse(await readBody(req, 4 * 1048576));
           const discordSettings = await getDiscordSettings(db, process.env);
           const validBotToken =
             discordSettings.botToken ||
@@ -522,13 +522,14 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             }
           }
 
-          const { authorId, authorName, orderId, replyText } = body || {};
+          const { authorId, authorName, orderId, replyText, message, imageUrl, image } = body || {};
           const result = await processDiscordReply({
             db,
             authorId,
             authorName,
             orderId,
-            replyText,
+            replyText: replyText || message || "",
+            imageUrl: imageUrl || image || "",
           });
 
           return json(200, result);
@@ -1213,13 +1214,14 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           if (!order || order.user_id !== current.user_id) {
             throw fail(404, "Không tìm thấy đơn hàng.");
           }
-          const body = parse(await readBody(req));
+          const body = parse(await readBody(req, 4 * 1048576));
           const message = await addOrderMessage(db, {
             orderId,
             senderRole: "customer",
             senderId: current.user_id,
             senderName: order.customer_name || current.email || "Khách hàng",
             message: body.message,
+            imageUrl: body.imageUrl || body.image || "",
           });
 
           // Tự động thông báo tới Discord Admin (ping ID 604729446649298963)
@@ -1434,7 +1436,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
               throw fail(403, "Bạn không có quyền gửi tin nhắn cho đơn hàng này.");
             }
           }
-          const body = parse(await readBody(req));
+          const body = parse(await readBody(req, 4 * 1048576));
           const senderRole = caller.role === "partner" ? "partner" : "admin";
           const senderName = caller.role === "partner" ? `Đối tác (${caller.email})` : "Quản trị viên (Shop)";
           const message = await addOrderMessage(db, {
@@ -1443,6 +1445,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             senderId: caller.role === "partner" ? caller.email : "admin",
             senderName,
             message: body.message,
+            imageUrl: body.imageUrl || body.image || "",
           });
           return json(201, { success: true, message });
         }
@@ -1455,7 +1458,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           if (caller.role === "admin") {
             messages = await db
               .prepare(
-                "SELECT id, order_id, sender_role, sender_id, sender_name, message, created_at FROM order_messages WHERE created_at > ? ORDER BY created_at ASC LIMIT 100",
+                "SELECT id, order_id, sender_role, sender_id, sender_name, message, image_url, created_at FROM order_messages WHERE created_at > ? ORDER BY created_at ASC LIMIT 100",
               )
               .all(safeSince);
           } else if (caller.role === "partner") {
@@ -1482,7 +1485,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
               const placeholders = Array.from(allowedOrderIds).map(() => "?").join(",");
               messages = await db
                 .prepare(
-                  `SELECT id, order_id, sender_role, sender_id, sender_name, message, created_at FROM order_messages WHERE created_at > ? AND order_id IN (${placeholders}) ORDER BY created_at ASC LIMIT 100`,
+                  `SELECT id, order_id, sender_role, sender_id, sender_name, message, image_url, created_at FROM order_messages WHERE created_at > ? AND order_id IN (${placeholders}) ORDER BY created_at ASC LIMIT 100`,
                 )
                 .all(safeSince, ...allowedOrderIds);
             }
@@ -1497,6 +1500,7 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
               senderId: r.sender_id,
               senderName: r.sender_name,
               message: r.message,
+              imageUrl: r.image_url || "",
               createdAt: r.created_at,
             })),
           });

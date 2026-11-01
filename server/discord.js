@@ -999,6 +999,7 @@ export function buildOrderMessageEmbed(order, message, settings = {}, origin = "
   const customerName = order.customer_name || order.customerName || message.senderName || "Khách hàng";
   const customerEmail = order.customer_email || order.customerEmail || "N/A";
   const msgText = String(message.message || "").trim();
+  const imageUrl = String(message.imageUrl || message.image || "").trim();
 
   const embed = {
     title: `💬 Khách phản hồi đơn: ${orderId}`,
@@ -1018,7 +1019,7 @@ export function buildOrderMessageEmbed(order, message, settings = {}, origin = "
       },
       {
         name: "💬 Nội dung tin nhắn",
-        value: msgText ? (msgText.length > 1024 ? msgText.slice(0, 1020) + "..." : msgText) : "*(Không có nội dung)*",
+        value: msgText ? (msgText.length > 1024 ? msgText.slice(0, 1020) + "..." : msgText) : (imageUrl ? "*(Đính kèm hình ảnh)*" : "*(Không có nội dung)*"),
         inline: false,
       },
       {
@@ -1032,6 +1033,18 @@ export function buildOrderMessageEmbed(order, message, settings = {}, origin = "
       text: "VietNam Legacy Store • Tin nhắn trao đổi đơn hàng",
     },
   };
+
+  if (imageUrl) {
+    if (/^https?:\/\//i.test(imageUrl)) {
+      embed.image = { url: imageUrl };
+    } else {
+      embed.fields.splice(3, 0, {
+        name: "🖼️ Hình ảnh đính kèm",
+        value: "*(Khách đã gửi 1 hình ảnh đính kèm. Hãy mở trang web đơn hàng để xem ảnh chi tiết)*",
+        inline: false,
+      });
+    }
+  }
 
   return {
     content,
@@ -1048,6 +1061,7 @@ export function buildPartnerOrderMessageEmbed(order, message, partnerEmail, sett
   const customerName = order.customer_name || order.customerName || message.senderName || "Khách hàng";
   const customerEmail = order.customer_email || order.customerEmail || "N/A";
   const msgText = String(message.message || "").trim();
+  const imageUrl = String(message.imageUrl || message.image || "").trim();
 
   const embed = {
     title: `💬 Khách phản hồi đơn dịch vụ: ${orderId}`,
@@ -1067,7 +1081,7 @@ export function buildPartnerOrderMessageEmbed(order, message, partnerEmail, sett
       },
       {
         name: "💬 Nội dung tin nhắn",
-        value: msgText ? (msgText.length > 1024 ? msgText.slice(0, 1020) + "..." : msgText) : "*(Không có nội dung)*",
+        value: msgText ? (msgText.length > 1024 ? msgText.slice(0, 1020) + "..." : msgText) : (imageUrl ? "*(Đính kèm hình ảnh)*" : "*(Không có nội dung)*"),
         inline: false,
       },
       {
@@ -1081,6 +1095,18 @@ export function buildPartnerOrderMessageEmbed(order, message, partnerEmail, sett
       text: `VietNam Legacy Store • Kênh tin nhắn Đối tác (${partnerEmail})`,
     },
   };
+
+  if (imageUrl) {
+    if (/^https?:\/\//i.test(imageUrl)) {
+      embed.image = { url: imageUrl };
+    } else {
+      embed.fields.splice(3, 0, {
+        name: "🖼️ Hình ảnh đính kèm",
+        value: "*(Khách đã gửi 1 hình ảnh đính kèm. Hãy mở trang web đơn hàng để xem ảnh chi tiết)*",
+        inline: false,
+      });
+    }
+  }
 
   return {
     content,
@@ -1535,9 +1561,11 @@ export async function processDiscordReply({
   authorName = "",
   orderId,
   replyText,
+  imageUrl = "",
 }) {
   let cleanId = String(orderId || "").trim().toUpperCase();
   const cleanText = String(replyText || "").trim();
+  const cleanImageUrl = String(imageUrl || "").trim();
 
   if (!cleanId) {
     return {
@@ -1547,12 +1575,12 @@ export async function processDiscordReply({
       message: "Vui lòng cung cấp mã đơn hàng (ví dụ: VNL-XXXXXX).",
     };
   }
-  if (!cleanText) {
+  if (!cleanText && !cleanImageUrl) {
     return {
       success: false,
       error: "empty_message",
       reason: "invalid_input",
-      message: "Nội dung tin nhắn không được để trống.",
+      message: "Nội dung tin nhắn hoặc hình ảnh không được để trống.",
     };
   }
 
@@ -1617,6 +1645,7 @@ export async function processDiscordReply({
       senderId: cleanAuthorId,
       senderName,
       message: cleanText,
+      imageUrl: cleanImageUrl,
     });
     return {
       success: true,
@@ -1721,6 +1750,7 @@ export async function processDiscordReply({
       senderId: cleanAuthorId,
       senderName,
       message: cleanText,
+      imageUrl: cleanImageUrl,
     });
 
     return {

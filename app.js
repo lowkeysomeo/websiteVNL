@@ -1060,7 +1060,8 @@ async function showOrders(offset = 0) {
         let lastMsgTime = "";
         if (lastMsg) {
           const prefix = isShopLast ? "Shop: " : "Bạn: ";
-          snippetText = `${prefix}${escapeHtml(lastMsg.message || "")}`;
+          const content = lastMsg.message ? lastMsg.message : (lastMsg.imageUrl ? "📷 [Hình ảnh]" : "");
+          snippetText = `${prefix}${escapeHtml(content)}`;
           lastMsgTime = formatRelativeTime(lastMsg.createdAt);
         }
 
@@ -1111,16 +1112,24 @@ async function showOrders(offset = 0) {
               <button type="button" class="chat-quick-chip" data-quick-chip="Em đã nhận được hàng, cảm ơn shop nhiều ạ!">❤️ Cảm ơn shop</button>
             </div>
             <form class="customer-chat-form" data-chat-order="${escapeHtml(order.id)}">
-              <input
-                type="text"
-                class="customer-chat-input"
-                placeholder="Nhắn tin với shop (ví dụ: hỏi tiến độ nạp, gửi mã 2FA mới...)"
-                maxlength="1000"
-                required
-              />
-              <button type="submit" class="button primary btn-small customer-chat-send-btn">
-                Gửi phản hồi 💬
-              </button>
+              <div class="chat-image-preview-wrap" style="display:none;">
+                <img class="chat-image-preview-thumb" src="" alt="Xem trước" />
+                <span class="chat-image-preview-name">Ảnh đính kèm</span>
+                <button type="button" class="chat-image-remove-btn" title="Xóa ảnh">✕</button>
+              </div>
+              <div class="customer-chat-input-row">
+                <button type="button" class="chat-attach-btn" title="Đính kèm ảnh (hoặc dán Ctrl+V)" aria-label="Đính kèm ảnh">📷</button>
+                <input type="file" accept="image/*" class="chat-file-input" style="display:none;" />
+                <input
+                  type="text"
+                  class="customer-chat-input"
+                  placeholder="Nhắn tin với shop (ví dụ: hỏi tiến độ, gửi mã 2FA, dán ảnh Ctrl+V...)"
+                  maxlength="1000"
+                />
+                <button type="submit" class="button primary btn-small customer-chat-send-btn">
+                  Gửi phản hồi 💬
+                </button>
+              </div>
             </form>
           </div>
         `;
@@ -1196,7 +1205,8 @@ function updateCustomerChatCard(orderId, lastMsg, totalCount) {
   if (snippetEl) {
     if (lastMsg) {
       const prefix = isShop ? "Shop: " : "Bạn: ";
-      snippetEl.textContent = `${prefix}${lastMsg.message || ""}`;
+      const content = lastMsg.message ? lastMsg.message : (lastMsg.imageUrl ? "📷 [Hình ảnh]" : "");
+      snippetEl.textContent = `${prefix}${content}`;
     }
     snippetEl.classList.toggle("is-unread", Boolean(isShop));
   }
@@ -1235,18 +1245,96 @@ function formatChatTime(ts) {
   }
 }
 
+function compressChatImage(file, maxDimension = 1200, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith("image/")) {
+      return reject(new Error("Tệp được chọn không phải là hình ảnh hợp lệ."));
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        let dataUrl = canvas.toDataURL("image/webp", quality);
+        if (!dataUrl.startsWith("data:image/webp")) {
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
+        }
+        resolve(dataUrl);
+      };
+      img.onerror = () => reject(new Error("Không thể tải hình ảnh này."));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error("Lỗi khi đọc tệp ảnh."));
+    reader.readAsDataURL(file);
+  });
+}
+
+window.openChatImageModal = function(src) {
+  if (!src) return;
+  let modal = document.getElementById("chat-image-lightbox");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "chat-image-lightbox";
+    modal.className = "chat-image-lightbox";
+    modal.innerHTML = `
+      <div class="chat-lightbox-backdrop"></div>
+      <div class="chat-lightbox-content">
+        <img id="chat-lightbox-img" src="" alt="Ảnh phóng to" />
+        <button type="button" class="chat-lightbox-close" title="Đóng">✕</button>
+        <a id="chat-lightbox-open-tab" href="#" target="_blank" rel="noopener noreferrer" class="chat-lightbox-tab-btn" title="Mở trong tab mới">↗ Xem ảnh gốc trong tab mới</a>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelector(".chat-lightbox-backdrop")?.addEventListener("click", () => {
+      modal.classList.remove("is-open");
+    });
+    modal.querySelector(".chat-lightbox-close")?.addEventListener("click", () => {
+      modal.classList.remove("is-open");
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") modal.classList.remove("is-open");
+    });
+  }
+  const img = document.getElementById("chat-lightbox-img");
+  const tabLink = document.getElementById("chat-lightbox-open-tab");
+  if (img) img.src = src;
+  if (tabLink) tabLink.href = src;
+  modal.classList.add("is-open");
+};
+
 function renderCustomerChatBubble(m) {
   const isShop = m.senderRole === "admin" || m.senderRole === "partner";
   const roleBadge = isShop ? "👑 Shop (Quản trị viên)" : "👤 Bạn";
   const timeStr = formatChatTime(m.createdAt);
   const safeText = escapeHtml(String(m.message ?? "")).trim();
+  const hasImage = Boolean(m.imageUrl);
+  const imgHtml = hasImage
+    ? `<div class="chat-bubble-image-wrap"><img src="${escapeHtml(m.imageUrl)}" alt="Hình ảnh đính kèm" class="chat-bubble-img" loading="lazy" onclick="window.openChatImageModal ? window.openChatImageModal('${escapeHtml(m.imageUrl)}') : window.open('${escapeHtml(m.imageUrl)}', '_blank')" /></div>`
+    : "";
+  const textHtml = safeText ? `<div class="chat-bubble-text">${safeText}</div>` : (!hasImage ? `<div class="chat-bubble-text">(Nội dung trống)</div>` : "");
+
   return `
     <div class="customer-chat-bubble ${isShop ? "bubble-shop" : "bubble-user"}" data-msg-id="${escapeHtml(m.id || "")}">
       <div class="chat-bubble-header">
         <span class="chat-bubble-sender">${escapeHtml(roleBadge)}</span>
         <span class="chat-bubble-time">${escapeHtml(timeStr)}</span>
       </div>
-      <div class="chat-bubble-text">${safeText || "(Nội dung trống)"}</div>
+      ${imgHtml}
+      ${textHtml}
     </div>
   `;
 }
@@ -1322,7 +1410,77 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// Gửi tin nhắn phản hồi đơn hàng
+// Xử lý đính kèm ảnh và dán ảnh clipboard cho Customer Chat
+document.addEventListener("click", (e) => {
+  const attachBtn = e.target.closest(".chat-attach-btn");
+  if (attachBtn) {
+    const form = attachBtn.closest(".customer-chat-form") || attachBtn.closest("form");
+    const fileInput = form?.querySelector(".chat-file-input");
+    if (fileInput) fileInput.click();
+    return;
+  }
+  const removeBtn = e.target.closest(".chat-image-remove-btn");
+  if (removeBtn) {
+    const previewWrap = removeBtn.closest(".chat-image-preview-wrap");
+    const form = removeBtn.closest(".customer-chat-form") || removeBtn.closest("form");
+    if (previewWrap) {
+      previewWrap.style.display = "none";
+      delete previewWrap.dataset.imageUrl;
+    }
+    const fileInput = form?.querySelector(".chat-file-input");
+    if (fileInput) fileInput.value = "";
+    return;
+  }
+});
+
+document.addEventListener("change", async (e) => {
+  const fileInput = e.target.closest(".chat-file-input");
+  if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
+  const form = fileInput.closest(".customer-chat-form") || fileInput.closest("form");
+  const previewWrap = form?.querySelector(".chat-image-preview-wrap");
+  const previewThumb = previewWrap?.querySelector(".chat-image-preview-thumb");
+  try {
+    const dataUrl = await compressChatImage(fileInput.files[0]);
+    if (previewWrap && previewThumb) {
+      previewWrap.dataset.imageUrl = dataUrl;
+      previewThumb.src = dataUrl;
+      previewWrap.style.display = "flex";
+    }
+  } catch (err) {
+    alert(err.message || "Không thể tải ảnh này.");
+    fileInput.value = "";
+  }
+});
+
+document.addEventListener("paste", async (e) => {
+  const form = e.target.closest(".customer-chat-form");
+  if (!form) return;
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type && items[i].type.startsWith("image/")) {
+      const file = items[i].getAsFile();
+      if (file) {
+        e.preventDefault();
+        try {
+          const dataUrl = await compressChatImage(file);
+          const previewWrap = form.querySelector(".chat-image-preview-wrap");
+          const previewThumb = previewWrap?.querySelector(".chat-image-preview-thumb");
+          if (previewWrap && previewThumb) {
+            previewWrap.dataset.imageUrl = dataUrl;
+            previewThumb.src = dataUrl;
+            previewWrap.style.display = "flex";
+          }
+        } catch (err) {
+          alert(err.message || "Không thể xử lý ảnh từ clipboard.");
+        }
+        break;
+      }
+    }
+  }
+});
+
+// Gửi tin nhắn phản hồi đơn hàng (Hỗ trợ Text + Ảnh)
 document.addEventListener("submit", async (e) => {
   const form = e.target.closest(".customer-chat-form");
   if (!form) return;
@@ -1336,8 +1494,11 @@ document.addEventListener("submit", async (e) => {
   }
   const input = form.querySelector(".customer-chat-input");
   const sendBtn = form.querySelector(".customer-chat-send-btn");
+  const previewWrap = form.querySelector(".chat-image-preview-wrap");
+  const attachedImage = previewWrap?.dataset?.imageUrl || "";
   const text = (input?.value || "").trim();
-  if (!text) {
+
+  if (!text && !attachedImage) {
     delete form.dataset.submitting;
     return;
   }
@@ -1351,7 +1512,7 @@ document.addEventListener("submit", async (e) => {
     const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({ message: text, imageUrl: attachedImage }),
       credentials: "same-origin",
     });
     const data = await res.json();
@@ -1359,6 +1520,12 @@ document.addEventListener("submit", async (e) => {
       throw new Error(data.error || "Không thể gửi tin nhắn phản hồi.");
     }
     if (input) input.value = "";
+    if (previewWrap) {
+      previewWrap.style.display = "none";
+      delete previewWrap.dataset.imageUrl;
+      const fileInput = form.querySelector(".chat-file-input");
+      if (fileInput) fileInput.value = "";
+    }
     const feed = document.getElementById(`customer-chat-feed-${orderId}`);
     let totalBubbles = 1;
     if (feed && data.message) {

@@ -252,7 +252,8 @@ export async function startDiscordBot(db, config, options = {}) {
             }
           }
 
-          if (targetOrderId && replyContent) {
+          const attachmentUrl = data.attachments?.[0]?.url || "";
+          if (targetOrderId && (replyContent || attachmentUrl)) {
             const authorId = data.author?.id;
             const authorName = data.author?.global_name || data.author?.username || "Discord User";
 
@@ -262,6 +263,7 @@ export async function startDiscordBot(db, config, options = {}) {
               authorName,
               orderId: targetOrderId,
               replyText: replyContent,
+              imageUrl: attachmentUrl,
             });
 
             if (result.success) {

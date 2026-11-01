@@ -131,9 +131,12 @@ export async function openStore(filename, remote = {}) {
           sender_id TEXT NOT NULL,
           sender_name TEXT NOT NULL,
           message TEXT NOT NULL,
+          image_url TEXT NOT NULL DEFAULT '',
           created_at INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS order_messages_order ON order_messages(order_id, created_at);`);
+      } else if (!msgCols.some((c) => c.name === "image_url")) {
+        await tx.exec("ALTER TABLE order_messages ADD COLUMN image_url TEXT NOT NULL DEFAULT '';");
       }
     });
     return db;

@@ -436,7 +436,7 @@ async function attachOrderMessages(db, orderIds) {
     const placeholders = orderIds.map(() => "?").join(",");
     const rows = await db
       .prepare(
-        `SELECT id, order_id, sender_role, sender_id, sender_name, message, created_at FROM order_messages WHERE order_id IN (${placeholders}) ORDER BY created_at ASC, rowid ASC`,
+        `SELECT id, order_id, sender_role, sender_id, sender_name, message, image_url, created_at FROM order_messages WHERE order_id IN (${placeholders}) ORDER BY created_at ASC, rowid ASC`,
       )
       .all(...orderIds);
     for (const r of rows) {
@@ -450,6 +450,7 @@ async function attachOrderMessages(db, orderIds) {
         senderId: r.sender_id,
         senderName: r.sender_name,
         message: r.message,
+        imageUrl: r.image_url || "",
         createdAt: r.created_at,
       });
     }
@@ -461,7 +462,7 @@ async function attachOrderMessages(db, orderIds) {
 
 export async function addOrderMessage(
   db,
-  { orderId, senderRole, senderId, senderName, message, now = Date.now() },
+  { orderId, senderRole, senderId, senderName, message, imageUrl = "", now = Date.now() },
 ) {
   if (!orderId || typeof orderId !== "string") {
     throw Object.assign(new Error("Mã đơn hàng không hợp lệ."), { status: 400 });
@@ -474,11 +475,20 @@ export async function addOrderMessage(
   }
 
   const cleanMsg = typeof message === "string" ? message.trim() : "";
-  if (!cleanMsg) {
-    throw Object.assign(new Error("Nội dung phản hồi không được để trống."), { status: 400 });
+  const cleanImageUrl = typeof imageUrl === "string" ? imageUrl.trim() : "";
+  if (!cleanMsg && !cleanImageUrl) {
+    throw Object.assign(new Error("Nội dung phản hồi hoặc hình ảnh không được để trống."), { status: 400 });
   }
   if (cleanMsg.length > 2000) {
     throw Object.assign(new Error("Nội dung phản hồi quá dài (tối đa 2000 ký tự)."), { status: 400 });
+  }
+  if (cleanImageUrl) {
+    if (!/^(https?:\/\/|\/\/|data:image\/)/i.test(cleanImageUrl)) {
+      throw Object.assign(new Error("Định dạng hình ảnh không hợp lệ."), { status: 400 });
+    }
+    if (cleanImageUrl.length > 3500000) {
+      throw Object.assign(new Error("Dung lượng hình ảnh quá lớn (vui lòng chọn ảnh nhỏ hơn hoặc nén lại)."), { status: 400 });
+    }
   }
   if (!["admin", "partner", "customer"].includes(senderRole)) {
     throw Object.assign(new Error("Vai trò người gửi không hợp lệ."), { status: 400 });
@@ -492,9 +502,9 @@ export async function addOrderMessage(
   const id = "msg_" + randomUUID();
   await db
     .prepare(
-      "INSERT INTO order_messages (id, order_id, sender_role, sender_id, sender_name, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO order_messages (id, order_id, sender_role, sender_id, sender_name, message, image_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
-    .run(id, orderId, senderRole, cleanSenderId, cleanSenderName, cleanMsg, now);
+    .run(id, orderId, senderRole, cleanSenderId, cleanSenderName, cleanMsg, cleanImageUrl, now);
 
   return {
     id,
@@ -503,6 +513,7 @@ export async function addOrderMessage(
     senderId: cleanSenderId,
     senderName: cleanSenderName,
     message: cleanMsg,
+    imageUrl: cleanImageUrl,
     createdAt: now,
   };
 }
@@ -513,7 +524,7 @@ export async function getOrderMessages(db, orderId) {
   }
   const rows = await db
     .prepare(
-      "SELECT id, order_id, sender_role, sender_id, sender_name, message, created_at FROM order_messages WHERE order_id = ? ORDER BY created_at ASC, rowid ASC",
+      "SELECT id, order_id, sender_role, sender_id, sender_name, message, image_url, created_at FROM order_messages WHERE order_id = ? ORDER BY created_at ASC, rowid ASC",
     )
     .all(orderId);
   return rows.map((r) => ({
@@ -523,6 +534,7 @@ export async function getOrderMessages(db, orderId) {
     senderId: r.sender_id,
     senderName: r.sender_name,
     message: r.message,
+    imageUrl: r.image_url || "",
     createdAt: r.created_at,
   }));
 }

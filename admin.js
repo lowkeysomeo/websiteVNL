@@ -88,6 +88,77 @@
         })[c],
     );
 
+  function compressChatImage(file, maxDimension = 1200, quality = 0.82) {
+    return new Promise((resolve, reject) => {
+      if (!file || !file.type.startsWith("image/")) {
+        return reject(new Error("Tệp được chọn không phải là hình ảnh hợp lệ."));
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let { width, height } = img;
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          let dataUrl = canvas.toDataURL("image/webp", quality);
+          if (!dataUrl.startsWith("data:image/webp")) {
+            dataUrl = canvas.toDataURL("image/jpeg", quality);
+          }
+          resolve(dataUrl);
+        };
+        img.onerror = () => reject(new Error("Không thể tải hình ảnh này."));
+        img.src = e.target.result;
+      };
+      reader.onerror = () => reject(new Error("Lỗi khi đọc tệp ảnh."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  window.openChatImageModal = function(src) {
+    if (!src) return;
+    let modal = document.getElementById("chat-image-lightbox");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "chat-image-lightbox";
+      modal.className = "chat-image-lightbox";
+      modal.innerHTML = `
+        <div class="chat-lightbox-backdrop"></div>
+        <div class="chat-lightbox-content">
+          <img id="chat-lightbox-img" src="" alt="Ảnh phóng to" />
+          <button type="button" class="chat-lightbox-close" title="Đóng">✕</button>
+          <a id="chat-lightbox-open-tab" href="#" target="_blank" rel="noopener noreferrer" class="chat-lightbox-tab-btn" title="Mở trong tab mới">↗ Xem ảnh gốc trong tab mới</a>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.querySelector(".chat-lightbox-backdrop")?.addEventListener("click", () => {
+        modal.classList.remove("is-open");
+      });
+      modal.querySelector(".chat-lightbox-close")?.addEventListener("click", () => {
+        modal.classList.remove("is-open");
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") modal.classList.remove("is-open");
+      });
+    }
+    const img = document.getElementById("chat-lightbox-img");
+    const tabLink = document.getElementById("chat-lightbox-open-tab");
+    if (img) img.src = src;
+    if (tabLink) tabLink.href = src;
+    modal.classList.add("is-open");
+  };
+
   function renderAdminChatBubble(m) {
     const isShop = m.senderRole === "admin" || m.senderRole === "partner";
     const roleBadge = isShop
@@ -102,13 +173,20 @@
         })
       : "";
     const safeText = escapeHtml(String(m.message ?? "")).trim();
+    const hasImage = Boolean(m.imageUrl);
+    const imgHtml = hasImage
+      ? `<div class="chat-bubble-image-wrap"><img src="${escapeHtml(m.imageUrl)}" alt="Hình ảnh đính kèm" class="chat-bubble-img" loading="lazy" onclick="window.openChatImageModal ? window.openChatImageModal('${escapeHtml(m.imageUrl)}') : window.open('${escapeHtml(m.imageUrl)}', '_blank')" /></div>`
+      : "";
+    const textHtml = safeText ? `<div class="admin-bubble-text">${safeText}</div>` : (!hasImage ? `<div class="admin-bubble-text">(Nội dung trống)</div>` : "");
+
     return `
       <div class="admin-chat-bubble ${isShop ? "bubble-admin" : "bubble-customer"}" data-msg-id="${escapeHtml(m.id || "")}">
         <div class="admin-bubble-header">
           <span class="admin-bubble-sender">${roleBadge}</span>
           <span class="admin-bubble-time">${timeStr}</span>
         </div>
-        <div class="admin-bubble-text">${safeText || "(Nội dung trống)"}</div>
+        ${imgHtml}
+        ${textHtml}
       </div>
     `;
   }
@@ -590,7 +668,8 @@
         let lastMsgTime = "";
         if (lastMsg) {
           const prefix = isLastCustomer ? `${escapeHtml(order.customerName || "Khách")}: ` : "Shop: ";
-          snippetText = `${prefix}${escapeHtml(lastMsg.message || "")}`;
+          const content = lastMsg.message ? lastMsg.message : (lastMsg.imageUrl ? "📷 [Hình ảnh]" : "");
+          snippetText = `${prefix}${escapeHtml(content)}`;
           lastMsgTime = formatRelativeTime(lastMsg.createdAt);
         }
 
@@ -643,13 +722,19 @@
               <button type="button" class="admin-quick-chip" data-quick-admin="Bạn gửi giúp shop link server Discord cần Boost để shop vào thực hiện nhé!">🚀 Cần link server</button>
             </div>
             <form class="admin-chat-form" data-admin-chat-order="${escapeHtml(order.id)}">
+              <div class="chat-image-preview-wrap" style="display:none;">
+                <img class="chat-image-preview-thumb" src="" alt="Xem trước" />
+                <span class="chat-image-preview-name">Ảnh đính kèm</span>
+                <button type="button" class="chat-image-remove-btn" title="Xóa ảnh">✕</button>
+              </div>
               <div class="admin-chat-input-row">
+                <button type="button" class="chat-attach-btn" title="Đính kèm ảnh (hoặc dán Ctrl+V)" aria-label="Đính kèm ảnh">📷</button>
+                <input type="file" accept="image/*" class="chat-file-input" style="display:none;" />
                 <input
                   type="text"
                   class="admin-chat-input"
-                  placeholder="Nhập nội dung phản hồi cho khách..."
+                  placeholder="Nhập nội dung phản hồi cho khách (hoặc dán ảnh Ctrl+V)..."
                   maxlength="1000"
-                  required
                 />
                 <button type="submit" class="button primary btn-small admin-chat-send-btn">
                   Gửi khách ✉️
@@ -963,6 +1048,27 @@
 
   // Global click handler for order actions
   document.addEventListener("click", async (e) => {
+    // Xử lý đính kèm ảnh và xóa ảnh Admin Chat
+    const attachBtn = e.target.closest(".chat-attach-btn");
+    if (attachBtn) {
+      const form = attachBtn.closest(".admin-chat-form") || attachBtn.closest("form");
+      const fileInput = form?.querySelector(".chat-file-input");
+      if (fileInput) fileInput.click();
+      return;
+    }
+    const removeBtn = e.target.closest(".chat-image-remove-btn");
+    if (removeBtn) {
+      const previewWrap = removeBtn.closest(".chat-image-preview-wrap");
+      const form = removeBtn.closest(".admin-chat-form") || removeBtn.closest("form");
+      if (previewWrap) {
+        previewWrap.style.display = "none";
+        delete previewWrap.dataset.imageUrl;
+      }
+      const fileInput = form?.querySelector(".chat-file-input");
+      if (fileInput) fileInput.value = "";
+      return;
+    }
+
     // Quick reply chips click
     const quickChip = e.target.closest(".admin-quick-chip");
     if (quickChip) {
@@ -1934,8 +2040,10 @@
     }
     const input = form.querySelector(".admin-chat-input");
     const sendBtn = form.querySelector(".admin-chat-send-btn");
+    const previewWrap = form.querySelector(".chat-image-preview-wrap");
+    const attachedImage = previewWrap?.dataset?.imageUrl || "";
     const text = (input?.value || "").trim();
-    if (!text) {
+    if (!text && !attachedImage) {
       delete form.dataset.submitting;
       return;
     }
@@ -1948,9 +2056,15 @@
     try {
       const res = await api(`/api/admin/orders/${encodeURIComponent(orderId)}/messages`, {
         method: "POST",
-        body: { message: text },
+        body: { message: text, imageUrl: attachedImage },
       });
       if (input) input.value = "";
+      if (previewWrap) {
+        previewWrap.style.display = "none";
+        delete previewWrap.dataset.imageUrl;
+        const fileInput = form.querySelector(".chat-file-input");
+        if (fileInput) fileInput.value = "";
+      }
       const feed = document.getElementById(`admin-chat-feed-${orderId}`);
       if (feed && res.message) {
         const m = res.message;
@@ -1987,6 +2101,54 @@
       }
     }
   });
+
+  document.addEventListener("change", async (e) => {
+    const fileInput = e.target.closest(".chat-file-input");
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
+    const form = fileInput.closest(".admin-chat-form") || fileInput.closest("form");
+    const previewWrap = form?.querySelector(".chat-image-preview-wrap");
+    const previewThumb = previewWrap?.querySelector(".chat-image-preview-thumb");
+    try {
+      const dataUrl = await compressChatImage(fileInput.files[0]);
+      if (previewWrap && previewThumb) {
+        previewWrap.dataset.imageUrl = dataUrl;
+        previewThumb.src = dataUrl;
+        previewWrap.style.display = "flex";
+      }
+    } catch (err) {
+      alert(err.message || "Không thể tải ảnh này.");
+      fileInput.value = "";
+    }
+  });
+
+  document.addEventListener("paste", async (e) => {
+    const form = e.target.closest(".admin-chat-form");
+    if (!form) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.startsWith("image/")) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          try {
+            const dataUrl = await compressChatImage(file);
+            const previewWrap = form.querySelector(".chat-image-preview-wrap");
+            const previewThumb = previewWrap?.querySelector(".chat-image-preview-thumb");
+            if (previewWrap && previewThumb) {
+              previewWrap.dataset.imageUrl = dataUrl;
+              previewThumb.src = dataUrl;
+              previewWrap.style.display = "flex";
+            }
+          } catch (err) {
+            alert(err.message || "Không thể xử lý ảnh từ clipboard.");
+          }
+          break;
+        }
+      }
+    }
+  });
+
 
   // Real-time Chat Sync for Admin / Partner
   let isSyncingAdminChat = false;
