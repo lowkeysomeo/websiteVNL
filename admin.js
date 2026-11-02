@@ -159,6 +159,17 @@
     modal.classList.add("is-open");
   };
 
+  document.addEventListener("click", (e) => {
+    const img = e.target.closest(".chat-bubble-img");
+    if (img && img.dataset.imageUrl) {
+      if (typeof window.openChatImageModal === "function") {
+        window.openChatImageModal(img.dataset.imageUrl);
+      } else {
+        window.open(img.dataset.imageUrl, "_blank", "noopener,noreferrer");
+      }
+    }
+  });
+
   function renderAdminChatBubble(m) {
     const isShop = m.senderRole === "admin" || m.senderRole === "partner";
     const roleBadge = isShop
@@ -175,7 +186,7 @@
     const safeText = escapeHtml(String(m.message ?? "")).trim();
     const hasImage = Boolean(m.imageUrl);
     const imgHtml = hasImage
-      ? `<div class="chat-bubble-image-wrap"><img src="${escapeHtml(m.imageUrl)}" alt="Hình ảnh đính kèm" class="chat-bubble-img" loading="lazy" onclick="window.openChatImageModal ? window.openChatImageModal('${escapeHtml(m.imageUrl)}') : window.open('${escapeHtml(m.imageUrl)}', '_blank')" /></div>`
+      ? `<div class="chat-bubble-image-wrap"><img src="${escapeHtml(m.imageUrl)}" alt="Hình ảnh đính kèm" class="chat-bubble-img" loading="lazy" data-image-url="${escapeHtml(m.imageUrl)}" /></div>`
       : "";
     const textHtml = safeText ? `<div class="admin-bubble-text">${safeText}</div>` : (!hasImage ? `<div class="admin-bubble-text">(Nội dung trống)</div>` : "");
 

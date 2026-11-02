@@ -105,19 +105,37 @@ const types = {
   ".txt": "text/plain; charset=utf-8",
 };
 
-async function readBody(req, limit = 1048576) {
+async function readBody(req, limit = 1048576, timeoutMs = 15000) {
   let length = 0;
   const chunks = [];
-  for await (const chunk of req) {
-    length += chunk.length;
-    if (length > limit) throw fail(413, "Yêu cầu quá lớn.");
-    chunks.push(chunk);
+  let timer;
+  try {
+    const timeoutPromise = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        if (typeof req.destroy === "function") req.destroy();
+        reject(fail(408, "Quá thời gian gửi dữ liệu."));
+      }, timeoutMs);
+    });
+
+    const readPromise = (async () => {
+      for await (const chunk of req) {
+        length += chunk.length;
+        if (length > limit) throw fail(413, "Yêu cầu quá lớn.");
+        chunks.push(chunk);
+      }
+      return Buffer.concat(chunks);
+    })();
+
+    return await Promise.race([readPromise, timeoutPromise]);
+  } finally {
+    clearTimeout(timer);
   }
-  return Buffer.concat(chunks);
 }
 function parse(raw) {
   try {
-    const value = JSON.parse(raw.toString("utf8"));
+    const value = JSON.parse(raw.toString("utf8"), (key, val) =>
+      key === "__proto__" ? undefined : val,
+    );
     if (!value || typeof value !== "object" || Array.isArray(value))
       throw new Error();
     return value;
@@ -251,12 +269,15 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
       "Permissions-Policy",
       "camera=(), microphone=(), geolocation=()",
     );
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+    res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
     res.setHeader(
       "Content-Security-Policy",
       "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://img.vietqr.io https://i.ytimg.com https://*.youtube.com; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self' https: data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
     );
     if (config.production)
-      res.setHeader("Strict-Transport-Security", "max-age=31536000");
+      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
     const json = (status, data, extraHeaders = {}) => {
       res.writeHead(status, {
         "Content-Type": "application/json; charset=utf-8",
@@ -315,6 +336,8 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
             cleanRoute === "/api/payments/webhook" ||
             cleanRoute === "/api/webhook")
         ) {
+          if (!allow(`webhook:${ip}`, 60, 60000))
+            throw fail(429, "Quá nhiều yêu cầu webhook. Vui lòng thử lại sau.");
           const bankSettings = await getBankSettings(db, config);
           if (!bankSettings.enabled && config.paymentsMode !== "live")
             throw fail(503, "Nạp tiền chưa được kích hoạt.");
@@ -357,15 +380,16 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
         }
         // Discord Interactions Endpoint (Slash commands /rep, Buttons, Modals)
         if (req.method === "POST" && cleanRoute === "/api/discord/interactions") {
+          if (!allow(`discord-interactions:${ip}`, 120, 60000))
+            throw fail(429, "Quá nhiều yêu cầu tương tác Discord.");
           const raw = await readBody(req);
           const discordSettings = await getDiscordSettings(db, process.env);
           const publicKey = discordSettings.publicKey || config.discordPublicKey || process.env.DISCORD_PUBLIC_KEY || "";
 
-          if (publicKey) {
-            const isValid = verifyDiscordInteractionSignature(req.headers, raw, publicKey);
-            if (!isValid) {
-              return text(401, "Invalid request signature");
-            }
+          if (!publicKey || !verifyDiscordInteractionSignature(req.headers, raw, publicKey)) {
+            res.writeHead(401, { "Content-Type": "text/plain; charset=utf-8" });
+            res.end("Invalid request signature");
+            return;
           }
 
           const interaction = parse(raw);
@@ -496,6 +520,8 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
         }
         // Direct Discord Bot Reply Endpoint (called by Lowkey-bot-Discord or external bot clients)
         if (req.method === "POST" && cleanRoute === "/api/discord/reply") {
+          if (!allow(`discord-reply:${ip}`, 60, 60000))
+            throw fail(429, "Quá nhiều yêu cầu phản hồi từ Discord.");
           const body = parse(await readBody(req, 4 * 1048576));
           const discordSettings = await getDiscordSettings(db, process.env);
           const validBotToken =
@@ -509,7 +535,8 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : authHeader.trim();
           const providedToken = tokenHeader || bearerToken;
 
-          if (validBotToken && providedToken !== validBotToken) {
+          const isTokenValid = Boolean(validBotToken && providedToken && equal(providedToken, validBotToken));
+          if (!isTokenValid) {
             let isAdmin = false;
             try {
               const caller = await requireAdminOrPartner(req);
@@ -628,6 +655,8 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           return json(200, { ok: true });
         }
         if (req.method === "GET" && route === "/api/auth/discord") {
+          if (!allow(`discord-oauth:${ip}`, 20, 60000))
+            throw fail(429, "Quá nhiều yêu cầu đăng nhập Discord. Vui lòng chờ 1 phút.");
           const action = url.searchParams.get("action") || "login";
           const discordSettings = await getDiscordSettings(db, process.env);
           const clientId = discordSettings.clientId;
@@ -875,6 +904,8 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
         }
         if (req.method === "POST" && route === "/api/quote") {
           sameOrigin(req);
+          if (!allow(`quote:${ip}`, 60, 60000))
+            throw fail(429, "Quá nhiều yêu cầu tính giá. Vui lòng thử lại sau.");
           const body = parse(await readBody(req));
           const current = await session(req);
           return json(200, { quote: await quoteOrder(db, body.items, body.couponCode, current?.user_id) });
@@ -1244,6 +1275,8 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
         if (req.method === "POST" && route === "/api/admin/auth") {
           if (!config.adminPassword)
             throw fail(503, "Quản trị chưa được cấu hình.");
+          if (!allow("admin-auth-global", 60, 60000))
+            throw fail(429, "Quá nhiều lượt thử đăng nhập quản trị viên. Vui lòng chờ 1 phút.");
           if (!allow(`admin-auth:${ip}`, 10, 15 * 60000))
             throw fail(
               429,
@@ -1777,7 +1810,9 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
       if (relative === "admin") relative = "admin.html";
       // Never expose backend code, environment files, databases or arbitrary project files.
       if (
-        ![
+        relative.includes("..") ||
+        relative.includes("\0") ||
+        (![
           "index.html",
           "sitemap.xml",
           "robots.txt",
@@ -1801,10 +1836,14 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
         ].includes(relative) &&
         !/^assets\/(vendor\/|fonts\/)?[a-zA-Z0-9_.-]+\.(svg|png|js|json)$/.test(
           relative,
-        )
+        ))
       )
         throw fail(404, "Không tìm thấy trang.");
-      const bytes = await readFile(path.join(root, relative));
+      const resolvedPath = path.resolve(root, relative);
+      if (!resolvedPath.startsWith(path.resolve(root) + path.sep)) {
+        throw fail(404, "Không tìm thấy trang.");
+      }
+      const bytes = await readFile(resolvedPath);
       res.writeHead(200, {
         "Content-Type": types[path.extname(relative)],
         "Cache-Control": "no-cache",

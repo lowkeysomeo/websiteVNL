@@ -119,15 +119,22 @@ export function verifyWebhook(
 
 export function createLimiter() {
   const attempts = new Map();
+  let lastCleanup = Date.now();
   return function allowed(key, limit, windowMs) {
     const now = Date.now();
-    for (const [entry, value] of attempts)
-      if (value.until < now) attempts.delete(entry);
+    // Periodic sweep to prevent unbounded memory growth under attack
+    if (now - lastCleanup > 30000 || attempts.size > 8000) {
+      lastCleanup = now;
+      for (const [entry, value] of attempts) {
+        if (value.until < now) attempts.delete(entry);
+      }
+    }
     let value = attempts.get(key);
-    if (!value) {
+    if (!value || value.until < now) {
       if (attempts.size >= 10000) return false;
-      value = { count: 0, until: now + windowMs };
+      value = { count: 1, until: now + windowMs };
       attempts.set(key, value);
+      return true;
     }
     value.count += 1;
     return value.count <= limit;
