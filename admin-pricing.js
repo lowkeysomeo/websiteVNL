@@ -281,7 +281,11 @@ window.initAdminPricing = (() => {
           if (container) {
             const bank = bankSettings.bank || {};
             const filtered = depositsList.filter(d => {
-              if (depositFilter !== "all" && d.status !== depositFilter) return false;
+              if (depositFilter === "uncredited") {
+                if (d.status === "credited") return false;
+              } else if (depositFilter !== "all" && d.status !== depositFilter) {
+                return false;
+              }
               if (depositSearch) {
                 const matchCode = d.code.toLowerCase().includes(depositSearch);
                 const matchEmail = (d.userEmail || "").toLowerCase().includes(depositSearch);
@@ -294,10 +298,11 @@ window.initAdminPricing = (() => {
             if (tabs) {
               tabs.innerHTML = `
                 <button class="admin-tab ${depositFilter === 'all' ? 'active' : ''}" data-deposit-filter="all">Tất cả (${depositsList.length})</button>
+                <button class="admin-tab ${depositFilter === 'uncredited' ? 'active' : ''}" data-deposit-filter="uncredited" style="${depositFilter === 'uncredited' ? 'background:rgba(245,158,11,0.25); border-color:#f59e0b; color:#fbbf24;' : 'color:#fbbf24;'}">⚡ Chưa nhận được tiền (${depositsList.filter(d => d.status !== 'credited').length})</button>
                 <button class="admin-tab ${depositFilter === 'pending' ? 'active' : ''}" data-deposit-filter="pending">Chờ chuyển (${depositsList.filter(d => d.status === 'pending').length})</button>
-                <button class="admin-tab ${depositFilter === 'credited' ? 'active' : ''}" data-deposit-filter="credited">Đã cộng tiền (${depositsList.filter(d => d.status === 'credited').length})</button>
+                <button class="admin-tab ${depositFilter === 'expired' ? 'active' : ''}" data-deposit-filter="expired">Hết hạn / Chậm (${depositsList.filter(d => d.status === 'expired').length})</button>
                 <button class="admin-tab ${depositFilter === 'review' ? 'active' : ''}" data-deposit-filter="review">Cần đối soát (${depositsList.filter(d => d.status === 'review').length})</button>
-                <button class="admin-tab ${depositFilter === 'expired' ? 'active' : ''}" data-deposit-filter="expired">Hết hạn / Hủy (${depositsList.filter(d => d.status === 'expired').length})</button>
+                <button class="admin-tab ${depositFilter === 'credited' ? 'active' : ''}" data-deposit-filter="credited">Đã cộng tiền (${depositsList.filter(d => d.status === 'credited').length})</button>
               `;
             }
           }
@@ -1143,7 +1148,11 @@ window.initAdminPricing = (() => {
     }
     if (currentView === "deposits") {
       const filtered = depositsList.filter(d => {
-        if (depositFilter !== "all" && d.status !== depositFilter) return false;
+        if (depositFilter === "uncredited") {
+          if (d.status === "credited") return false;
+        } else if (depositFilter !== "all" && d.status !== depositFilter) {
+          return false;
+        }
         if (depositSearch) {
           const matchCode = d.code.toLowerCase().includes(depositSearch);
           const matchEmail = (d.userEmail || "").toLowerCase().includes(depositSearch);
@@ -1167,6 +1176,7 @@ window.initAdminPricing = (() => {
             <p>Cài đặt tài khoản ngân hàng nhận tiền, cấp mã VietQR tự động và kết nối Webhook SePay để tự động cộng tiền ngay khi nhận được thanh toán.</p>
           </div>
           <div class="pricing-actions">
+            <button type="button" class="button primary" data-open-manual-credit>+ Nạp tiền trực tiếp vào ví</button>
             <button type="button" class="button secondary" data-deposits-reload>Làm mới ↻</button>
           </div>
         </header>
@@ -1338,13 +1348,15 @@ window.initAdminPricing = (() => {
           <div class="admin-controls deposit-controls">
             <div class="admin-tabs deposit-filter-tabs" role="tablist">
               <button class="admin-tab ${depositFilter === 'all' ? 'active' : ''}" data-deposit-filter="all">Tất cả (${depositsList.length})</button>
+              <button class="admin-tab ${depositFilter === 'uncredited' ? 'active' : ''}" data-deposit-filter="uncredited" style="${depositFilter === 'uncredited' ? 'background:rgba(245,158,11,0.25); border-color:#f59e0b; color:#fbbf24;' : 'color:#fbbf24;'}">⚡ Chưa nhận được tiền (${depositsList.filter(d => d.status !== 'credited').length})</button>
               <button class="admin-tab ${depositFilter === 'pending' ? 'active' : ''}" data-deposit-filter="pending">Chờ chuyển (${depositsList.filter(d => d.status === 'pending').length})</button>
-              <button class="admin-tab ${depositFilter === 'credited' ? 'active' : ''}" data-deposit-filter="credited">Đã cộng tiền (${depositsList.filter(d => d.status === 'credited').length})</button>
+              <button class="admin-tab ${depositFilter === 'expired' ? 'active' : ''}" data-deposit-filter="expired">Hết hạn / Chậm (${depositsList.filter(d => d.status === 'expired').length})</button>
               <button class="admin-tab ${depositFilter === 'review' ? 'active' : ''}" data-deposit-filter="review">Cần đối soát (${depositsList.filter(d => d.status === 'review').length})</button>
-              <button class="admin-tab ${depositFilter === 'expired' ? 'active' : ''}" data-deposit-filter="expired">Hết hạn / Hủy (${depositsList.filter(d => d.status === 'expired').length})</button>
+              <button class="admin-tab ${depositFilter === 'credited' ? 'active' : ''}" data-deposit-filter="credited">Đã cộng tiền (${depositsList.filter(d => d.status === 'credited').length})</button>
             </div>
-            <div class="admin-search-group">
-              <input type="search" id="deposit-search-input" placeholder="Tìm theo mã nạp (VNL...), email khách..." value="${esc(depositSearch)}" />
+            <div class="admin-search-group" style="display:flex; gap:8px; align-items:center;">
+              <input type="search" id="deposit-search-input" placeholder="Tìm theo mã nạp (VNL...), email khách..." value="${esc(depositSearch)}" style="flex:1;" />
+              <button type="button" class="button primary btn-small" data-open-manual-credit title="Cộng tiền ngay cho khách hàng">+ Nạp tiền cho khách</button>
             </div>
           </div>
 
@@ -1991,7 +2003,7 @@ window.initAdminPricing = (() => {
               </div>
               <div class="deposit-item-actions">
                 ${(d.status === "pending" || d.status === "review") ? `
-                  <button type="button" class="button primary btn-small btn-credit" data-deposit-credit="${esc(d.id)}" data-deposit-code="${esc(d.code)}" data-deposit-amount="${d.amount}">
+                  <button type="button" class="button primary btn-small btn-credit" data-deposit-credit="${esc(d.id)}" data-deposit-code="${esc(d.code)}" data-deposit-amount="${d.amount}" data-deposit-user="${esc(d.userEmail)}">
                     ✓ Duyệt cộng tiền
                   </button>
                   <button type="button" class="button secondary btn-small btn-simulate" data-deposit-simulate="${esc(d.code)}" title="Giả lập ngân hàng chuyển tiền đúng mã này để kiểm tra tự động cộng tiền">
@@ -1999,6 +2011,17 @@ window.initAdminPricing = (() => {
                   </button>
                   <button type="button" class="button secondary btn-small btn-danger" data-deposit-cancel="${esc(d.id)}">
                     ✕ Hủy
+                  </button>
+                ` : ""}
+                ${d.status === "expired" ? `
+                  <button type="button" class="button primary btn-small btn-credit" data-deposit-credit="${esc(d.id)}" data-deposit-code="${esc(d.code)}" data-deposit-amount="${d.amount}" data-deposit-user="${esc(d.userEmail)}" style="background:#10b981; border-color:#059669; font-weight:600;" title="Khách đã nạp tiền nhưng đơn bị hết hạn 10p, bấm vào đây để cộng bù tiền vào ví cho khách">
+                    + Duyệt nạp tiền (Cộng bù ví)
+                  </button>
+                  <button type="button" class="button secondary btn-small btn-simulate" data-deposit-simulate="${esc(d.code)}" title="Giả lập ngân hàng chuyển tiền đúng mã này để kiểm tra tự động cộng tiền">
+                    Test Tự động cộng
+                  </button>
+                  <button type="button" class="button secondary btn-small" data-deposit-direct-fill="${esc(d.code)}" data-deposit-user="${esc(d.userEmail)}" data-deposit-amount="${d.amount}" title="Mở hộp thoại nạp tiền tùy chỉnh cho khách này">
+                    Nạp tùy chỉnh ✎
                   </button>
                 ` : ""}
                 ${d.status === "credited" ? `
@@ -2053,6 +2076,51 @@ window.initAdminPricing = (() => {
         </div>
       </div>
     `;
+  }
+
+  function openDirectCreditModal(prefillEmail = "", prefillCode = "", prefillAmount = "") {
+    const editor = $("#catalog-editor");
+    if (!editor) return;
+    editor.innerHTML = `
+      <div class="admin-modal-overlay">
+        <div class="admin-modal-box" style="max-width: 480px;">
+          <div class="admin-modal-header">
+            <h3>⚡ Nạp tiền trực tiếp vào ví khách hàng</h3>
+            <button type="button" class="button secondary btn-small" data-modal-close>Đóng ✕</button>
+          </div>
+          <form id="direct-credit-form" class="admin-modal-body" style="display:flex; flex-direction:column; gap:12px;">
+            <p style="font-size:13px; color:var(--text-muted); margin:0;">
+              Sử dụng khi khách hàng <strong>đã chuyển khoản ngân hàng</strong> nhưng chưa nhận được tiền trên web (đơn hết hạn, chuyển chậm hoặc chưa tạo đơn).
+            </p>
+            <label style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
+              <span>Email tài khoản hoặc Mã nạp VNL: <strong style="color:#ef4444;">*</strong></span>
+              <input type="text" id="direct-credit-target" required placeholder="VD: khachhang@gmail.com hoặc VNL1234..." value="${esc(prefillEmail || prefillCode)}" style="padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text);" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
+              <span>Số tiền cần cộng (VNĐ): <strong style="color:#ef4444;">*</strong></span>
+              <input type="number" id="direct-credit-amount" required min="1000" step="1000" placeholder="VD: 50000" value="${esc(prefillAmount || "")}" style="padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-weight:600; font-size:15px;" />
+            </label>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button type="button" class="button secondary btn-small quick-amount-btn" data-amt="20000">20.000₫</button>
+              <button type="button" class="button secondary btn-small quick-amount-btn" data-amt="50000">50.000₫</button>
+              <button type="button" class="button secondary btn-small quick-amount-btn" data-amt="100000">100.000₫</button>
+              <button type="button" class="button secondary btn-small quick-amount-btn" data-amt="200000">200.000₫</button>
+              <button type="button" class="button secondary btn-small quick-amount-btn" data-amt="500000">500.000₫</button>
+            </div>
+            <label style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
+              <span>Ghi chú / Lý do nạp bù:</span>
+              <input type="text" id="direct-credit-note" placeholder="VD: Khách chuyển khoản Vietcombank" style="padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text);" />
+            </label>
+            <p class="pricing-form-message" role="status" style="margin:0;"></p>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+              <button type="button" class="button secondary" data-modal-close>Hủy</button>
+              <button type="submit" class="button primary" id="btn-submit-direct-credit">✓ Xác nhận cộng tiền</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    $("#direct-credit-target")?.focus();
   }
 
   function renderAdminGuideCardsHtml(list) {
@@ -2285,6 +2353,7 @@ window.initAdminPricing = (() => {
       "partner-create-form",
       "contact-edit-form",
       "inventory-edit-form",
+      "direct-credit-form",
     ].includes(form.id)) return;
     event.preventDefault();
     const button = form.querySelector('[type="submit"]'), message = form.querySelector(".pricing-form-message");
@@ -2601,7 +2670,7 @@ window.initAdminPricing = (() => {
         });
         notify("Đã cập nhật gói sản phẩm.");
         $("#catalog-editor").replaceChildren();
-      } else {
+      } else if (form.id === "promotion-form") {
         const data = new FormData(form);
         const optional = name => data.get(name) ? Number(data.get(name)) : null;
         const productIds = data.getAll("productIds");
@@ -2614,6 +2683,23 @@ window.initAdminPricing = (() => {
           minOrder: Number(data.get("minOrder") || 0), maxDiscount: optional("maxDiscount"), usageLimit: optional("usageLimit"), perUserLimit: optional("perUserLimit") };
         await api("/api/admin/promotions" + (form.dataset.id ? "/" + form.dataset.id : ""), { method: form.dataset.id ? "PUT" : "POST", body: JSON.stringify(body) });
         notify(currentUser?.role === "partner" ? "Đã lưu ưu đãi của bạn thành công." : "Đã lưu ưu đãi.");
+      } else if (form.id === "direct-credit-form") {
+        const targetVal = String($("#direct-credit-target")?.value || "").trim();
+        const amountVal = Number($("#direct-credit-amount")?.value || 0);
+        const noteVal = String($("#direct-credit-note")?.value || "").trim();
+        if (!targetVal) throw new Error("Vui lòng nhập Email hoặc Mã nạp VNL của khách hàng.");
+        if (!Number.isSafeInteger(amountVal) || amountVal <= 0) throw new Error("Số tiền nạp phải lớn hơn 0 đồng.");
+        const isCode = targetVal.toUpperCase().startsWith("VNL");
+        const payload = isCode
+          ? { code: targetVal, amount: amountVal, note: noteVal }
+          : { email: targetVal, amount: amountVal, note: noteVal };
+        const res = await api("/api/admin/deposits/direct-credit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        notify(`Đã nạp thành công ${moneyText(amountVal)} vào ví của ${res.userEmail || targetVal}! Số dư mới: ${moneyText(res.newBalance || 0)}.`);
+        $("#catalog-editor").replaceChildren();
       }
       await load();
     } catch (error) {
@@ -3174,16 +3260,44 @@ window.initAdminPricing = (() => {
           const dId = button.dataset.depositCredit;
           const dCode = button.dataset.depositCode;
           const dAmount = Number(button.dataset.depositAmount);
-          if (!confirm(`Xác nhận đã nhận đủ ${moneyText(dAmount)} cho mã ${dCode}?\nTiền sẽ được cộng ngay lập tức vào ví của khách hàng.`)) return;
+          const dUser = button.dataset.depositUser || "khách hàng";
+          const inputAmt = prompt(`XÁC NHẬN CỘNG TIỀN VÍ:\n• Mã nạp: ${dCode}\n• Khách hàng: ${dUser}\n\nNhập số tiền thực tế khách đã chuyển khoản (mặc định: ${dAmount.toLocaleString("vi-VN")}₫):`, dAmount);
+          if (inputAmt === null) return;
+          const finalAmount = Number(String(inputAmt).replace(/[.,\sđ]/g, ""));
+          if (!Number.isSafeInteger(finalAmount) || finalAmount <= 0) {
+            notify("Số tiền không hợp lệ. Vui lòng nhập số nguyên dương.");
+            return;
+          }
           button.disabled = true;
           try {
-            await api(`/api/admin/deposits/${dId}/credit`, { method: "POST" });
-            notify(`Đã duyệt và cộng ${moneyText(dAmount)} vào ví thành công!`);
+            const res = await api(`/api/admin/deposits/${dId}/credit`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ amount: finalAmount })
+            });
+            notify(`Đã duyệt và cộng ${moneyText(finalAmount)} vào ví của ${dUser} thành công! Số dư mới: ${moneyText(res.newBalance || 0)}.`);
             await load();
           } catch (err) {
             notify(err.message);
           } finally {
             button.disabled = false;
+          }
+        }
+        if (button.hasAttribute("data-open-manual-credit")) {
+          openDirectCreditModal();
+        }
+        if (button.dataset.depositDirectFill) {
+          openDirectCreditModal(
+            button.dataset.depositUser || "",
+            button.dataset.depositDirectFill || "",
+            button.dataset.depositAmount || ""
+          );
+        }
+        if (button.classList.contains("quick-amount-btn") && button.dataset.amt) {
+          const amtInput = document.querySelector("#direct-credit-amount");
+          if (amtInput) {
+            amtInput.value = button.dataset.amt;
+            amtInput.focus();
           }
         }
         if (button.dataset.depositRevoke) {

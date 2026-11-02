@@ -864,3 +864,91 @@ test("Mã QR nạp tiền có thời hạn đúng 10 phút, quá 10 phút tự �
     await close();
   }
 });
+
+test("Admin có thể duyệt cộng tiền cho đơn nạp đã hết hạn và nạp tiền trực tiếp vào ví", async () => {
+  const { db, base, close } = await createServerFixture();
+  try {
+    await saveBankSettings(db, {
+      bankCode: "MB",
+      bankGateway: "MBBank",
+      accountNumber: "0123456789",
+      accountName: "SHOP VNL",
+      isActive: true,
+      autoCredit: true,
+      webhookSecret: "secret-test-direct-credit-12345",
+    });
+
+    // Tạo user
+    const regRes = await fetch(base + "/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: origin },
+      body: JSON.stringify({ email: "late-customer@test.com", password: "Password123!" }),
+    });
+    assert.equal(regRes.status, 201);
+    const reg = await regRes.json();
+    const userCookie = regRes.headers.get("set-cookie").split(";")[0];
+
+    // Tạo đơn nạp 50k
+    const depRes = await fetch(base + "/api/deposits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: origin, "X-CSRF-Token": reg.csrfToken, Cookie: userCookie },
+      body: JSON.stringify({ amount: 50000 }),
+    });
+    const depJson = await depRes.json();
+    const dep = depJson.deposit;
+
+    // Giả lập đơn bị hết hạn (expired)
+    await db.prepare("UPDATE deposits SET status = 'expired', expires_at = ? WHERE id = ?").run(Date.now() - 1000, dep.id);
+
+    // 1. Admin duyệt nạp đơn đã hết hạn với số tiền tùy chỉnh (khách chuyển dư 60k)
+    const creditRes = await fetch(base + `/api/admin/deposits/${dep.id}/credit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: origin, "X-Admin-Key": adminPassword },
+      body: JSON.stringify({ amount: 60000 }),
+    });
+    assert.equal(creditRes.status, 200);
+    const creditJson = await creditRes.json();
+    assert.equal(creditJson.success, true);
+    assert.equal(creditJson.amount, 60000);
+    assert.equal(creditJson.newBalance, 60000);
+
+    // Kiểm tra ví khách hàng đã nhận đủ 60k
+    const walletRes1 = await (await fetch(base + "/api/wallet", { headers: { Cookie: userCookie } })).json();
+    assert.equal(walletRes1.balance, 60000);
+    assert.equal(walletRes1.deposits[0].status, "credited");
+    assert.equal(walletRes1.deposits[0].amount, 60000);
+
+    // 2. Admin nạp tiền trực tiếp vào ví qua Email (bù thêm 40k)
+    const directEmailRes = await fetch(base + "/api/admin/deposits/direct-credit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: origin, "X-Admin-Key": adminPassword },
+      body: JSON.stringify({ email: "late-customer@test.com", amount: 40000, note: "Nạp bù Vietcombank" }),
+    });
+    assert.equal(directEmailRes.status, 200);
+    const directEmailJson = await directEmailRes.json();
+    assert.equal(directEmailJson.success, true);
+    assert.equal(directEmailJson.amount, 40000);
+    assert.equal(directEmailJson.newBalance, 100000);
+
+    // Kiểm tra số dư ví mới của khách là 100k
+    const walletRes2 = await (await fetch(base + "/api/wallet", { headers: { Cookie: userCookie } })).json();
+    assert.equal(walletRes2.balance, 100000);
+
+    // 3. Admin nạp tiền trực tiếp qua Mã VNL
+    const directCodeRes = await fetch(base + "/api/admin/deposits/direct-credit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: origin, "X-Admin-Key": adminPassword },
+      body: JSON.stringify({ code: dep.code, amount: 20000 }),
+    });
+    assert.equal(directCodeRes.status, 200);
+    const directCodeJson = await directCodeRes.json();
+    assert.equal(directCodeJson.success, true);
+    assert.equal(directCodeJson.newBalance, 120000);
+
+    // Kiểm tra số dư ví cuối cùng là 120k
+    const walletRes3 = await (await fetch(base + "/api/wallet", { headers: { Cookie: userCookie } })).json();
+    assert.equal(walletRes3.balance, 120000);
+  } finally {
+    await close();
+  }
+});

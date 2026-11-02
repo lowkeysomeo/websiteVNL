@@ -18,6 +18,7 @@ import {
   saveBankSettings,
   getAdminDeposits,
   manualCreditDeposit,
+  creditUserWallet,
   revokeCreditDeposit,
   cancelDeposit,
   getShoppingGuide,
@@ -1685,7 +1686,21 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
         if (req.method === "POST" && adminDepositCreditMatch) {
           await requireAdmin(req);
           sameOrigin(req);
-          const result = await manualCreditDeposit(db, adminDepositCreditMatch[1]);
+          let customAmount = null;
+          try {
+            if (req.headers["content-type"]?.includes("application/json")) {
+              const body = parse(await readBody(req));
+              if (body?.amount) customAmount = Number(body.amount);
+            }
+          } catch {}
+          const result = await manualCreditDeposit(db, adminDepositCreditMatch[1], { customAmount });
+          return json(200, result);
+        }
+        if (req.method === "POST" && route === "/api/admin/deposits/direct-credit") {
+          await requireAdmin(req);
+          sameOrigin(req);
+          const body = parse(await readBody(req));
+          const result = await creditUserWallet(db, body);
           return json(200, result);
         }
         const adminDepositRevokeMatch = route.match(

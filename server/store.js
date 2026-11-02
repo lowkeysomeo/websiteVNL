@@ -1025,7 +1025,11 @@ export async function getAdminDeposits(
   }));
 }
 
-export async function manualCreditDeposit(db, depositId, now = Date.now()) {
+export async function manualCreditDeposit(db, depositId, optionsOrNow = {}) {
+  const opts = typeof optionsOrNow === "number" ? { now: optionsOrNow } : (optionsOrNow || {});
+  const now = opts.now || Date.now();
+  const customAmount = opts.customAmount;
+
   return db.transaction(async (tx) => {
     const deposit = await tx
       .prepare("SELECT * FROM deposits WHERE id = ?")
@@ -1041,6 +1045,11 @@ export async function manualCreditDeposit(db, depositId, now = Date.now()) {
       throw err;
     }
 
+    const finalAmount =
+      Number.isSafeInteger(customAmount) && customAmount > 0
+        ? customAmount
+        : deposit.amount;
+
     const transactionId = `MANUAL-${now}-${randomBytes(4).toString("hex")}`;
     const reference = `MANUAL-${deposit.code}`;
 
@@ -1048,7 +1057,7 @@ export async function manualCreditDeposit(db, depositId, now = Date.now()) {
       .prepare(
         "INSERT INTO bank_events (transaction_id, reference, deposit_id, amount, outcome, received_at) VALUES (?, ?, ?, ?, ?, ?)",
       )
-      .run(transactionId, reference, deposit.id, deposit.amount, "credited", now);
+      .run(transactionId, reference, deposit.id, finalAmount, "credited", now);
 
     await tx
       .prepare(
@@ -1059,22 +1068,117 @@ export async function manualCreditDeposit(db, depositId, now = Date.now()) {
         deposit.user_id,
         deposit.id,
         transactionId,
-        deposit.amount,
+        finalAmount,
         now,
       );
 
     await tx
       .prepare(
-        "UPDATE deposits SET status = 'credited', credited_at = ? WHERE id = ?",
+        "UPDATE deposits SET status = 'credited', amount = ?, credited_at = ? WHERE id = ?",
       )
-      .run(now, deposit.id);
+      .run(finalAmount, now, deposit.id);
+
+    const newBalance = await balance(tx, deposit.user_id);
 
     return {
       success: true,
       depositId: deposit.id,
       code: deposit.code,
-      amount: deposit.amount,
+      amount: finalAmount,
       status: "credited",
+      creditedAt: now,
+      newBalance,
+    };
+  });
+}
+
+export async function creditUserWallet(db, { email, code, amount, note = "", now = Date.now() } = {}) {
+  const cleanCode = String(code || "").trim().toUpperCase();
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  const parsedAmount = Number(amount);
+
+  if (!Number.isSafeInteger(parsedAmount) || parsedAmount <= 0) {
+    const err = new Error("Số tiền cộng vào ví phải lớn hơn 0 đồng.");
+    err.status = 400;
+    throw err;
+  }
+
+  return db.transaction(async (tx) => {
+    let deposit = null;
+    if (cleanCode) {
+      deposit = await tx
+        .prepare("SELECT * FROM deposits WHERE UPPER(code) = ?")
+        .get(cleanCode);
+    }
+
+    let user = null;
+    if (deposit) {
+      user = await tx.prepare("SELECT * FROM users WHERE id = ?").get(deposit.user_id);
+    } else if (cleanEmail) {
+      user = await tx.prepare("SELECT * FROM users WHERE LOWER(email) = ?").get(cleanEmail);
+    }
+
+    if (!user) {
+      const err = new Error(
+        cleanCode
+          ? `Không tìm thấy yêu cầu nạp hoặc tài khoản với mã "${cleanCode}".`
+          : `Không tìm thấy tài khoản người dùng với email "${cleanEmail}".`
+      );
+      err.status = 404;
+      throw err;
+    }
+
+    if (!deposit || deposit.status === "credited") {
+      const newDepositId = randomUUID();
+      const newCode = `VNL${randomBytes(6).toString("hex").toUpperCase()}`;
+      await tx
+        .prepare(
+          "INSERT INTO deposits (id, user_id, code, amount, status, created_at, expires_at, credited_at) VALUES (?, ?, ?, ?, 'credited', ?, ?, ?)",
+        )
+        .run(newDepositId, user.id, newCode, parsedAmount, now, now + 600000, now);
+      deposit = { id: newDepositId, code: newCode, user_id: user.id, amount: parsedAmount, status: "credited" };
+    } else {
+      await tx
+        .prepare(
+          "UPDATE deposits SET status = 'credited', amount = ?, credited_at = ? WHERE id = ?",
+        )
+        .run(parsedAmount, now, deposit.id);
+      deposit.status = "credited";
+      deposit.amount = parsedAmount;
+    }
+
+    const transactionId = `MANUAL-${now}-${randomBytes(4).toString("hex")}`;
+    const reference = `MANUAL-${deposit.code}`;
+
+    await tx
+      .prepare(
+        "INSERT INTO bank_events (transaction_id, reference, deposit_id, amount, outcome, received_at) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      .run(transactionId, reference, deposit.id, parsedAmount, "credited", now);
+
+    await tx
+      .prepare(
+        "INSERT INTO wallet_ledger (id, user_id, deposit_id, transaction_id, amount, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        randomUUID(),
+        user.id,
+        deposit.id,
+        transactionId,
+        parsedAmount,
+        now,
+      );
+
+    const newBalance = await balance(tx, user.id);
+
+    return {
+      success: true,
+      userId: user.id,
+      userEmail: user.email,
+      depositId: deposit ? deposit.id : null,
+      code: deposit ? deposit.code : null,
+      amount: parsedAmount,
+      newBalance,
       creditedAt: now,
     };
   });
