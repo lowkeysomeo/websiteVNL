@@ -5,7 +5,7 @@ window.initAdminPricing = (() => {
     
     { id: "entertainment", name: "Giải trí", icon: "entertainment" },
     { id: "creative", name: "Sáng tạo", icon: "lightbulb" },
-  ], partnersList = [], contactsSettings = { enabled: true, items: [] }, currentUser = { role: "admin", email: "", name: "" }, adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false, editingCategoryId = null, returnToProductId = null;
+  ], partnersList = [], customersList = [], customerSearch = "", customerFilter = "all", contactsSettings = { enabled: true, items: [] }, currentUser = { role: "admin", email: "", name: "" }, adminCategoryFilter = "all", currentView = "orders", initialized = false, loaded = false, editingCategoryId = null, returnToProductId = null;
   const guideCategoryLabels = { guide: "Hướng dẫn", tips: "Mẹo & Thủ thuật", news: "Tin tức", other: "Khác" };
   const $ = (selector) => document.querySelector(selector);
   const formatCurrencyNumber = n => new Intl.NumberFormat("vi-VN").format(Number(n) || 0);
@@ -185,13 +185,14 @@ window.initAdminPricing = (() => {
   async function load() {
     const panel = $("#admin-pricing-view");
     try {
-      const [pricingData, bankData, depositsData, guideRes, partnersRes, contactsRes] = await Promise.all([
+      const [pricingData, bankData, depositsData, guideRes, partnersRes, contactsRes, customersRes] = await Promise.all([
         api("/api/admin/pricing"),
         api("/api/admin/bank").catch(() => ({ settings: { bank: {}, isActive: false } })),
         api("/api/admin/deposits?limit=100").catch(() => ({ deposits: [] })),
         api("/api/admin/guide").catch(() => ({ guide: null, guides: [] })),
         api("/api/admin/partners").catch(() => ({ partners: [] })),
         api("/api/admin/contacts").catch(() => ({ settings: { enabled: true, items: [] } })),
+        api("/api/admin/customers?limit=200").catch(() => ({ customers: [] })),
       ]);
       loaded = true;
       products = pricingData.products;
@@ -208,6 +209,7 @@ window.initAdminPricing = (() => {
       guidesList = Array.isArray(guideRes.guides) ? guideRes.guides : (guideData ? [guideData] : []);
       partnersList = Array.isArray(partnersRes?.partners) ? partnersRes.partners : [];
       contactsSettings = contactsRes?.settings || { enabled: true, items: [] };
+      customersList = Array.isArray(customersRes?.customers) ? customersRes.customers : [];
       render();
     } catch (error) {
       panel.innerHTML = `<p class="admin-error-msg" role="alert">${esc(error.message)}</p><button type="button" class="button secondary" data-pricing-reload>Tải lại dữ liệu</button>`;
@@ -346,7 +348,19 @@ window.initAdminPricing = (() => {
     if (view !== "orders" && view !== "discord") render();
     if (view === "partners") void refreshPartners();
     if (view === "deposits") void refreshDeposits(true, true);
+    if (view === "customers") void refreshCustomers();
   }
+
+  async function refreshCustomers() {
+    try {
+      const res = await api("/api/admin/customers?limit=200");
+      if (res && Array.isArray(res.customers)) {
+        customersList = res.customers;
+        if (currentView === "customers") render();
+      }
+    } catch {}
+  }
+  window.refreshAdminCustomers = refreshCustomers;
 
   function slugify(text) {
     return String(text || "")
@@ -800,6 +814,155 @@ window.initAdminPricing = (() => {
     if (inputName) inputName.focus();
   }
 
+  function renderCustomersView(panel) {
+    const filtered = customersList.filter(c => {
+      if (customerFilter === "has-balance" && c.balance <= 0) return false;
+      if (customerFilter === "zero-balance" && c.balance > 0) return false;
+      if (customerFilter === "has-orders" && c.ordersCount <= 0) return false;
+      if (customerSearch) {
+        const matchEmail = (c.email || "").toLowerCase().includes(customerSearch);
+        const matchDiscord = (c.discord?.username || c.discord?.globalName || "").toLowerCase().includes(customerSearch);
+        const matchId = (c.id || "").toLowerCase().includes(customerSearch);
+        if (!matchEmail && !matchDiscord && !matchId) return false;
+      }
+      return true;
+    });
+
+    const totalBalanceAll = customersList.reduce((sum, c) => sum + (c.balance > 0 ? c.balance : 0), 0);
+    const totalDepositedAll = customersList.reduce((sum, c) => sum + (c.totalDeposited || 0), 0);
+    const withBalanceCount = customersList.filter(c => c.balance > 0).length;
+
+    panel.innerHTML = `
+      <header class="pricing-heading">
+        <div>
+          <span class="pricing-eyebrow">KHÁCH HÀNG &amp; VÍ TIỀN</span>
+          <h2>👥 Danh sách Khách hàng &amp; Số dư ví</h2>
+          <p>Theo dõi số dư ví hiện tại, tổng tiền nạp và lịch sử mua hàng của từng tài khoản trên website.</p>
+        </div>
+        <div class="pricing-actions">
+          <button type="button" class="button primary" data-open-manual-credit>+ Nạp tiền trực tiếp vào ví</button>
+          <button type="button" class="button secondary" data-customers-reload>Làm mới ↻</button>
+        </div>
+      </header>
+
+      <div id="catalog-editor"></div>
+
+      <div class="admin-deposit-stats-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px; margin-bottom: 20px;">
+        <div class="pricing-card" style="padding:16px;">
+          <span class="stat-label" style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">TỔNG KHÁCH HÀNG</span>
+          <strong style="display:block; font-size:22px; margin-top:4px; color: #60a5fa;">${customersList.length} tài khoản</strong>
+        </div>
+        <div class="pricing-card" style="padding:16px;">
+          <span class="stat-label" style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">TỔNG SỐ DƯ ĐANG CÓ TRONG VÍ</span>
+          <strong style="display:block; font-size:22px; margin-top:4px; color: #10b981;">${money(totalBalanceAll)}</strong>
+        </div>
+        <div class="pricing-card" style="padding:16px;">
+          <span class="stat-label" style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">KHÁCH ĐANG CÓ TIỀN TRONG VÍ</span>
+          <strong style="display:block; font-size:22px; margin-top:4px; color: #f59e0b;">${withBalanceCount} khách</strong>
+        </div>
+        <div class="pricing-card" style="padding:16px;">
+          <span class="stat-label" style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">TỔNG TIỀN ĐÃ NẠP QUA QR</span>
+          <strong style="display:block; font-size:22px; margin-top:4px; color: #a78bfa;">${money(totalDepositedAll)}</strong>
+        </div>
+      </div>
+
+      <div class="admin-controls customer-controls" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 16px;">
+        <div class="admin-tabs customer-filter-tabs" role="tablist">
+          <button class="admin-tab ${customerFilter === 'all' ? 'active' : ''}" data-customer-filter="all">Tất cả (${customersList.length})</button>
+          <button class="admin-tab ${customerFilter === 'has-balance' ? 'active' : ''}" data-customer-filter="has-balance" style="${customerFilter === 'has-balance' ? 'background:rgba(16,185,129,0.2); border-color:#10b981; color:#34d399;' : 'color:#34d399;'}">💰 Có số dư (${withBalanceCount})</button>
+          <button class="admin-tab ${customerFilter === 'zero-balance' ? 'active' : ''}" data-customer-filter="zero-balance">Số dư 0₫ (${customersList.length - withBalanceCount})</button>
+          <button class="admin-tab ${customerFilter === 'has-orders' ? 'active' : ''}" data-customer-filter="has-orders">Đã từng mua (${customersList.filter(c => c.ordersCount > 0).length})</button>
+        </div>
+        <div class="search-input-wrapper" style="position:relative; width:100%; max-width:320px;">
+          <input type="search" id="customer-search-input" placeholder="Tìm theo Email, Discord..." value="${esc(customerSearch)}" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text);" />
+        </div>
+      </div>
+
+      <div class="customers-list-container">
+        ${renderCustomersListHtml(filtered)}
+      </div>
+    `;
+  }
+
+  function renderCustomersListHtml(list) {
+    if (!list.length) {
+      return `
+        <div class="pricing-empty">
+          <span>👥</span>
+          <h3>Không tìm thấy khách hàng nào</h3>
+          <p>Chưa có tài khoản khách hàng nào khớp với điều kiện tìm kiếm hoặc bộ lọc.</p>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="customers-table-wrapper" style="overflow-x:auto; background:var(--bg-surface); border-radius:10px; border:1px solid var(--border);">
+        <table class="admin-customers-table" style="width:100%; border-collapse:collapse; text-align:left; font-size:13px;">
+          <thead>
+            <tr style="background:rgba(255,255,255,0.03); border-bottom:1px solid var(--border); color:var(--text-muted); font-size:12px; text-transform:uppercase;">
+              <th style="padding:12px 16px;">Khách hàng / Discord</th>
+              <th style="padding:12px 16px; text-align:right;">Số dư ví hiện tại</th>
+              <th style="padding:12px 16px; text-align:right;">Tổng nạp ví</th>
+              <th style="padding:12px 16px; text-align:right;">Tổng chi tiêu</th>
+              <th style="padding:12px 16px;">Ngày tạo</th>
+              <th style="padding:12px 16px; text-align:center;">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${list.map(c => `
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05); transition:background 0.15s;" class="customer-row">
+                <td style="padding:12px 16px;">
+                  <div style="display:flex; flex-direction:column; gap:3px;">
+                    <strong style="color:var(--text); font-size:13.5px;">${esc(c.email)}</strong>
+                    ${c.discord ? `
+                      <div style="display:inline-flex; align-items:center; gap:5px; font-size:11.5px; color:#a5b4fc;">
+                        <span>🎮 @${esc(c.discord.username || c.discord.globalName || c.discord.id)}</span>
+                        <code style="font-size:10.5px; opacity:0.8;">(${esc(c.discord.id)})</code>
+                      </div>
+                    ` : `<span style="font-size:11px; color:var(--text-muted);">Chưa liên kết Discord</span>`}
+                  </div>
+                </td>
+                <td style="padding:12px 16px; text-align:right;">
+                  <span class="customer-balance-val" style="display:inline-block; font-size:15px; font-weight:800; color:${c.balance > 0 ? '#10b981' : 'var(--text-muted)'}; background:${c.balance > 0 ? 'rgba(16,185,129,0.12)' : 'transparent'}; padding:${c.balance > 0 ? '3px 10px' : '0'}; border-radius:6px; border:${c.balance > 0 ? '1px solid rgba(16,185,129,0.3)' : 'none'};">
+                    ${money(c.balance)}
+                  </span>
+                </td>
+                <td style="padding:12px 16px; text-align:right;">
+                  <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                    <span style="font-weight:600; color:#38bdf8;">${money(c.totalDeposited)}</span>
+                    <small style="font-size:11px; color:var(--text-muted);">${c.depositsCount} lần nạp</small>
+                  </div>
+                </td>
+                <td style="padding:12px 16px; text-align:right;">
+                  <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                    <span style="font-weight:600; color:#f472b6;">${money(c.totalSpent)}</span>
+                    <small style="font-size:11px; color:var(--text-muted);">${c.ordersCount} đơn hàng</small>
+                  </div>
+                </td>
+                <td style="padding:12px 16px; color:var(--text-muted); font-size:12px;">
+                  ${new Date(c.createdAt).toLocaleDateString("vi-VN")}
+                </td>
+                <td style="padding:12px 16px; text-align:center;">
+                  <div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">
+                    <button type="button" class="button primary btn-small" data-customer-direct-credit="${esc(c.email)}" data-customer-balance="${c.balance}" title="Nạp tiền trực tiếp vào ví của khách này">
+                      + Nạp ví
+                    </button>
+                    <button type="button" class="button secondary btn-small" data-customer-view-deposits="${esc(c.email)}" title="Xem lịch sử nạp QR của khách">
+                      ⚡ Nạp
+                    </button>
+                    <button type="button" class="button secondary btn-small" data-customer-view-orders="${esc(c.email)}" title="Lọc xem các đơn hàng của khách">
+                      📦 Đơn
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
   function renderContactsView(panel) {
     const items = contactsSettings.items || [];
     const enabled = contactsSettings.enabled !== false;
@@ -933,6 +1096,10 @@ window.initAdminPricing = (() => {
     const panel = $("#admin-pricing-view");
     if (currentView === "orders") return;
     if (!loaded) { panel.innerHTML = '<p class="pricing-hint">Đang tải giá và ưu đãi...</p><button type="button" class="button secondary" data-pricing-reload>Tải lại dữ liệu</button>'; return; }
+    if (currentView === "customers") {
+      renderCustomersView(panel);
+      return;
+    }
     if (currentView === "contacts") {
       renderContactsView(panel);
       return;
@@ -1982,6 +2149,11 @@ window.initAdminPricing = (() => {
                   <div class="deposit-user">
                     <small>Khách hàng:</small>
                     <strong>${esc(d.userEmail)}</strong>
+                    ${Number.isSafeInteger(d.userBalance) ? `
+                      <span class="user-wallet-pill" style="display:inline-flex; align-items:center; gap:3px; margin-left:6px; font-size:11.5px; font-weight:700; color:#10b981; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.3); padding:1px 6px; border-radius:4px;" title="Số dư ví hiện tại của khách">
+                        💰 Ví: ${money(d.userBalance)}
+                      </span>
+                    ` : ""}
                   </div>
                   <div class="deposit-amount">
                     <small>Số tiền nạp:</small>
@@ -2081,6 +2253,10 @@ window.initAdminPricing = (() => {
   function openDirectCreditModal(prefillEmail = "", prefillCode = "", prefillAmount = "") {
     const editor = $("#catalog-editor");
     if (!editor) return;
+    const initialTarget = prefillEmail || prefillCode || "";
+    const matchedCustomer = customersList.find(c => c.email.toLowerCase() === initialTarget.toLowerCase() || c.id === initialTarget);
+    const initialBalance = matchedCustomer ? money(matchedCustomer.balance) : "...";
+
     editor.innerHTML = `
       <div class="admin-modal-overlay">
         <div class="admin-modal-box" style="max-width: 480px;">
@@ -2094,8 +2270,12 @@ window.initAdminPricing = (() => {
             </p>
             <label style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
               <span>Email tài khoản hoặc Mã nạp VNL: <strong style="color:#ef4444;">*</strong></span>
-              <input type="text" id="direct-credit-target" required placeholder="VD: khachhang@gmail.com hoặc VNL1234..." value="${esc(prefillEmail || prefillCode)}" style="padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text);" />
+              <input type="text" id="direct-credit-target" required placeholder="VD: khachhang@gmail.com hoặc VNL1234..." value="${esc(initialTarget)}" style="padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text);" />
             </label>
+            <div id="direct-credit-balance-info" style="font-size:12.5px; padding:6px 12px; border-radius:6px; background:rgba(255,255,255,0.03); border:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+              <span style="color:var(--text-muted);">Số dư ví hiện tại của khách:</span>
+              <strong id="direct-credit-current-balance" style="color:#10b981; font-size:14px;">${initialBalance}</strong>
+            </div>
             <label style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
               <span>Số tiền cần cộng (VNĐ): <strong style="color:#ef4444;">*</strong></span>
               <input type="number" id="direct-credit-amount" required min="1000" step="1000" placeholder="VD: 50000" value="${esc(prefillAmount || "")}" style="padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-weight:600; font-size:15px;" />
@@ -2120,7 +2300,37 @@ window.initAdminPricing = (() => {
         </div>
       </div>
     `;
-    $("#direct-credit-target")?.focus();
+
+    const targetInput = $("#direct-credit-target");
+    const balanceEl = $("#direct-credit-current-balance");
+
+    async function checkBalance() {
+      const val = (targetInput?.value || "").trim();
+      if (!val || !balanceEl) return;
+      const c = customersList.find(x => x.email.toLowerCase() === val.toLowerCase() || x.id === val);
+      if (c) {
+        balanceEl.textContent = money(c.balance);
+        balanceEl.style.color = c.balance > 0 ? "#10b981" : "var(--text-muted)";
+        return;
+      }
+      try {
+        const res = await api(`/api/admin/customers/balance?query=${encodeURIComponent(val)}`);
+        if (res && res.customer) {
+          balanceEl.textContent = money(res.customer.balance);
+          balanceEl.style.color = res.customer.balance > 0 ? "#10b981" : "var(--text-muted)";
+        } else {
+          balanceEl.textContent = "Chưa có tài khoản";
+          balanceEl.style.color = "var(--text-muted)";
+        }
+      } catch {
+        balanceEl.textContent = "Chưa có tài khoản";
+        balanceEl.style.color = "var(--text-muted)";
+      }
+    }
+
+    if (initialTarget) void checkBalance();
+    targetInput?.addEventListener("input", () => { void checkBalance(); });
+    targetInput?.focus();
   }
 
   function renderAdminGuideCardsHtml(list) {
@@ -2725,6 +2935,27 @@ window.initAdminPricing = (() => {
         }
       });
       document.addEventListener("submit", submit);
+      document.addEventListener("input", event => {
+        if (event.target.id === "customer-search-input") {
+          customerSearch = event.target.value.trim().toLowerCase();
+          const filtered = customersList.filter(c => {
+            if (customerFilter === "has-balance" && c.balance <= 0) return false;
+            if (customerFilter === "zero-balance" && c.balance > 0) return false;
+            if (customerFilter === "has-orders" && c.ordersCount <= 0) return false;
+            if (customerSearch) {
+              const matchEmail = (c.email || "").toLowerCase().includes(customerSearch);
+              const matchDiscord = (c.discord?.username || c.discord?.globalName || "").toLowerCase().includes(customerSearch);
+              const matchId = (c.id || "").toLowerCase().includes(customerSearch);
+              if (!matchEmail && !matchDiscord && !matchId) return false;
+            }
+            return true;
+          });
+          const container = document.querySelector(".customers-list-container");
+          if (container) {
+            container.innerHTML = renderCustomersListHtml(filtered);
+          }
+        }
+      });
       document.addEventListener("change", event => {
         if (event.target.matches('#promotion-form [name="type"]')) $("#promotion-form [name=value]").max = event.target.value === "percent" ? "100" : "1000000000";
         if (event.target.id === "bank-preset-select") {
@@ -3285,6 +3516,30 @@ window.initAdminPricing = (() => {
         }
         if (button.hasAttribute("data-open-manual-credit")) {
           openDirectCreditModal();
+        }
+        if (button.dataset.customerFilter) {
+          customerFilter = button.dataset.customerFilter;
+          render();
+        }
+        if (button.hasAttribute("data-customers-reload")) {
+          await load();
+        }
+        if (button.dataset.customerDirectCredit) {
+          openDirectCreditModal(button.dataset.customerDirectCredit, "", "");
+        }
+        if (button.dataset.customerViewDeposits) {
+          depositSearch = button.dataset.customerViewDeposits.toLowerCase();
+          depositFilter = "all";
+          switchView("deposits");
+        }
+        if (button.dataset.customerViewOrders) {
+          const email = button.dataset.customerViewOrders;
+          switchView("orders");
+          const searchInput = document.querySelector("#admin-search-input");
+          if (searchInput) {
+            searchInput.value = email;
+            searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+          }
         }
         if (button.dataset.depositDirectFill) {
           openDirectCreditModal(

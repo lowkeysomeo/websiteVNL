@@ -584,7 +584,7 @@ export async function getAdminOrders(
   }
 
   let query =
-    "SELECT o.*, op.snapshot_json AS pricing_json, u.discord_id AS buyer_discord_id, u.discord_username AS buyer_discord_username, u.discord_global_name AS buyer_discord_global_name, u.discord_avatar AS buyer_discord_avatar FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id LEFT JOIN users u ON u.id = o.user_id";
+    "SELECT o.*, op.snapshot_json AS pricing_json, u.discord_id AS buyer_discord_id, u.discord_username AS buyer_discord_username, u.discord_global_name AS buyer_discord_global_name, u.discord_avatar AS buyer_discord_avatar, ((SELECT COALESCE(SUM(amount), 0) FROM wallet_ledger WHERE user_id = u.id) - (SELECT COALESCE(SUM(total), 0) FROM orders WHERE user_id = u.id AND payment_method = 'wallet' AND status != 'cancelled')) AS user_wallet_balance FROM orders o LEFT JOIN order_pricing op ON op.order_id = o.id LEFT JOIN users u ON (o.user_id IS NOT NULL AND u.id = o.user_id) OR (o.user_id IS NULL AND LOWER(u.email) = LOWER(o.customer_email))";
   const params = [];
   if (
     status &&
@@ -600,6 +600,10 @@ export async function getAdminOrders(
     id: row.id,
     pricing: row.pricing_json ? JSON.parse(row.pricing_json) : null,
     userId: row.user_id,
+    userWalletBalance:
+      row.user_wallet_balance !== null && Number.isSafeInteger(Number(row.user_wallet_balance))
+        ? Number(row.user_wallet_balance)
+        : null,
     buyerDiscord: row.buyer_discord_id
       ? {
           id: row.buyer_discord_id,
@@ -973,7 +977,8 @@ export async function getAdminDeposits(
 ) {
   let query = `
     SELECT d.id, d.user_id, d.code, d.amount, d.status, d.created_at, d.expires_at, d.credited_at,
-           u.email AS user_email
+           u.email AS user_email,
+           ((SELECT COALESCE(SUM(amount), 0) FROM wallet_ledger WHERE user_id = u.id) - (SELECT COALESCE(SUM(total), 0) FROM orders WHERE user_id = u.id AND payment_method = 'wallet' AND status != 'cancelled')) AS user_balance
     FROM deposits d
     JOIN users u ON u.id = d.user_id
   `;
@@ -1015,6 +1020,7 @@ export async function getAdminDeposits(
     id: r.id,
     userId: r.user_id,
     userEmail: r.user_email,
+    userBalance: Number.isSafeInteger(Number(r.user_balance)) ? Number(r.user_balance) : 0,
     code: r.code,
     amount: r.amount,
     status:
@@ -1023,6 +1029,110 @@ export async function getAdminDeposits(
     expiresAt: r.expires_at,
     creditedAt: r.credited_at,
   }));
+}
+
+export async function getAdminCustomers(db, { search = "", limit = 100 } = {}) {
+  let query = `
+    SELECT 
+      u.id,
+      u.email,
+      u.created_at,
+      u.discord_id,
+      u.discord_username,
+      u.discord_global_name,
+      u.discord_avatar,
+      COALESCE(ledger.total_deposit, 0) AS total_deposited,
+      COALESCE(orders_stat.total_spent, 0) AS total_spent,
+      COALESCE(orders_stat.wallet_spent, 0) AS wallet_spent,
+      COALESCE(orders_stat.orders_count, 0) AS orders_count,
+      COALESCE(deposits_stat.deposits_count, 0) AS deposits_count,
+      (COALESCE(ledger.total_deposit, 0) - COALESCE(orders_stat.wallet_spent, 0)) AS balance
+    FROM users u
+    LEFT JOIN (
+      SELECT user_id, SUM(amount) AS total_deposit
+      FROM wallet_ledger
+      GROUP BY user_id
+    ) ledger ON ledger.user_id = u.id
+    LEFT JOIN (
+      SELECT 
+        user_id,
+        COUNT(id) AS orders_count,
+        SUM(CASE WHEN payment_method = 'wallet' AND status != 'cancelled' THEN total ELSE 0 END) AS wallet_spent,
+        SUM(CASE WHEN status != 'cancelled' THEN total ELSE 0 END) AS total_spent
+      FROM orders
+      WHERE user_id IS NOT NULL
+      GROUP BY user_id
+    ) orders_stat ON orders_stat.user_id = u.id
+    LEFT JOIN (
+      SELECT user_id, COUNT(id) AS deposits_count
+      FROM deposits
+      GROUP BY user_id
+    ) deposits_stat ON deposits_stat.user_id = u.id
+  `;
+
+  const conditions = [];
+  const params = [];
+
+  if (search && search.trim()) {
+    const term = `%${search.trim().toLowerCase()}%`;
+    conditions.push(
+      "(LOWER(u.email) LIKE ? OR LOWER(COALESCE(u.discord_username, '')) LIKE ? OR LOWER(COALESCE(u.discord_global_name, '')) LIKE ? OR u.discord_id LIKE ?)"
+    );
+    params.push(term, term, term, term);
+  }
+
+  if (conditions.length > 0) {
+    query += " WHERE " + conditions.join(" AND ");
+  }
+
+  query += " ORDER BY balance DESC, u.created_at DESC LIMIT ?";
+  params.push(Math.min(Math.max(Number(limit) || 100, 1), 500));
+
+  const rows = await db.prepare(query).all(...params);
+  return rows.map((r) => ({
+    id: r.id,
+    email: r.email,
+    createdAt: r.created_at,
+    balance: Number(r.balance || 0),
+    totalDeposited: Number(r.total_deposited || 0),
+    totalSpent: Number(r.total_spent || 0),
+    walletSpent: Number(r.wallet_spent || 0),
+    ordersCount: Number(r.orders_count || 0),
+    depositsCount: Number(r.deposits_count || 0),
+    discord: r.discord_id
+      ? {
+          id: r.discord_id,
+          username: r.discord_username,
+          globalName: r.discord_global_name,
+          avatar: r.discord_avatar,
+        }
+      : null,
+  }));
+}
+
+export async function getCustomerBalance(db, identifier) {
+  const clean = String(identifier || "").trim();
+  if (!clean) return null;
+
+  let user = null;
+  if (clean.toUpperCase().startsWith("VNL")) {
+    const dep = await db.prepare("SELECT user_id FROM deposits WHERE UPPER(code) = ?").get(clean.toUpperCase());
+    if (dep) {
+      user = await db.prepare("SELECT id, email, created_at, discord_username FROM users WHERE id = ?").get(dep.user_id);
+    }
+  }
+  if (!user) {
+    user = await db.prepare("SELECT id, email, created_at, discord_username FROM users WHERE LOWER(email) = ? OR id = ?").get(clean.toLowerCase(), clean);
+  }
+  if (!user) return null;
+
+  const currentBalance = await balance(db, user.id);
+  return {
+    userId: user.id,
+    email: user.email,
+    discordUsername: user.discord_username || null,
+    balance: currentBalance,
+  };
 }
 
 export async function manualCreditDeposit(db, depositId, optionsOrNow = {}) {

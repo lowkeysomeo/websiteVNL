@@ -19,6 +19,8 @@ import {
   getAdminDeposits,
   manualCreditDeposit,
   creditUserWallet,
+  getAdminCustomers,
+  getCustomerBalance,
   revokeCreditDeposit,
   cancelDeposit,
   getShoppingGuide,
@@ -1702,6 +1704,20 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           const body = parse(await readBody(req));
           const result = await creditUserWallet(db, body);
           return json(200, result);
+        }
+        if (req.method === "GET" && route === "/api/admin/customers") {
+          await requireAdmin(req);
+          const search = url.searchParams.get("search") || "";
+          const limit = url.searchParams.get("limit") || 100;
+          const customers = await getAdminCustomers(db, { search, limit });
+          return json(200, { success: true, customers });
+        }
+        if (req.method === "GET" && route === "/api/admin/customers/balance") {
+          await requireAdmin(req);
+          const q = url.searchParams.get("query") || url.searchParams.get("email") || url.searchParams.get("code") || "";
+          const result = await getCustomerBalance(db, q);
+          if (!result) return json(404, { message: "Không tìm thấy khách hàng hoặc mã nạp tương ứng." });
+          return json(200, { success: true, customer: result });
         }
         const adminDepositRevokeMatch = route.match(
           /^\/api\/admin\/deposits\/([a-f0-9-]{36})\/revoke$/,

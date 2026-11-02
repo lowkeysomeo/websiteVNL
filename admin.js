@@ -303,6 +303,7 @@
 
     const ordersBtn = document.querySelector('[data-admin-view="orders"]');
     const pricesBtn = document.querySelector('[data-admin-view="prices"]');
+    const customersBtn = document.querySelector('[data-admin-view="customers"]');
     const depositsBtn = document.querySelector('[data-admin-view="deposits"]');
     const campaignsBtn = document.querySelector('[data-admin-view="campaigns"]');
     const couponsBtn = document.querySelector('[data-admin-view="coupons"]');
@@ -342,6 +343,7 @@
 
       if (ordersBtn) ordersBtn.textContent = "📦 Đơn hàng của tôi";
       if (pricesBtn) pricesBtn.textContent = "🏷️ Dịch vụ của tôi";
+      if (customersBtn) customersBtn.hidden = true;
       if (depositsBtn) depositsBtn.hidden = true;
       if (campaignsBtn) {
         campaignsBtn.hidden = false;
@@ -941,6 +943,11 @@
                 <span class="order-date">${dateStr}</span>
                 <div class="admin-customer-info">
                   Khách hàng: <span>${escapeHtml(order.customerName)}</span> · Email: <span>${escapeHtml(order.customerEmail)}</span>
+                  ${Number.isSafeInteger(order.userWalletBalance) ? `
+                    <span class="order-customer-wallet-badge" style="display:inline-flex; align-items:center; gap:4px; margin-left:6px; font-weight:700; color:#10b981; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.3); padding:1px 6px; border-radius:4px; font-size:11.5px;" title="Số dư ví hiện tại của khách hàng">
+                      💰 Ví: ${money(order.userWalletBalance)}
+                    </span>
+                  ` : ""}
                   ${
                     order.buyerDiscord
                       ? `<div class="admin-buyer-discord" style="margin-top: 4px; display: inline-flex; align-items: center; gap: 6px; background: rgba(88, 101, 242, 0.15); border: 1px solid rgba(88, 101, 242, 0.4); padding: 3px 8px; border-radius: 6px; font-size: 11.5px; color: #c7d2fe;">
