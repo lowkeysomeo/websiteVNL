@@ -9,3 +9,5 @@ data/
 coverage/
 dist/
 .vercel/
+.vercel
+.env*

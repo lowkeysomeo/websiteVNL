@@ -309,9 +309,14 @@ async function requestCheckoutQuote(code = appliedCoupon) {
   message.textContent = "Đang kiểm tra giá và ưu đãi...";
   try {
     const response = await fetch("/api/quote", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: checkoutItems(), couponCode: code }) });
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error(response.status === 403 || response.status === 503 ? "Hệ thống đang tải cao hoặc bảo vệ chống quá tải. Vui lòng thử lại sau giây lát." : "Chưa kiểm tra được giá thanh toán.");
+    }
     if (request !== checkoutQuoteRequest) return null;
-    if (!response.ok) throw new Error(data.error || "Chưa kiểm tra được giá thanh toán.");
+    if (!response.ok) throw new Error(data?.error || "Chưa kiểm tra được giá thanh toán.");
     checkoutQuote = data.quote;
     appliedCoupon = data.quote.coupon?.code || "";
     document.querySelector("#checkout-coupon").value = appliedCoupon;
@@ -2492,10 +2497,15 @@ document
         body: JSON.stringify(payload),
       });
 
-      const resData = await orderRes.json();
+      let resData;
+      try {
+        resData = await orderRes.json();
+      } catch {
+        throw new Error(orderRes.status === 403 || orderRes.status === 503 ? "Hệ thống đang tải cao hoặc bảo vệ chống quá tải. Vui lòng thử lại sau vài giây." : "Không thể tạo đơn hàng do gián đoạn kết nối.");
+      }
       if (!orderRes.ok) {
         if (orderRes.status === 409 || orderRes.status === 400) await requestCheckoutQuote(appliedCoupon);
-        throw new Error(resData.error || "Không thể tạo đơn hàng.");
+        throw new Error(resData?.error || "Không thể tạo đơn hàng.");
       }
 
       // Thông báo realtime đến trang Admin qua BroadcastChannel (nếu mở cùng trình duyệt)

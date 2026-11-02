@@ -257,17 +257,19 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
     );
     if (config.production)
       res.setHeader("Strict-Transport-Security", "max-age=31536000");
-    const json = (status, data) => {
+    const json = (status, data, extraHeaders = {}) => {
       res.writeHead(status, {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
+        ...extraHeaders,
       });
       res.end(JSON.stringify(data));
     };
     try {
       const url = new URL(req.url, config.origin);
       const route = url.pathname;
-      const ip = req.socket.remoteAddress || "unknown";
+      const rawIp = (req.headers && req.headers["x-forwarded-for"] ? String(req.headers["x-forwarded-for"]).split(",")[0].trim() : null) || (req.headers && req.headers["x-real-ip"]) || req.socket.remoteAddress || "unknown";
+      const ip = rawIp;
       if (route.startsWith("/api/")) {
         if (!allow(`request:${ip}`, 180, 60000))
           throw fail(429, "Quá nhiều yêu cầu. Vui lòng thử lại sau.");
@@ -863,13 +865,13 @@ export function createApp(db, config, { fetchFn = globalThis.fetch } = {}) {
           });
         }
         if (req.method === "GET" && route === "/api/catalog") {
-          return json(200, { products: await getCatalog(db), categories: await getCategories(db) });
+          return json(200, { products: await getCatalog(db), categories: await getCategories(db) }, { "Cache-Control": "public, max-age=5, s-maxage=10, stale-while-revalidate=30" });
         }
         if (req.method === "GET" && route === "/api/inventory") {
-          return json(200, { success: true, inventory: await getInventory(db) });
+          return json(200, { success: true, inventory: await getInventory(db) }, { "Cache-Control": "public, max-age=5, s-maxage=10, stale-while-revalidate=30" });
         }
         if (req.method === "GET" && route === "/api/categories") {
-          return json(200, { categories: await getCategories(db) });
+          return json(200, { categories: await getCategories(db) }, { "Cache-Control": "public, max-age=5, s-maxage=10, stale-while-revalidate=30" });
         }
         if (req.method === "POST" && route === "/api/quote") {
           sameOrigin(req);
