@@ -1608,7 +1608,10 @@ async function refreshActiveCustomerChats() {
     isRefreshingCustomerChats = false;
   }
 }
-setInterval(refreshActiveCustomerChats, 2500);
+setInterval(() => {
+  if (document.hidden) return;
+  void refreshActiveCustomerChats();
+}, 8000);
 window.addEventListener("focus", () => { void refreshActiveCustomerChats(); });
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) void refreshActiveCustomerChats();

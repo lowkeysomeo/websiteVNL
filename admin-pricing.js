@@ -2925,8 +2925,8 @@ window.initAdminPricing = (() => {
     if (currentView !== "orders") render();
     if (!initialized) {
       initialized = true;
-      setInterval(() => { void refreshPartners(); }, 15000);
-      setInterval(() => { void refreshDeposits(); }, 3500);
+      setInterval(() => { if (!document.hidden) void refreshPartners(); }, 30000);
+      setInterval(() => { if (!document.hidden) void refreshDeposits(); }, 12000);
       window.addEventListener("focus", () => { void refreshPartners(); void refreshDeposits(); });
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden) {

@@ -2380,8 +2380,9 @@
   }
 
   setInterval(() => {
+    if (document.hidden) return;
     void syncAdminChatMessages();
-  }, 2500);
+  }, 10000);
 
   window.addEventListener("focus", () => {
     void syncAdminChatMessages();
@@ -2514,8 +2515,9 @@
   } catch {}
 
   setInterval(() => {
+    if (document.hidden) return;
     void syncAdminOrders();
-  }, 3500);
+  }, 12000);
 
   window.addEventListener("focus", () => {
     void syncAdminOrders();
