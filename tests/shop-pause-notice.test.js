@@ -79,3 +79,21 @@ test("Server: store.js trả về thông báo tạm ngưng web mặc định", a
     db.close();
   }
 });
+
+test("Trang Bảo Trì Toàn Màn Hình: index.html và maintenance.html hiển thị trang bảo trì đầy đủ", () => {
+  const indexHtml = fs.readFileSync("index.html", "utf8");
+  assert.ok(indexHtml.includes('id="maintenance-overlay"'), "index.html must have #maintenance-overlay");
+  assert.ok(indexHtml.includes('id="maintenance-title"'), "index.html must have #maintenance-title");
+  assert.ok(indexHtml.includes('id="maintenance-join-btn"'), "index.html must have #maintenance-join-btn");
+  assert.ok(indexHtml.includes('id="maintenance-copy-btn"'), "index.html must have #maintenance-copy-btn");
+  assert.ok(indexHtml.includes("https://discord.gg/vietnamlegacy"), "index.html must contain Discord link");
+
+  const css = fs.readFileSync("styles.css", "utf8");
+  assert.ok(css.includes(".maintenance-overlay"), "styles.css must style .maintenance-overlay");
+  assert.ok(css.includes(".maintenance-btn-discord"), "styles.css must style Discord action button");
+  assert.ok(css.includes("maintPulse"), "styles.css must include pulse animation for maintenance");
+
+  const maintHtml = fs.readFileSync("maintenance.html", "utf8");
+  assert.ok(maintHtml.includes("https://discord.gg/vietnamlegacy"), "maintenance.html must have Discord link");
+  assert.ok(maintHtml.includes("Shop Tạm Ngưng Hoạt Động Trên Web"), "maintenance.html must have title");
+});

@@ -3198,7 +3198,7 @@ function initShopPauseNotice() {
   }
 
   // Nút sao chép liên kết Discord
-  const copyBtn = dialog.querySelector("#shop-pause-copy-btn");
+  const copyBtn = dialog?.querySelector("#shop-pause-copy-btn");
   if (copyBtn) {
     copyBtn.addEventListener("click", async () => {
       const url = "https://discord.gg/vietnamlegacy";
@@ -3219,6 +3219,37 @@ function initShopPauseNotice() {
         setTimeout(() => {
           copyBtn.innerHTML = originalHtml;
           copyBtn.disabled = false;
+        }, 2000);
+      } catch (err) {
+        if (typeof showToast === "function") {
+          showToast("Vui lòng truy cập: https://discord.gg/vietnamlegacy");
+        }
+      }
+    });
+  }
+
+  // Nút sao chép trên trang bảo trì toàn màn hình
+  const maintCopyBtn = document.querySelector("#maintenance-copy-btn");
+  if (maintCopyBtn) {
+    maintCopyBtn.addEventListener("click", async () => {
+      const url = "https://discord.gg/vietnamlegacy";
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          const input = document.createElement("input");
+          input.value = url;
+          document.body.appendChild(input);
+          input.select();
+          document.execCommand("copy");
+          input.remove();
+        }
+        const originalHtml = maintCopyBtn.innerHTML;
+        maintCopyBtn.innerHTML = "✓ Đã sao chép link!";
+        maintCopyBtn.disabled = true;
+        setTimeout(() => {
+          maintCopyBtn.innerHTML = originalHtml;
+          maintCopyBtn.disabled = false;
         }, 2000);
       } catch (err) {
         if (typeof showToast === "function") {

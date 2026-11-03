@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VietNam Legacy — Shop Tạm Ngưng Hoạt Động Trên Web</title>
+    <meta name="description" content="Shop VietNam Legacy tạm ngưng hoạt động trên website, vui lòng liên hệ qua Discord: https://discord.gg/vietnamlegacy để mua hàng." />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg-color: #0c080b;
+        --panel-bg: rgba(22, 14, 18, 0.94);
+        --text: #fff8ee;
+        --muted: #cbd5e1;
+        --gold: #ffd15c;
+        --amber: #fbbf24;
+        --discord: #5865F2;
+        --discord-hover: #4752c4;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: radial-gradient(circle at 50% 15%, #22121b 0%, #0c080b 70%, #050304 100%);
+        color: var(--text);
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 16px;
+        position: relative;
+        overflow-x: hidden;
+      }
+      .backdrop-glow {
+        position: absolute;
+        top: 15%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: min(650px, 92vw);
+        height: 380px;
+        background: radial-gradient(ellipse at center, rgba(88, 101, 242, 0.28) 0%, rgba(245, 158, 11, 0.16) 45%, transparent 72%);
+        pointer-events: none;
+        filter: blur(55px);
+      }
+      .container {
+        position: relative;
+        max-width: 620px;
+        width: 100%;
+        margin: auto;
+        background: var(--panel-bg);
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        border-radius: 24px;
+        padding: 40px 32px 32px;
+        box-shadow: 0 30px 100px rgba(0, 0, 0, 0.95), 0 0 40px rgba(245, 158, 11, 0.12);
+        backdrop-filter: blur(24px);
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+      }
+      .brand-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        color: var(--gold);
+        text-transform: uppercase;
+      }
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 18px;
+        background: rgba(245, 158, 11, 0.14);
+        border: 1px solid rgba(245, 158, 11, 0.45);
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--amber);
+      }
+      .pulse-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #f59e0b;
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.75);
+        animation: pulseAnim 1.8s infinite;
+      }
+      @keyframes pulseAnim {
+        0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.75); }
+        70% { box-shadow: 0 0 0 9px rgba(245, 158, 11, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+      }
+      h1 {
+        font-size: 26px;
+        font-weight: 900;
+        color: #fff;
+        line-height: 1.3;
+        letter-spacing: -0.02em;
+      }
+      .desc {
+        font-size: 14.5px;
+        color: var(--muted);
+        line-height: 1.65;
+        max-width: 520px;
+      }
+      .desc strong {
+        color: var(--discord);
+        font-weight: 700;
+      }
+      .discord-card {
+        width: 100%;
+        background: rgba(88, 101, 242, 0.1);
+        border: 1px solid rgba(88, 101, 242, 0.42);
+        border-radius: 18px;
+        padding: 22px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        box-shadow: inset 0 0 25px rgba(88, 101, 242, 0.08);
+      }
+      .discord-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+      }
+      .discord-avatar {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        background: var(--discord);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 8px 20px rgba(88, 101, 242, 0.35);
+        flex-shrink: 0;
+      }
+      .discord-meta {
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .discord-tag {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #94a3b8;
+        font-weight: 600;
+      }
+      .online-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #23a55a;
+        box-shadow: 0 0 6px #23a55a;
+      }
+      .discord-link {
+        font-size: 16px;
+        font-weight: 800;
+        color: #7289da;
+        text-decoration: underline;
+        letter-spacing: 0.02em;
+        transition: color 0.15s;
+      }
+      .discord-link:hover {
+        color: #a4b4ee;
+      }
+      .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+      }
+      @media (min-width: 480px) {
+        .actions {
+          flex-direction: row;
+        }
+        .btn-primary {
+          flex: 2;
+        }
+        .btn-secondary {
+          flex: 1;
+        }
+      }
+      .btn {
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        border-radius: 12px;
+        padding: 13px 20px;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+      }
+      .btn-primary {
+        background: var(--discord);
+        color: #fff !important;
+        box-shadow: 0 6px 18px rgba(88, 101, 242, 0.35);
+      }
+      .btn-primary:hover {
+        background: var(--discord-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(88, 101, 242, 0.5);
+      }
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.07);
+        color: #f1f5f9;
+        font-size: 14px;
+        font-weight: 600;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+      }
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.14);
+        border-color: rgba(255, 255, 255, 0.35);
+        color: #fff;
+      }
+      .features {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        width: 100%;
+        margin-top: 4px;
+      }
+      @media (min-width: 520px) {
+        .features {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      .feature-item {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        padding: 12px 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        text-align: center;
+      }
+      .feature-item strong {
+        font-size: 12px;
+        color: #f8fafc;
+      }
+      .feature-item span {
+        font-size: 10.5px;
+        color: #94a3b8;
+      }
+      .footer {
+        margin-top: 6px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding-top: 16px;
+        width: 100%;
+      }
+      .footer p {
+        font-size: 11.5px;
+        color: #64748b;
+        line-height: 1.6;
+      }
+      .footer a {
+        color: #7289da;
+        text-decoration: underline;
+      }
+      @media (max-width: 480px) {
+        .container {
+          padding: 28px 18px 22px;
+          border-radius: 18px;
+          gap: 14px;
+        }
+        h1 {
+          font-size: 22px;
+        }
+        .desc {
+          font-size: 13px;
+        }
+        .discord-card {
+          padding: 16px 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="backdrop-glow"></div>
+    <div class="container">
+      <div class="brand-badge">
+        <span>⚔️</span>
+        <span>VIETNAM LEGACY</span>
+      </div>
+
+      <div class="status-badge">
+        <span class="pulse-dot"></span>
+        <span>⚠️</span>
+        <span>BẢO TRÌ & TẠM NGƯNG WEB</span>
+      </div>
+
+      <h1>Shop Tạm Ngưng Hoạt Động Trên Web</h1>
+
+      <p class="desc">
+        Website <strong>VietNam Legacy</strong> hiện đang tạm ngưng hoạt động. Mọi giao dịch đặt mua hàng, tư vấn dịch vụ và hỗ trợ khách hàng được chuyển sang phục vụ qua <strong>Discord</strong> chính thức của shop!
+      </p>
+
+      <div class="discord-card">
+        <div class="discord-card-top">
+          <div class="discord-avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="34" height="34">
+              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+            </svg>
+          </div>
+          <div class="discord-meta">
+            <div class="discord-tag">
+              <span class="online-dot"></span>
+              <span>Discord Chính Thức</span>
+            </div>
+            <a href="https://discord.gg/vietnamlegacy" target="_blank" rel="noopener noreferrer" class="discord-link">
+              discord.gg/vietnamlegacy
+            </a>
+          </div>
+        </div>
+
+        <div class="actions">
+          <a href="https://discord.gg/vietnamlegacy" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22" aria-hidden="true">
+              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+            </svg>
+            <span>Vào Discord Để Mua Hàng</span>
+          </a>
+          <button type="button" class="btn btn-secondary" id="copy-btn">
+            📋 Sao chép link Discord
+          </button>
+        </div>
+      </div>
+
+      <div class="features">
+        <div class="feature-item">
+          <span style="font-size: 20px;">🛡️</span>
+          <strong>Uy Tín & Bảo Hành</strong>
+          <span>Giao dịch an toàn 100%</span>
+        </div>
+        <div class="feature-item">
+          <span style="font-size: 20px;">⚡</span>
+          <strong>Giao Hàng Tốc Độ</strong>
+          <span>Bot & Staff phục vụ 24/7</span>
+        </div>
+        <div class="feature-item">
+          <span style="font-size: 20px;">💬</span>
+          <strong>Check Legit Minh Bạch</strong>
+          <span>Feedback công khai minh bạch</span>
+        </div>
+      </div>
+
+      <div class="footer">
+        <p>© 2026 VietNam Legacy Store. Xin cảm ơn quý khách!</p>
+        <p style="margin-top: 4px;">Liên hệ: <a href="https://discord.gg/vietnamlegacy" target="_blank" rel="noopener noreferrer">https://discord.gg/vietnamlegacy</a></p>
+      </div>
+    </div>
+
+    <script>
+      const copyBtn = document.querySelector('#copy-btn');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+          const url = 'https://discord.gg/vietnamlegacy';
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(url);
+            } else {
+              const input = document.createElement('input');
+              input.value = url;
+              document.body.appendChild(input);
+              input.select();
+              document.execCommand('copy');
+              input.remove();
+            }
+            const orig = copyBtn.innerHTML;
+            copyBtn.innerHTML = '✓ Đã sao chép link!';
+            copyBtn.disabled = true;
+            setTimeout(() => {
+              copyBtn.innerHTML = orig;
+              copyBtn.disabled = false;
+            }, 2000);
+          } catch (e) {
+            alert('Vui lòng truy cập: ' + url);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
