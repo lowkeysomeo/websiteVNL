@@ -815,7 +815,7 @@ export async function getAnnouncement(db) {
       }
     : {
         content:
-          "Chào bạn, đây là VietNam Legacy. Shop bán Discord Nitro Boost, Nitro Trial, Decor Gift/Log và nhận setup server Discord.",
+          "Shop tạm ngưng hoạt động trên web, liên hệ qua discord để mua hàng: https://discord.gg/vietnamlegacy",
         is_active: true,
         updated_at: 0,
       };

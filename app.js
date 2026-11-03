@@ -3170,9 +3170,69 @@ async function initFloatingContacts() {
   }
 }
 
+function initShopPauseNotice() {
+  const dialog = document.querySelector("#shop-pause-dialog");
+  if (!dialog) return;
+
+  // Tự động mở thông báo khi khách tải trang web
+  try {
+    if (!dialog.open && typeof dialog.showModal === "function") {
+      dialog.showModal();
+    }
+  } catch (err) {
+    console.warn("Could not display shop pause dialog:", err);
+  }
+
+  // Cho phép bấm lại vào thanh thông báo để mở lại modal
+  const banner = document.querySelector("#announcement-bar");
+  if (banner && typeof banner.addEventListener === "function") {
+    banner.style.cursor = "pointer";
+    banner.setAttribute("title", "Bấm để xem thông báo shop tạm ngưng hoạt động");
+    banner.addEventListener("click", () => {
+      try {
+        if (!dialog.open && typeof dialog.showModal === "function") {
+          dialog.showModal();
+        }
+      } catch (_) {}
+    });
+  }
+
+  // Nút sao chép liên kết Discord
+  const copyBtn = dialog.querySelector("#shop-pause-copy-btn");
+  if (copyBtn) {
+    copyBtn.addEventListener("click", async () => {
+      const url = "https://discord.gg/vietnamlegacy";
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          const input = document.createElement("input");
+          input.value = url;
+          document.body.appendChild(input);
+          input.select();
+          document.execCommand("copy");
+          input.remove();
+        }
+        const originalHtml = copyBtn.innerHTML;
+        copyBtn.innerHTML = "✓ Đã sao chép link!";
+        copyBtn.disabled = true;
+        setTimeout(() => {
+          copyBtn.innerHTML = originalHtml;
+          copyBtn.disabled = false;
+        }, 2000);
+      } catch (err) {
+        if (typeof showToast === "function") {
+          showToast("Vui lòng truy cập: https://discord.gg/vietnamlegacy");
+        }
+      }
+    });
+  }
+}
+
 
 // Initialize components
 initAnnouncement();
+initShopPauseNotice();
 window.__smoothScroll = new SmoothInertiaScroll();
 initScrollFeatures();
 initScrollReveal();
